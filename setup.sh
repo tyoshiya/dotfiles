@@ -1,9 +1,11 @@
 #!/bin/sh
 
 #zshがインストールされているか確認してインストールされていなければインストールする
-RESULT=`zsh --version`
-echo $RESULT
-if [ "`echo $RESULT | grep \"command not found\"`" ]; then echo 'FOUND!!!'; fi
+if [ `cat /etc/shells | grep "zsh" | wc -c` -eq 0 ] ;
+then
+ sudo yum -y install zsh
+ chsh -s /bin/zsh
+fi
 
 ##カレント内のドットファイルの中でsetupignore_filesに記載のないもののシンボリックリンクを貼る
 #for f in .??*
