@@ -3,7 +3,7 @@
 #zshがインストールされているか確認してインストールされていなければインストールする
 RESULT=`zsh --version`
 echo $RESULT
-if [[ $RESULT == *command not found* ]]; then echo 'FOUND!!!'; fi
+if [ "`echo $RESULT | grep \"command not found\"`" ]; then echo 'FOUND!!!'; fi
 
 ##カレント内のドットファイルの中でsetupignore_filesに記載のないもののシンボリックリンクを貼る
 #for f in .??*
