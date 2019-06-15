@@ -7,7 +7,7 @@ do
     while read line
     do
         [[ $f == $line ]] && s=false
-    done < setup_ignore_files
+    done < .setupignore
 
     [[ "$s" == false ]] && continue
     unlink $HOME/$f
