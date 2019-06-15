@@ -3,6 +3,7 @@
 #zshがインストールされているか確認してインストールされていなければインストールする
 result=`zsh --version`
 echo $result
+echo finish
 
 ##カレント内のドットファイルの中でsetupignore_filesに記載のないもののシンボリックリンクを貼る
 #for f in .??*
