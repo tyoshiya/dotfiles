@@ -10,10 +10,6 @@ do
     done < setup_ignore_files
 
     [[ "$s" == false ]] && continue
-    if [ ! -e $HOME/$f ]; then
-        ln -s $HOME/dotfiles/$f $HOME/$f
-        echo "$HOME/dotfiles/$f linked!"
-    else
-        echo "$HOME/$f: file exists!"
-    fi
+    ln -fs $HOME/dotfiles/$f $HOME/$f
+    echo "$HOME/dotfiles/$f linked!"
 done

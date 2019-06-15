@@ -1,0 +1,77 @@
+#!/bin/bash
+
+#ドットファイル確認
+dotfile=~/.tmux/bin/.tmux-timer
+if [ ! -e $dotfile ]; then
+    touch $dotfile
+fi
+
+#オプション判別
+OPT=""
+while getopts rsp option
+do
+  case $option in
+    r)
+      OPT="r";;
+    s)
+      OPT="s";;
+    p)
+      OPT="p";;
+    \?)
+      echo "Usage: tmux-timer [-r:reset timer] [-s:start timer] [-p:pause timer]"
+      exit 1;;
+  esac
+done
+
+#リセット
+if [ "$OPT" = "r" ]; then
+    cp /dev/null $dotfile
+    echo "reset!"
+elif [ "$OPT" = "s" ]; then
+    if [ -s $dotfile ]; then
+        last=`tail -n 1 $dotfile`
+        if [ $last = "pause" ]; then
+            sed -i -e '$d' $dotfile
+        else
+            echo "alredy,started!"
+        fi
+    else
+        echo "00:00:00" >> $dotfile
+        echo "start!"
+    fi
+elif [ "$OPT" = "p" ]; then
+    echo "pause" >> $dotfile
+
+else
+    #ドットファイルが空かどうか判定
+    if [ -s $dotfile ]; then
+        #ドットファイルの末尾から時間を取得して時分秒に振り分ける
+        last=`tail -n 1 $dotfile`
+        if [ $last = "pause" ]; then
+            last2=`tail -n 2 $dotfile`
+            strtime=`echo $last2 | cut -c 1-8`
+            echo $strtime
+        else
+            hour=`echo $last | cut -c 1-2`
+            minute=`echo $last | cut -c 4-5`
+            second=`echo $last | cut -c 7-8`
+            #秒を加算
+            second=`expr $second + 1 | xargs -P1 printf '%02g'`
+            #繰り上げ処理(24時間以上は最初に戻る)
+            if [ $second -ge 60 ]; then
+                second=00
+                minute=`expr $minute + 1 | xargs -P1 printf '%02g'`
+            fi
+            if [ $minute -ge 60 ]; then
+                minute=00
+                hour=`expr $hour + 1 | xargs -P1 printf '%02g'`
+            fi
+            if [ $hour -ge 24 ]; then
+                hour=00
+            fi
+
+            echo "${hour}:${minute}:${second}"
+            echo "${hour}:${minute}:${second}" >> $dotfile
+        fi
+    fi
+fi
