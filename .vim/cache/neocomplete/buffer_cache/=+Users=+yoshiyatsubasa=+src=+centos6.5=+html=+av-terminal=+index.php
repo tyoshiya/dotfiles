@@ -1,0 +1,1 @@
+{'Front', 'WordPress', 'application', 'This', 'file', 'doesn', 'anything', 'loads', 'blog', 'header', 'which', 'does', 'tells', 'load', 'theme', 'package', 'Tells', 'output', 'bool', 'define', 'WP_USE_THEMES', 'true', 'Loads', 'Environment', 'Template', 'require', 'dirname', '__FILE__'}

@@ -1,0 +1,1 @@
+{'IfModule', 'mod_rewrite', 'RewriteEngine', 'RewriteBase', 'RewriteCond', 'REQUEST_URI', 'RewriteRule', 'compare_by_country', 'html'}

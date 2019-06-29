@@ -1,0 +1,2375 @@
+<?php
+class MaterialOffset extends AppModel {
+    var $name = 'MaterialOffset';
+
+    var $type = array(1 => '社給材料相殺勘定(分割相殺一覧)',2 => '一括相殺一覧');
+    var $page_type = array(1 => 'しない',2 => '取引先ごと');
+
+    var $validate = array(
+        'type' => array(
+            'rule1' => array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+                'attention' => '必須'
+            )
+        ),
+        'order_date' => array(
+            'rule1' => array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+                'attention' => '必須'
+            ),
+            'rule2' => array(
+                'method' => 'isPattern',
+                'parameters' => array('pattern' => '/^[0-9]{4}\/[0-9]{2}+$/') ,
+                'message' => '正しい年月を入力してください',
+            )
+        ),
+        'close_day' => array(
+            'rule1' => array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+                'attention' => '必須'
+            ),
+        ),
+        'page_type' => array(
+            'rule1' => array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+                'attention' => '必須'
+            )
+        )
+    );
+
+    var $validate_sum_customer = array(
+        'order_date' => array(
+            'rule1' => array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+                'attention' => '必須'
+            ),
+            'rule2' => array(
+                'method' => 'isPattern',
+                'message' => 'yyyy/mmで入力して下さい',
+                'parameters' => array('pattern' => '/^([1-9][0-9]{3})\/(0[1-9]{1}|1[0-2]{1})$/') ,
+                'attention' => '例)yyyy/mm'
+            )
+        ),
+        'close_day' => array(
+            'rule1' => array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+                'attention' => '必須'
+            ),
+            'rule2' => array(
+                'method' => 'isNumeric',
+                'message' => '半角数値で入力して下さい',
+                'attention' => '半角数値',
+                'clean' => true
+            ),
+        )
+    );
+
+    var $validate_remaining_index = array(
+        'order_date' => array(
+            'rule1' => array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+                'attention' => '必須'
+            ),
+            'rule2' => array(
+                'method' => 'isPattern',
+                'message' => 'yyyy/mmで入力して下さい',
+                'parameters' => array('pattern' => '/^([1-9][0-9]{3})\/(0[1-9]{1}|1[0-2]{1})$/') ,
+                'attention' => '例)yyyy/mm'
+            )
+        ),
+        'close_day' => array(
+            'rule1' => array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+                'attention' => '必須'
+            ),
+            'rule2' => array(
+                'method' => 'isPattern',
+                'message' => '01～31で入力して下さい',
+                'parameters' => array('pattern' => '/^([0-3][0-9])$/') ,
+                'attention' => '01～31'
+            )
+        )
+    );
+    /* Function model callback */
+    function beforeSave(){
+        parent::beforeSave();
+
+        if(!empty($this->data[$this->name]['quantity']))
+            $this->data[$this->name]['quantity'] = str_replace(',','',$this->data[$this->name]['quantity']);
+
+        return true;
+    }
+    /* END Function model callback */
+
+    /* Other Function */
+    function genArrCsvIndex($data){
+        //ヘッダー部
+        $csvs[0] = array(
+            '仕入先コード',
+            '仕入先名',
+            '注番',
+            '材料KI',
+            '材料名',
+            '重量',
+            '社給単価',
+            '金額',
+            '消費税',
+            '合計',
+            '部品KI',
+            'GW',
+            '金額合計',
+            '消費税合計',
+            '合計合計',
+            '金額総合計',
+            '消費税総合計',
+            '総合計'
+        );
+
+        //データ部
+        $cnt = 1;
+        $sum_totals = array();
+        for($i = 0; $i < 3; $i++){
+            $sum_totals[$i] = 0;
+        }
+
+        foreach ($data as $arr) {
+            foreach ($arr['data'] as $row) {
+                $csvs[$cnt][] = $arr['Supplier']['code'];
+                $csvs[$cnt][] = $arr['Supplier']['name'];
+                $csvs[$cnt][] = getStrId($row[$this->name]['manufacture_id'],'Manufacture');
+                $csvs[$cnt][] = $row['Material']['code'];
+                $csvs[$cnt][] = $row['Material']['name'];
+                $csvs[$cnt][] = $row[$this->name]['quantity'];
+                $csvs[$cnt][] = $row[$this->name]['price'];
+                $csvs[$cnt][] = $row[$this->name]['subtotal'];
+                $csvs[$cnt][] = $row[$this->name]['tax'];
+                $csvs[$cnt][] = $row[$this->name]['total'];
+                $csvs[$cnt][] = $row['Manufacture']['Product']['code'];
+                $csvs[$cnt][] = $row['Manufacture']['Product']['gross_weight'];
+
+                for($i = 0; $i < 6; $i++){
+                    $csvs[$cnt][] = null;
+                }
+                $cnt++;
+            }
+
+            for($i = 0; $i < 12; $i++){
+                $csvs[$cnt][] = null;
+            }
+            $csvs[$cnt][] = $arr[0]['sum_subtotal'];
+            $sum_totals[0] += $arr[0]['sum_subtotal'];
+            $csvs[$cnt][] = $arr[0]['sum_tax'];
+            $sum_totals[1] += $arr[0]['sum_tax'];
+            $csvs[$cnt][] = $arr[0]['sum_total'];
+            $sum_totals[2] += $arr[0]['sum_total'];
+            for($i = 0; $i < 3; $i++){
+                $csvs[$cnt][] = null;
+            }
+
+            $cnt++;
+        }
+        for($i = 0; $i < 15; $i++){
+            $csvs[$cnt][] = null;
+        }
+        for($i = 0; $i < 3; $i++){
+            $csvs[$cnt][] = $sum_totals[$i];
+        }
+
+        return $csvs;
+    }
+
+    function genCsvSumCustomerData($data){
+        //ヘッダー部
+        $csvs[0] = array(
+            '日付',
+            '取引先コード',
+            '取引先名',
+            '買掛金',
+            '売掛金',
+            '分割相殺',
+            '一括相殺',
+            '通常相殺',
+            '相殺合計',
+            '支払予想額',
+            '入金予想額',
+            '相殺残',
+            '買掛金合計',
+            '売掛金合計',
+            '分割相殺合計',
+            '一括相殺合計',
+            '通常相殺合計',
+            '相殺合計総合計',
+            '支払予想額合計',
+            '入金予想額合計',
+            '支払残合計',
+            '買掛金総合計',
+            '売掛金総合計',
+            '分割相殺総合計',
+            '一括相殺総合計',
+            '通常総合計',
+            '相殺合計総総合計',
+            '支払予想額総合計',
+            '入金予想額総合計',
+            '支払残総合計',
+        );
+
+        //データ部
+        $cnt = 1;
+        $sum_totals = array();
+        for($i = 0; $i < 9; $i++){
+            $sum_totals[$i] = 0;
+        }
+        foreach ($data as $formated_date => $arr){
+            foreach ($arr as $arr2) {
+                $totals = array();
+                for($i = 0; $i < 9; $i++){
+                    $totals[$i] = 0;
+                }
+
+                foreach ($arr2 as $row) {
+                    $csvs[$cnt][] = $formated_date;
+                    $csvs[$cnt][] = $row['Supplier']['code'];
+                    $csvs[$cnt][] = $row['Supplier']['name'];
+                    $csvs[$cnt][] = $row['sum_total1'];
+                    $totals[0] += $row['sum_total1'];
+                    $csvs[$cnt][] = $row['sum_total2'];
+                    $totals[1] += $row['sum_total2'];
+                    $csvs[$cnt][] = $row['sum_total3'];
+                    $totals[2] += $row['sum_total3'];
+                    $csvs[$cnt][] = $row['sum_total4'];
+                    $totals[3] += $row['sum_total4'];
+                    $csvs[$cnt][] = $row['normal_offset'];
+                    $totals[4] += $row['normal_offset'];
+                    $csvs[$cnt][] = $row['sum_offset'];
+                    $totals[5] += $row['sum_offset'];
+                    $csvs[$cnt][] = $row['expected_payment'];
+                    $totals[6] += $row['expected_payment'];
+                    $csvs[$cnt][] = $row['expected_deposit'];
+                    $totals[7] += $row['expected_deposit'];
+                    $csvs[$cnt][] = $row['remaining'];
+                    $totals[8] += $row['remaining'];
+                    for($i = 0; $i < 9; $i++){
+                        $csvs[$cnt][] = $totals[$i];
+                    }
+                    for($i = 0; $i < 9; $i++){
+                        $csvs[$cnt][] = null;
+                    }
+                    $cnt++;
+                }
+                for($i = 0; $i < 9; $i++){
+                    $sum_totals[$i] += $totals[$i];
+                }
+            }
+        }
+        for($i = 0; $i < 21; $i++){
+            $csvs[$cnt][] = null;
+        }
+        for($i = 0; $i < 9; $i++){
+            $csvs[$cnt][] = $sum_totals[$i];
+        }
+
+        return $csvs;
+    }
+
+    /**
+     *	材料相殺一覧表でのデータ取得
+     */
+    function getIndexData($data){
+        $ret = array();
+
+        $dates = explode('/',$data[$this->name]['order_date']);
+        if($data[$this->name]['close_day'] == 99){
+            $formated_date = $dates[0].'年 '.$dates[1].'月 末日締';
+            $date_to = date("Y-m-t",strtotime($data[$this->name]['order_date'].'/01'));
+            $date_from = date("Y-m-t",strtotime("{$date_to} -1 month"));
+        }else{
+            $formated_date = $dates[0].'年 '.$dates[1].'月 '.$data[$this->name]['close_day'].'日締';
+            $date_to = $data[$this->name]['order_date'].'/'.$data[$this->name]['close_day'];
+            $date_from = date("Y-m-d",strtotime("{$date_to} -1 month"));
+        }
+
+        if($data["MaterialOffset"]["type"] == 1){
+            //有償社給がある外注伝票を取得
+            $sql = " select ";
+            $sql.= "  sum(MaterialSupply.quantity) as sum_quantity, ";
+            $sql.= "  Material.code,Material.name,Material.price, ";
+            $sql.= "  Manufacture.id,Manufacture.quantity, ";
+            $sql.= "  Product.code, ";
+            $sql.= "  Customer.code,Customer.name,Customer.tax_calc_type,Customer.value_round_type,Customer.tax_round_type ";
+            $sql.= " from ";
+            $sql.= "  material_supplies as MaterialSupply ";
+            $sql.= "   left outer join materials as Material on MaterialSupply.material_id = Material.id ";
+            $sql.= "   inner join manufactures as Manufacture on MaterialSupply.manufacture_id = Manufacture.id ";
+            $sql.= "   left outer join products as Product on Manufacture.product_id = Product.id ";
+            $sql.= "   inner join customers as Customer on Manufacture.supplier_id = Customer.id ";
+            //			$sql.= "   inner join customers as TmpCustomer on TmpCustomer.id = Customer.id ";
+            $sql.= " where 1=1 ";
+            $sql.= "  and MaterialSupply.type = 14 ";
+            $sql.= "  and MaterialSupply.order_date between '".$date_from."' and '".$date_to."' ";
+            $sql.= "  and Manufacture.del_flg = 0 ";
+            $sql.= "  and Manufacture.supplier_id is not null ";
+            $sql.= "  and Customer.account_type = 2 ";
+            $sql.= "  and Customer.del_flg = 0 ";
+            $sql.= "  and Customer.close_day = ".$data["MaterialOffset"]["close_day"]." ";
+            if($data["Supplier"]["code_from"] != ""){
+                $sql.= " and cast(Customer.code as signed) >= ".$data["Supplier"]["code_from"]." ";
+            }
+            if($data["Supplier"]["code_to"] != ""){
+                $sql.= " and cast(Customer.code as signed) <= ".$data["Supplier"]["code_to"]." ";
+            }
+            //			$sql.= "  and TmpCustomer.account_type = 1 ";
+            //			$sql.= "  and TmpCustomer.del_flg = 0 ";
+            //      $sql.= "  and TmpCustomer.offset_type = 1 ";
+            $sql.= "  and exists( ";
+            $sql.= "   select ";
+            $sql.= "    * ";
+            $sql.= "   from ";
+            $sql.= "    manufacture_results as ManufactureResult ";
+            $sql.= "   where 1=1 ";
+            $sql.= "    and ManufactureResult.manufacture_id = Manufacture.id ";
+            $sql.= "    and ManufactureResult.status = 8 ";
+            $sql.= "  ) ";
+            $sql.= " group by ";
+            $sql.= "  MaterialSupply.manufacture_id,MaterialSupply.material_id ";
+            $sql.= " order by ";
+            $sql.= "  cast(Customer.code as signed) asc,Manufacture.id asc";
+            $material_supplies = $this->query($sql);
+            //new dbug($material_supplies);exit;
+            if(!empty($material_supplies)){
+                foreach ($material_supplies as $row) {
+                    if(!isset($ret[$formated_date]["data"])){
+                        $ret[$formated_date]["total_subtotal"] = 0;
+                        $ret[$formated_date]["total_tax"] = 0;
+                        $ret[$formated_date]["total_total"] = 0;
+                    }
+
+                    $customer_code = $row["Customer"]["code"];
+                    if(!isset($ret[$formated_date]["data"][$customer_code])){
+                        $ret[$formated_date]["data"][$customer_code]["Customer"] = $row["Customer"];
+                        $ret[$formated_date]["data"][$customer_code]["sum_subtotal"] = 0;
+                        $ret[$formated_date]["data"][$customer_code]["sum_tax"] = 0;
+                        $ret[$formated_date]["data"][$customer_code]["sum_total"] = 0;
+                    }
+                    unset($row["Customer"]);
+
+                    $manufacture_id = $row["Manufacture"]["id"];
+                    if(!isset($ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id])){
+                        $ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id]["Manufacture"] = $row["Manufacture"];
+                        $ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id]["Product"] = $row["Product"];
+
+                        $sql = " select ";
+                        $sql.= "  sum(approve) as sum_approve ";
+                        $sql.= " from ";
+                        $sql.= "  manufacture_results as ManufactureResult ";
+                        $sql.= " where 1=1 ";
+                        $sql.= "  and manufacture_id = ".$row["Manufacture"]["id"]." ";
+                        $sql.= "  and status = 8 ";
+                        $sql.= " group by ";
+                        $sql.= "  manufacture_id ";
+                        $sum_approve = $this->query($sql);
+
+                        $row["ManufactureResult"]["sum_approve"] = 0;
+                        if(!empty($sum_approve)){
+                            $row["ManufactureResult"]["sum_approve"] = $sum_approve[0][0]["sum_approve"];
+                        }
+
+                        $ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id]["ManufactureResult"] = $row["ManufactureResult"];
+                    }
+                    unset($row["Manufacture"],$row["ManufactureResult"],$row["Product"]);
+
+                    $ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id]["data"][] = $row;
+                }
+                //new dbug($ret);exit;
+                foreach ($ret as $formated_date => &$foo) {
+                    foreach ($foo["data"] as $customer_code => &$bar) {
+                        foreach ($bar["data"] as $manufacture_id => &$buz) {
+                            $offset_rate = 0;
+                            if($buz["ManufactureResult"]["sum_approve"] > 0){
+                                //すでに検収数が相殺のしきい値を超えていたら相殺済み
+                                $offset_rate = floor($buz["ManufactureResult"]["sum_approve"] / $buz["Manufacture"]["quantity"] * 100) / 100;
+
+                                if($offset_rate >= _def_threshold){
+                                    $offset_rate = 1;
+                                }
+                            }
+                            //new dbug($offset_rate);exit;
+                            if($offset_rate > 0){
+                                foreach ($buz["data"] as &$row) {
+                                    //相殺金額計算
+                                    //小計の計算
+                                    $row["subtotal"] = $this->calcSubtotal(
+                                        $bar["Customer"]["value_round_type"],
+                                        $row[0]["sum_quantity"],
+                                        $row["Material"]["price"]
+                                    );
+                                    $foo["total_subtotal"] += $row["subtotal"];
+                                    $bar["sum_subtotal"] += $row["subtotal"];
+
+                                    //税金の計算
+                                    $row["tax"] = $this->calcTax(
+                                        $bar["Customer"]["tax_round_type"],
+                                        $row["subtotal"]
+                                    );
+                                    $foo["total_tax"] += $row["tax"];
+                                    $bar["sum_tax"] += $row["tax"];
+
+                                    //合計の計算
+                                    $row["total"] = $row["subtotal"] + $row["tax"];
+                                    $foo["total_total"] += $row["total"];
+                                    $bar["sum_total"] += $row["total"];
+                                }
+                            }else{
+                                foreach ($buz["data"] as &$row) {
+                                    $row["subtotal"] = 0;
+                                    $row["tax"] = 0;
+                                    $row["total"] = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            //new dbug($ret);exit;
+        }elseif($data["MaterialOffset"]["type"] == 2){
+            $sql = " select ";
+            $sql.= "  MaterialSupply.quantity,MaterialSupply.price, ";
+            $sql.= "  Material.code,Material.name, ";
+            $sql.= "  Manufacture.id,Manufacture.quantity, ";
+            $sql.= "  Product.code, ";
+            $sql.= "  Customer.code,Customer.name,Customer.tax_calc_type,Customer.value_round_type,Customer.tax_round_type ";
+            $sql.= " from ";
+            $sql.= "  material_supplies as MaterialSupply ";
+            $sql.= "   left outer join materials as Material on MaterialSupply.material_id = Material.id ";
+            $sql.= "   left outer join customers as Customer on MaterialSupply.customer_id = Customer.id ";
+            $sql.= "   left outer join manufactures as Manufacture on MaterialSupply.manufacture_id = Manufacture.id ";
+            $sql.= "   left outer join products as Product on Manufacture.product_id = Product.id ";
+            //			$sql.= "   inner join customers as TmpCustomer on TmpCustomer.id = Customer.id ";
+            $sql.= " where 1=1 ";
+            $sql.= "  and MaterialSupply.order_date between '".$date_from."' and '".$date_to."' ";
+            $sql.= "  and MaterialSupply.type = 16 ";
+            //			$sql.= "  and Manufacture.del_flg = 0 ";
+            //			$sql.= "  and Manufacture.supplier_id is not null ";
+            $sql.= "  and Customer.account_type = 2 ";
+            $sql.= "  and Customer.del_flg = 0 ";
+            $sql.= "  and Customer.close_day = ".$data["MaterialOffset"]["close_day"]." ";
+            if($data["Supplier"]["code_from"] != ""){
+                $sql.= " and cast(Customer.code as signed) >= ".$data["Supplier"]["code_from"]." ";
+            }
+            if($data["Supplier"]["code_to"] != ""){
+                $sql.= " and cast(Customer.code as signed) <= ".$data["Supplier"]["code_to"]." ";
+            }
+            //			$sql.= "  and TmpCustomer.account_type = 1 ";
+            //			$sql.= "  and TmpCustomer.del_flg = 0 ";
+            //      $sql.= "  and TmpCustomer.offset_type = 1 ";
+            $sql.= " order by ";
+            $sql.= "  cast(Customer.code as signed) asc,Manufacture.id asc";
+            $material_supplies = $this->query($sql);
+
+            if(!empty($material_supplies)){
+                //new dbug($material_supplies);exit;
+                foreach ($material_supplies as $row) {
+                    if(!isset($ret[$formated_date]["data"])){
+                        $ret[$formated_date]["total_subtotal"] = 0;
+                        $ret[$formated_date]["total_tax"] = 0;
+                        $ret[$formated_date]["total_total"] = 0;
+                    }
+
+                    $customer_code = $row["Customer"]["code"];
+                    if(!isset($ret[$formated_date]["data"][$customer_code])){
+                        $ret[$formated_date]["data"][$customer_code]["Customer"] = $row["Customer"];
+                        $ret[$formated_date]["data"][$customer_code]["sum_subtotal"] = 0;
+                        $ret[$formated_date]["data"][$customer_code]["sum_tax"] = 0;
+                        $ret[$formated_date]["data"][$customer_code]["sum_total"] = 0;
+                    }
+                    unset($row["Customer"]);
+
+                    $manufacture_id = $row["Manufacture"]["id"];
+                    if(!isset($ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id])){
+                        $ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id]["Manufacture"] = $row["Manufacture"];
+                        $ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id]["Product"] = $row["Product"];
+                    }
+                    unset($row["Manufacture"],$row["ManufactureResult"],$row["Product"]);
+
+                    $ret[$formated_date]["data"][$customer_code]["data"][$manufacture_id]["data"][] = $row;
+                }
+                //new dbug($ret);exit;
+                foreach ($ret as $formated_date => &$foo) {
+                    foreach ($foo["data"] as $customer_code => &$bar) {
+                        foreach ($bar["data"] as $manufacture_id => &$buz) {
+                            foreach ($buz["data"] as &$row) {
+                                //小計の計算
+                                $row["Material"]["price"] = $row["MaterialSupply"]["price"];
+                                $row["subtotal"] = $this->calcSubtotal(
+                                    $bar["Customer"]["value_round_type"],
+                                    $row["MaterialSupply"]["quantity"],
+                                    $row["Material"]["price"]
+                                );
+                                $foo["total_subtotal"] += $row["subtotal"];
+                                $bar["sum_subtotal"] += $row["subtotal"];
+
+                                //税金の計算
+                                $row["tax"] = $this->calcTax(
+                                    $bar["Customer"]["tax_round_type"],
+                                    $row["subtotal"]
+                                );
+                                $foo["total_tax"] += $row["tax"];
+                                $bar["sum_tax"] += $row["tax"];
+
+                                //合計の計算
+                                $row["total"] = $row["subtotal"] + $row["tax"];
+                                $foo["total_total"] += $row["total"];
+                                $bar["sum_total"] += $row["total"];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        //new dbug($ret);exit;
+        return $ret;
+    }
+
+    /**
+     *	社給材料相殺残一覧表
+     */
+    function getRemainingIndexData($data){
+        $dates = explode('/',$data[$this->name]['order_date']);
+        if($data[$this->name]['close_day'] == 99){
+            $formated_date = $dates[0].'年 '.$dates[1].'月 末日締';
+            $date_to = date("Y-m-t",strtotime($data[$this->name]['order_date'].'/01'));
+            $date_from = date("Y-m-t",strtotime("{$date_to} -1 month"));
+        }else{
+            $formated_date = $dates[0].'年 '.$dates[1].'月 '.$data[$this->name]['close_day'].'日締';
+            $date_to = $data[$this->name]['order_date'].'/'.$data[$this->name]['close_day'];
+            $date_from = date("Y-m-d",strtotime("{$date_to} -1 month"));
+        }
+
+        $customers = $this->model("Customer")->getOffsetCustomers($data["MaterialOffset"]["close_day"],$data["MaterialOffset"]["customer_code_from"],$data["MaterialOffset"]["customer_code_to"]);
+
+        $material_offsets = array();
+        $tmp = array();
+        if(!empty($customers)){
+            foreach ($customers as $customer) {
+                $customer_id = $customer["customers"]["id"];
+
+                //有償社給を取得
+                $args = array();
+                $args["MaterialSupply"]["type"] = 14;
+                $args["from"] = $date_from;
+                $args["to"] = $date_to;
+                $args["MaterialSupply"]["customer_id"] = $customer["suppliers"]["id"];
+                $material_supplies = $this->model("MaterialSupply")->getMaterialSupply($args); 
+
+                if(!empty($material_supplies)){
+                    foreach ($material_supplies as $material_supply) {
+                        //取引先ごとにまとめる
+                        if(!isset($tmp[$formated_date]["data"][$customer_id])){
+                            $tmp[$formated_date]["data"][$customer_id]["customers"] = $customer["customers"];
+                            $tmp[$formated_date]["data"][$customer_id]["suppliers"] = $customer["suppliers"];
+                            $tmp[$formated_date]["data"][$customer_id]["sum_sub"] = 0;
+                            $tmp[$formated_date]["data"][$customer_id]["sum_tax"] = 0;
+                            $tmp[$formated_date]["data"][$customer_id]["sum_total"] = 0;
+                        }
+
+                        //注番ごとにまとめる
+                        $manufacture_id = $material_supply["MaterialSupply"]["manufacture_id"];
+                        if(!isset($tmp[$formated_date]["data"][$customer_id]["data"][$manufacture_id])){
+                            $tmp[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["Manufacture"] = $material_supply["Manufacture"];
+                            $tmp[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["Product"] = $material_supply["Product"];
+                        }
+
+                        //材料にまとめる
+                        $material_id = $material_supply["MaterialSupply"]["material_id"];
+                        if(!isset($tmp[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id])){
+                            $tmp[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id]["Material"] = $material_supply["Material"];
+                        }
+
+                        //社旧数量を加算
+                        if(!isset($tmp[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id])){
+                            $tmp[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id]["MaterialSupply"] = 0;
+                        }
+                        $tmp[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id]["MaterialSupply"]["quantity"] = $material_supply["MaterialSupply"]["quantity"];
+                    }
+                }
+            }
+        }
+
+        if(!empty($tmp)){
+            foreach ($tmp as $formated_date => $foo) {
+                foreach ($foo["data"] as $customer_id => $bar) {
+                    foreach ($bar["data"] as $manufacture_id => $buz) {
+                        //検収累計を取得する
+                        $args = array();
+                        $args["order_date_to"] = $date_to;
+                        $args["manufacture_id"] = $manufacture_id;
+                        $res = $this->model("ManufactureResult")->getSumInspection($args);
+                        $sum_inspection = 0;
+                        if(!empty($res)){
+                            $sum_inspection = $res[0][0]["sum_approve"]; 
+
+                            //検収数が80%を超えていたら全検収とする
+                            if($sum_inspection >= $buz["Manufacture"]["quantity"] * 0.8){
+                                $sum_inspection = $buz["Manufacture"]["quantity"];
+                            } 
+                        }
+                        $buz["sum_inspection"] = $sum_inspection;
+                        $buz["sub"] = $buz["Manufacture"]["quantity"] - $sum_inspection;
+
+                        //当月検収数を取得
+                        $args = array();
+                        $args["order_date_to"] = $date_to;
+                        $args["order_date_from"] = $date_from;
+                        $args["manufacture_id"] = $manufacture_id;
+                        $res = $this->model("ManufactureResult")->getSumInspection($args);
+                        $this_inspection = 0;
+                        if(!empty($res)){
+                            $this_inspection = $res[0][0]["sum_approve"]; 
+                        }
+                        $buz["this_inspection"] = $this_inspection;
+
+                        //残数があるときのみ配列に格納
+                        if($buz["sub"] > 0){
+                            if(!isset($material_offsets[$formated_date]["data"][$customer_id])){
+                                $material_offsets[$formated_date]["data"][$customer_id]["customers"] = $bar["customers"];
+                                $material_offsets[$formated_date]["data"][$customer_id]["suppliers"] = $bar["suppliers"];
+                                $material_offsets[$formated_date]["data"][$customer_id]["sum_sub"] = 0;
+                                $material_offsets[$formated_date]["data"][$customer_id]["sum_tax"] = 0;
+                                $material_offsets[$formated_date]["data"][$customer_id]["sum_total"] = 0;
+                            }
+                            if(!isset($material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id])){
+                                $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["Manufacture"] = $buz["Manufacture"];
+                                $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["Product"] = $buz["Product"];
+                                $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["sum_inspection"] = $buz["sum_inspection"];
+                                $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["sub"] = $buz["sub"];
+                                $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["this_inspection"] = $buz["this_inspection"];
+                            }
+
+                            foreach ($buz["data"] as $material_id => $row) {
+                                $material_id = $material_supply["MaterialSupply"]["material_id"];
+                                if(!isset($material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id])){
+                                    $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id]["Material"] = $row["Material"];
+                                    $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id]["MaterialSupply"] = $row["MaterialSupply"];
+                                }
+                                
+                                $sub_subtotal = $row["Material"]["price"] * $buz["sub"];
+                                $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id]["sub"] = $sub_subtotal;
+                                $material_offsets[$formated_date]["data"][$customer_id]["sum_sub"]+= $sub_subtotal;
+
+                                $tax = 0;
+                                if($bar["suppliers"]["tax_calc_type"] == 1){
+                                    $tax = $this->calcTax(
+                                        $bar["suppliers"]["tax_round_type"],
+                                       $sub_subtotal 
+                                    );
+                                }
+                                $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id]["tax"] = $tax;
+                                $material_offsets[$formated_date]["data"][$customer_id]["sum_tax"]+= $tax;
+
+                                $total = $sub_subtotal + $tax;
+                                $material_offsets[$formated_date]["data"][$customer_id]["data"][$manufacture_id]["data"][$material_id]["total"] = $total;
+                                $material_offsets[$formated_date]["data"][$customer_id]["sum_total"]+= $total;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if(!empty($material_offsets)){
+            $material_offsets[$formated_date]["total_sub"] = 0;
+            $material_offsets[$formated_date]["total_tax"] = 0;
+            $material_offsets[$formated_date]["total_total"] = 0;
+            foreach ($material_offsets as $formated_date => &$foo) {
+                foreach ($foo["data"] as $customer_id => $bar) {
+                    $foo["total_sub"] = $bar["sum_sub"];
+                    $foo["total_tax"] = $bar["sum_tax"];
+                    $foo["total_total"] = $bar["sum_total"];
+                }
+            }
+            unset($foo);
+        }
+//        new dbug($material_offsets);exit;
+
+        return $material_offsets;
+    }
+
+    /*********************************************************************
+     *
+     *	相殺先金額記載リスト
+     *
+     * @comment
+     *		相殺区分が登録されていて、仕入先にも締日が指定された締日で同じコードでマスタをもつ得意先限定
+     *		買掛金
+     *			買掛金合計一覧表のデータ
+     *				仕入データと検収データと支払データを取得する
+     *				検収データの数量は検収数で部品の区分が外注のもの
+     *		売掛金
+     *			買掛金合計一覧表のデータ
+     *				売上データ有償社給データと入金データを取得する
+     *
+     **********************************************************************/
+    function getSumCustomerData($data){
+//        ini_set("memory_limit","1024M");
+        //日付のフォーマット
+        $dates = explode('/',$data[$this->name]['order_date']);
+        if($data[$this->name]['close_day'] == 99){
+            $formated_date = $dates[0].'年 '.$dates[1].'月 末日締';
+            $date_to = date("Y-m-t",strtotime($data[$this->name]['order_date'].'/01'));
+            //            $prev_date_to = date("Y/m/d",strtotime($data["MaterialOffset"]["order_date"]."/01 -1 day"));
+            $date_from = date("Y-m-t",strtotime("{$date_to} -1 month"));
+        }else{
+            $formated_date = $dates[0].'年 '.$dates[1].'月 '.$data[$this->name]['close_day'].'日締';
+            $date_to = date("Y-m-d",strtotime($data[$this->name]['order_date'].'/'.$data[$this->name]['close_day']));
+            //            $prev_date_to = date("Y/m/d",strtotime("{$date_to} -1 month"));
+            $date_from = date("Y-m-d",strtotime("{$date_to} -1 month"));
+        }
+
+        //相殺区分が設定されていて、かつ同じコードで仕入先にも登録されている得意先を取得
+        $customers = $this->model("Customer")->getOffsetCustomers($data["MaterialOffset"]["close_day"],$data["MaterialOffset"]["customer_code_from"],$data["MaterialOffset"]["customer_code_to"]);
+        nde
+
+        $material_offsets = array();
+        if(!empty($customers)){
+            $material_offsets[$formated_date]["total_kaikake"] = 0;
+            $material_offsets[$formated_date]["total_urikake"] = 0;
+            $material_offsets[$formated_date]["total_offset1"] = 0;
+            $material_offsets[$formated_date]["total_offset2"] = 0;
+            $material_offsets[$formated_date]["total_offset"] = 0;
+            $material_offsets[$formated_date]["total_pay"] = 0;
+            $material_offsets[$formated_date]["total_in"] = 0;
+            $material_offsets[$formated_date]["total_sub"] = 0;
+
+            foreach ($customers as $customer) {
+                $offset_type = $customer["customers"]["offset_type"];
+
+                if(isset($material_offsets[$formated_date][$offset_type]) === false){
+                    $material_offsets[$formated_date]["data"][$offset_type]["sum_kaikake"] = 0;
+                    $material_offsets[$formated_date]["data"][$offset_type]["sum_urikake"] = 0;
+                    $material_offsets[$formated_date]["data"][$offset_type]["sum_offset1"] = 0;
+                    $material_offsets[$formated_date]["data"][$offset_type]["sum_offset2"] = 0;
+                    $material_offsets[$formated_date]["data"][$offset_type]["sum_offset"] = 0;
+                    $material_offsets[$formated_date]["data"][$offset_type]["sum_pay"] = 0;
+                    $material_offsets[$formated_date]["data"][$offset_type]["sum_in"] = 0;
+                    $material_offsets[$formated_date]["data"][$offset_type]["sum_sub"] = 0;
+
+                }
+                $customer_id = $customer["customers"]["id"];
+
+                //買掛金額合計を取得
+                //仕入れデータを取得
+                $args = array();
+                $args["order_date_from"] = $date_from;
+                $args["order_date_to"] = $date_to;
+                $args["factory_id"] = $_SESSION["site"]["user"]["factory_id"];
+                $args["supplier_id"] = $customer["suppliers"]["id"];
+                $purchases = $this->model("Purchase")->getSumTotal($args);
+
+                if(!empty($purchases)){
+                    foreach ($purchases as $purchase) {
+                        if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]) === false){
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["customers"] = $customer["customers"];
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["in"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = 0;
+                        }
+
+                        $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] += $purchase[0]["sum_total"];
+                    }  
+                }
+
+                $payables = $this->model("Payable")->getPayable($date_from,$date_to,null,null,null,array(
+                    "factory_id" => $_SESSION["site"]["user"]["factory_id"],
+                    "customer_id" => $customer["suppliers"]["id"]
+                ));
+                if(!empty($payables)){
+                    foreach ($payables as $payable) {
+                        if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]) === false){
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["customers"] = $customer["customers"];
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["in"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = 0;
+                        }
+
+                        $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] -= $payable[0]["sum_amount"];
+                    }  
+                }
+
+                //売上を取得
+                $args = array();
+                $args["from"] = $date_from;
+                $args["to"] = $date_to;
+                $args["Sale"]["factory_id"] = $_SESSION["site"]["user"]["factory_id"];
+                $args["Sale"]["jobber_customer_id"] = $customer["customers"]["id"];
+                $sales = $this->model("Sale")->getSale($args);
+                if(!empty($sales)){
+                    foreach ($sales as $row) {
+                        if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]) === false){
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["customers"] = $customer["customers"];
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["in"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = 0;
+                        }
+
+                        $row["Sale"]["tax"] = 0;
+                        if($customer["customers"]["tax_calc_type"] == 1){
+                            $row["Sale"]["tax"] = $this->calcTax($customer["customers"]["tax_round_type"],$row["Sale"]["subtotal"]);
+                        }
+
+                        //付帯項目の金額を加算
+                        if(!empty($row["SaleDetail"])){
+                            foreach($row["SaleDetail"] as $sd_key => $sd_row){
+                                $row["Sale"]["subtotal"] += $sd_row["total"];
+                                if($customer["customers"]["tax_calc_type"] == 1){
+                                    $row["Sale"]["tax"] += $this->calcTax($customer["customers"]["tax_round_type"],$sd_row["total"]);
+                                }
+                            }
+                        }
+
+                        if($customer["customers"]["tax_calc_type"] == 2){
+                            $row["Sale"]["tax"] = $this->calcTax($customer["customers"]["tax_round_type"],$row["Sale"]["subtotal"]);
+                        }
+
+                        $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] += $row["Sale"]["subtotal"] + $row["Sale"]["tax"];
+                    }
+                }
+
+                //入金データの取得
+                $args["date_from"] = $date_from;
+                $args["date_to"] = $date_to;
+                $args["factory_id"] = $_SESSION["site"]["user"]["factory_id"];
+                $args["customer_id"] = $customer["customers"]["id"];
+                $receivables = $this->model("Receivable")->getSumCustomer($args);
+                if(!empty($receivables)){
+                    foreach ($receivables as $receivable) {
+                        if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]) === false){
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["customers"] = $customer["customers"];
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["in"] = 0;
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = 0;
+                        }
+
+                        $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] -= $receivable[0]["sum_subtotal"];
+                    }  
+                }
+
+                //材料相殺の時
+                if($offset_type == 1){
+                    //一括相殺を取得
+                    $args = array();
+                    $args["from"] = $date_from;
+                    $args["to"] = $date_to;
+                    $args["type"] = 16;
+                    $args["factory_id"] = $_SESSION["site"]["user"]["factory_id"];
+                    $args["MaterialSupply"]["customer_id"] = $customer["suppliers"]["id"];
+                    $material_supplies = $this->model("MaterialSupply")->getMaterialSupply($args);
+                    if(!empty($material_supplies)){
+                        foreach ($material_supplies as $material_supply) {
+                            if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]) === false){
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["customers"] = $customer["customers"];
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["in"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = 0;
+                            }
+
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"] += $material_supply["MaterialSupply"]["total"];
+
+                        }
+                    }
+
+                    //外注
+                    $args = array();
+                    $args["order_date_from"] = $date_from;
+                    $args["order_date_to"] = $date_to;
+                    $args["factory_id"] = $_SESSION["site"]["user"]["factory_id"];
+                    $args["ManufactureResult"]["customer_id"] = $customer["suppliers"]["id"];
+                    $manufacture_results = $this->model("ManufactureResult")->getSumInspection($args);
+
+                    if(!empty($manufacture_results)){
+                        foreach ($manufacture_results as $key => $row) {
+                            if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]) === false){
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["customers"] = $customer["customers"];
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["in"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = 0;
+                            }
+
+                            //外注依頼の今までの検収総数が依頼数の80%を超えていたら全検収とする
+                            $args = array();
+                            $args["order_date_to"] = date("Y-m-d",strtotime($date_from." -1 day"));
+                            $args["factory_id"] = $_SESSION["site"]["user"]["factory_id"];
+                            $args["manufacture_id"] = $row["Manufacture"]["id"];
+                            $prev_manufacture_results = $this->model("ManufactureResult")->getSumInspection($args);
+                            if(!empty($prev_manufacture_results)){
+                                if($prev_manufacture_results[0][0]["sum_approve"] + $row[0]["sum_approve"] >= $row["Manufacture"]["quantity"] * 0.8){
+                                    $row[0]["sum_approve"] = $row["Manufacture"]["quantity"] - $prev_manufacture_results[0][0]["sum_approve"]; 
+                                }   
+                            }else{
+                                if($row[0]["sum_approve"] >= $row["Manufacture"]["quantity"] * 0.8){
+              $row[0]["sum_approve"] = $row["Manufacture"]["quantity"]; 
+                                }   
+                            }
+                            $row["subtotal"] = $this->calcSubtotal($customer["suppliers"]["value_round_type"],$row[0]["sum_approve"],$row["Manufacture"]["price"]);  
+
+                            $row["tax"] = 0;
+                            if($customer["suppliers"]["tax_calc_type"] == 1 || $customer["suppliers"]["tax_calc_type"] == 2){
+                                $row["tax"] = $this->calcTax($customer["suppliers"]["tax_round_type"],$row["subtotal"]);
+                            }
+
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] += $row["subtotal"] + $row["tax"];
+                        }
+                    }
+
+                    if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id])){
+                        //相殺合計の計算
+                        $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] + $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"];
+
+                        $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] - $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"];
+
+                        $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] - $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"];
+                    }
+                }
+
+                //通常相殺に時
+                if($offset_type == 2){
+                    //外注
+                    $args = array();
+                    $args["order_date_from"] = $date_from;
+                    $args["order_date_to"] = $date_to;
+                    $args["factory_id"] = $_SESSION["site"]["user"]["factory_id"];
+                    $args["ManufactureResult"]["customer_id"] = $customer["suppliers"]["id"];
+                    $manufacture_results = $this->model("ManufactureResult")->getSumInspection($args);
+
+                    if(!empty($manufacture_results)){
+                        foreach ($manufacture_results as $key => $row) {
+                            if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]) === false){
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["customers"] = $customer["customers"];
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset1"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset2"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["in"] = 0;
+                                $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = 0;
+                            }
+
+
+                            $row["subtotal"] = $this->calcSubtotal($customer["suppliers"]["value_round_type"],$row[0]["sum_approve"],$row["Manufacture"]["price"]);  
+
+                            $row["tax"] = 0;
+                            if($customer["suppliers"]["tax_calc_type"] == 1 || $customer["suppliers"]["tax_calc_type"] == 2){
+                                $row["tax"] = $this->calcTax($customer["suppliers"]["tax_round_type"],$row["subtotal"]);
+                            }
+
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] += $row["subtotal"] + $row["tax"];
+                        }
+                    }
+
+                    if(isset($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id])){
+                        if($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] > $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"]){
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"];
+
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["pay"] = $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"] - $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"];
+                        }else{
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["offset"] = $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"];
+
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["in"] = $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] - $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"];
+                            $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["sub"] = abs($material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["urikake"] - $material_offsets[$formated_date]["data"][$offset_type]["data"][$customer_id]["kaikake"]);
+
+                        }
+                    }
+                }
+            }
+        }
+
+        if(!empty($material_offsets)){
+            foreach ($material_offsets as $formated_date => &$foo) {
+                foreach ($foo["data"] as $offset_type => &$bar) {
+                    foreach ($bar["data"] as $customer_id => &$row) {
+                        $bar["sum_kaikake"]+= $row["kaikake"];
+                        $bar["sum_urikake"]+= $row["urikake"];
+                        $bar["sum_offset1"]+= $row["offset1"];
+                        $bar["sum_offset2"]+= $row["offset2"];
+                        $bar["sum_offset"]+= $row["offset"];
+                        $bar["sum_pay"]+= $row["pay"];
+                        $bar["sum_in"]+= $row["in"];
+                        $bar["sum_sub"]+= $row["sub"];
+                    }
+                    $foo["total_kaikake"]+= $bar["sum_kaikake"];
+                    $foo["total_urikake"]+= $bar["sum_urikake"];
+                    $foo["total_offset1"]+= $bar["sum_offset1"];
+                    $foo["total_offset2"]+= $bar["sum_offset2"];
+                    $foo["total_offset"]+= $bar["sum_offset"];
+                    $foo["total_pay"]+= $bar["sum_pay"];
+                    $foo["total_in"]+= $bar["sum_in"];
+                    $foo["total_sub"]+= $bar["sum_sub"];
+                }
+                ksort($foo["data"]);
+            }
+            unset($foo,$bar,$row);
+        }
+        //        //材料相殺の取得
+        //        //支払エントリ(支払)データを取得
+        //        $payables = $this->model("Payable")->getPayable(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        foreach ($payables as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($ret["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Payable"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["payable"] = $row[0]["sum_amount"];
+        //        }
+        //        //new dbug($payables);exit;
+        //        //支払エントリ(振替)データを取得
+        //        $hurikaes = $this->model("Payable")->getHurikae(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        foreach ($hurikaes as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Payable"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["hurikae"] = $row[0]["sum_amount"];
+        //        }
+        //
+        //        //支払エントリ(相殺)データを取得
+        //        $offsets = $this->model("Payable")->getOffset(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        foreach ($offsets as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Payable"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["offset"] = $row[0]["sum_amount"];
+        //        }
+        //        //仕入データを取得
+        //        $purchases = $this->model("Payable")->getPurchase(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        foreach ($purchases as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Purchase"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["purchase"] = $row[0]["sum_subtotal"];
+        //            $tmp["data"][$formated_date][$supplier_code]["subtotal"] = $row[0]["sum_subtotal"];
+        //            $tmp["data"][$formated_date][$supplier_code]["tax"] = $row[0]["sum_tax"];
+        //            $tmp["data"][$formated_date][$supplier_code]["total"] = $row[0]["sum_total"];
+        //        }
+        //
+        //        //外注検収データを取得
+        //        $manufacture_results = $this->model("Payable")->getManufactureResult(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        foreach ($manufacture_results as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Manufacture"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["purchase"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["purchase"] += $row[0]["sum_subtotal"];
+        //                $tmp["data"][$formated_date][$supplier_code]["subtotal"] += $row[0]["sum_subtotal"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["purchase"] = $row[0]["sum_subtotal"];
+        //                $tmp["data"][$formated_date][$supplier_code]["subtotal"] = $row[0]["sum_subtotal"];
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["tax"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["tax"] += $row[0]["sum_tax"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["tax"] = $row[0]["sum_tax"];
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["total"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["total"] += $row[0]["sum_total"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["total"] = $row[0]["sum_total"];
+        //            }
+        //        }
+        //
+        //        //返品(外注検収で不良品)データを取得
+        //        $returns = $this->model("Payable")->getReturn(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        foreach ($returns as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Manufacture"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["return"] = $row[0]["sum_subtotal"];
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["subtotal"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["subtotal"] += $row[0]["sum_subtotal"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["subtotal"] = $row[0]["sum_subtotal"];
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["tax"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["tax"] += $row[0]["sum_tax"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["tax"] = $row[0]["sum_tax"];
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["total"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["total"] += $row[0]["sum_total"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["total"] = $row[0]["sum_total"];
+        //            }
+        //        }
+        //
+        //        if(!empty($tmp)){
+        //            foreach ($tmp["data"] as $formated_date => $foo) {
+        //                $ret["data"][$formated_date][1]["sum_kaikake"] = 0;
+        //                $ret["data"][$formated_date][1]["sum_urikake"] = 0;
+        //                $ret["data"][$formated_date][1]["sum_split_offset"] = 0;
+        //                $ret["data"][$formated_date][1]["sum_all_offset"] = 0;
+        //                $ret["data"][$formated_date][1]["sum_sum_offset"] = 0;
+        //                $ret["data"][$formated_date][1]["sum_payable"] = 0;
+        //                $ret["data"][$formated_date][1]["sum_sub_offset"] = 0;
+        //
+        //                foreach ($foo as $supplier_code => $row) {
+        //                    $ret["data"][$formated_date][1]["data"][$supplier_code]["Customer"] = $row["Supplier"];
+        //
+        //
+        //                    //不足項目を埋める
+        //                    if(!isset($row["prev_balance"])){
+        //                        $row["prev_balance"] = 0;
+        //                    }
+        //                    if(!isset($row["payable"])){
+        //                        $row["payable"] = 0;
+        //                    }
+        //                    if(!isset($row["hurikae"])){
+        //                        $row["hurikae"] = 0;
+        //                    }
+        //                    if(!isset($row["offset"])){
+        //                        $row["offset"] = 0;
+        //                    }
+        //                    if(!isset($row["purchase"])){
+        //                        $row["purchase"] = 0;
+        //                    }
+        //                    if(!isset($row["return"])){
+        //                        $row["return"] = 0;
+        //                    }
+        //                    if(!isset($row["subtotal"])){
+        //                        $row["subtotal"] = 0;
+        //                    }
+        //                    if(!isset($row["tax"])){
+        //                        $row["tax"] = 0;
+        //                    }
+        //                    if(!isset($row["total"])){
+        //                        $row["total"] = 0;
+        //                    }
+        //
+        //                    //繰越の計算
+        //                    $row["kurikoshi"] = $row["prev_balance"] - $row["payable"] + $row["hurikae"] + $row["offset"];
+        //
+        //                    //当月残高の計算
+        //                    $ret["data"][$formated_date][1]["data"][$supplier_code]["kaikake"] = $row["total"] + $row["kurikoshi"];
+        //                    $ret["data"][$formated_date][1]["sum_kaikake"] += $row["total"] + $row["kurikoshi"];
+        //                    $ret["total_kaikake"] += $row["total"] + $row["kurikoshi"];
+        //                }
+        //            }
+        //        }
+        //
+        //        $tmp = array();
+        //
+        //        //入金(支払)データを取得
+        //        $receivables = $this->model("Receivable")->getReceivable(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        //new dbug($receivables);exit;
+        //        foreach ($receivables as $row) {
+        //            $customer_code = $row["Customer"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$customer_code])){
+        //                $tmp["data"][$formated_date][$customer_code]["Customer"] = $row["Customer"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Receivable")->getPrevBalance(
+        //                    $row["Receivable"]["customer_id"],
+        //                    $customer_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["receivable"] = $row[0]["sum_amount"];
+        //        }
+        //        //new dbug($ret);exit;
+        //        //入金(振替)データを取得
+        //        $hurikaes = $this->model("Receivable")->getHurikae(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        foreach ($hurikaes as $row) {
+        //            $customer_code = $row["Customer"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$customer_code])){
+        //                $tmp["data"][$formated_date][$customer_code]["Customer"] = $row["Customer"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Receivable")->getPrevBalance(
+        //                    $row["Receivable"]["customer_id"],
+        //                    $customer_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["hurikae"] = $row[0]["sum_amount"];
+        //        }
+        //
+        //        //入金(相殺)データを取得
+        //        $offsets = $this->model("Receivable")->getOffset(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        foreach ($offsets as $row) {
+        //            $customer_code = $row["Customer"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$customer_code])){
+        //                $tmp["data"][$formated_date][$customer_code]["Customer"] = $row["Customer"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Receivable")->getPrevBalance(
+        //                    $row["Receivable"]["customer_id"],
+        //                    $customer_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["offset"] = $row[0]["sum_amount"];
+        //        }
+        //
+        //        //売上データを取得
+        //        $sales = $this->model("Receivable")->getSale(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 1,
+        //            )
+        //        );
+        //        //new dbug($sales);exit;
+        //        foreach ($sales as $row) {
+        //            $customer_code = $row["Customer"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$customer_code])){
+        //                $tmp["data"][$formated_date][$customer_code]["Customer"] = $row["Customer"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Receivable")->getPrevBalance(
+        //                    $row["Sale"]["customer_id"],
+        //                    $customer_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 1,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["prev_balance"] = $prev_balance;
+        //            }
+        //
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["sale"] = $row[0]["sum_subtotal"];
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["tax"] = $row[0]["sum_tax"];
+        //            if($row["Customer"]["tax_calc_type"] == 2){
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["tax"] = $this->calcTax($row["Customer"]["tax_round_type"],$row[0]["sum_subtotal"]);
+        //            }
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["total"] = $row[0]["sum_subtotal"] + $tmp["data"][$formated_date][$customer_code]["data"]["tax"];
+        //        }
+        //
+        //        if(!empty($tmp)){
+        //            foreach ($tmp["data"] as $formated_date => &$foo) {
+        //                foreach ($foo as $customer_code => &$row) {
+        //                    if(!isset($ret["data"][$formated_date][1]["data"][$customer_code])){
+        //                        $ret["data"][$formated_date][1][$customer_code]["Customer"] = $row["Supplier"];
+        //                    }
+        //
+        //                    //不足項目を埋める
+        //                    if(!isset($row["data"]["prev_balance"])){
+        //                        $row["data"]["prev_balance"] = 0;
+        //                    }
+        //                    if(!isset($row["data"]["receivable"])){
+        //                        $row["data"]["receivable"] = 0;
+        //                    }
+        //                    if(!isset($row["data"]["hurikae"])){
+        //                        $row["data"]["hurikae"] = 0;
+        //                    }
+        //                    if(!isset($row["data"]["offset"])){
+        //                        $row["data"]["offset"] = 0;
+        //                    }
+        //                    if(!isset($row["data"]["sale"])){
+        //                        $row["data"]["sale"] = 0;
+        //                    }
+        //
+        //                    //繰越の計算
+        //                    $row["data"]["kurikoshi"] = $row["data"]["prev_balance"] - $row["data"]["receivable"] + $row["data"]["hurikae"] + $row["data"]["offset"];
+        //
+        //                    //請求合計の時の税額計算
+        //                    if($row["Customer"]["tax_calc_type"] == 3){
+        //                        $row["data"]["tax"] = $this->calcTax($row["Customer"]["tax_round_type"],$row["data"]["sale"]);
+        //                    }
+        //
+        //                    $row["data"]["total"] = $row["data"]["sale"] + $row["data"]["tax"];
+        //                    if(!isset($row["data"]["tax"])){
+        //                        $row["data"]["tax"] = 0;
+        //                    }
+        //
+        //                    //当月残高の計算
+        //                    $ret["data"][$formated_date][1]["data"][$customer_code]["urikake"] = $row["data"]["sale"] + $row["data"]["tax"] + $row["data"]["kurikoshi"];
+        //                    $ret["total_urikake"] += $row["data"]["sale"] + $row["data"]["tax"] + $row["data"]["kurikoshi"];
+        //                    $ret["data"][$formated_date][1]["sum_urikake"] += $row["data"]["sale"] + $row["data"]["tax"] + $row["data"]["kurikoshi"];
+        //                }
+        //            }
+        //        }
+        //
+        //        //new dbug($ret);exit;
+        //
+        //        //分割相殺取得
+        //        //有償社給がある外注伝票を取得
+        //        $sql = " select ";
+        //        $sql.= "  Manufacture.id,Manufacture.quantity,Manufacture.price, ";
+        //        $sql.= "  Customer.code,Customer.name,Customer.tax_calc_type,Customer.value_round_type,Customer.tax_round_type, ";
+        //        $sql.= "  MaterialSupply.sum_quantity ";
+        //        $sql.= " from ";
+        //        $sql.= "  manufactures as Manufacture";
+        //        $sql.= "   inner join ( ";
+        //        $sql.= "    select ";
+        //        $sql.= "     id,code,name,tax_calc_type,value_round_type,tax_round_type ";
+        //        $sql.= "    from ";
+        //        $sql.= "     customers as Customer ";
+        //        $sql.= "    where 1=1 ";
+        //        $sql.= "     and account_type = 2 ";
+        //        $sql.= "     and del_flg = 0 ";
+        //        $sql.= "     and close_day = ".$data["MaterialOffset"]["close_day"]." ";
+        //        $sql.= "   ) as Customer on Manufacture.supplier_id = Customer.id";
+        //        $sql.= "   inner join ( ";
+        //        $sql.= "    select ";
+        //        $sql.= "     code ";
+        //        $sql.= "    from ";
+        //        $sql.= "     customers ";
+        //        $sql.= "    where 1=1 ";
+        //        $sql.= "     and account_type = 1 ";
+        //        $sql.= "     and del_flg = 0 ";
+        //        $sql.= "     and offset_type = 1 ";
+        //        $sql.= "   ) as TmpCustomer on Customer.code = TmpCustomer.code";
+        //        $sql.= "   inner join ( ";
+        //        $sql.= "    select ";
+        //        $sql.= "     manufacture_id,sum(quantity) as sum_quantity ";
+        //        $sql.= "    from ";
+        //        $sql.= "     material_supplies ";
+        //        $sql.= "    where ";
+        //        $sql.= "     del_flg = 0 ";
+        //        $sql.= "    group by ";
+        //        $sql.= "     manufacture_id ";
+        //        $sql.= "   ) as MaterialSupply on MaterialSupply.manufacture_id = Manufacture.id ";
+        //        $sql.= " where 1=1 ";
+        //        $sql.= "  and Manufacture.del_flg = 0 ";
+        //        $manufactures = $this->query($sql);
+        //        //new dbug($manufactures);exit;
+        //        if(!empty($manufactures)){
+        //            $tmp = array();
+        //
+        //            foreach ($manufactures as $row) {
+        //                //指定期間より前の外注伝票に対する検収数の総数を取得
+        //                $sql = " select ";
+        //                $sql.= "  sum(approve) as sum_approve ";
+        //                $sql.= " from ";
+        //                $sql.= "  manufacture_results as ManufactureResult ";
+        //                $sql.= " where 1=1 ";
+        //                $sql.= "  and manufacture_id = ".$row["Manufacture"]["id"]." ";
+        //                $sql.= "  and order_date < '".$date_from."' ";
+        //                $sql.= "  and status = 8 ";
+        //                $sql.= " group by ";
+        //                $sql.= "  manufacture_id ";
+        //                $before_manufacture_results = $this->query($sql);
+        //                //new dbug($before_manufacture_results);exit;
+        //                $flg = false;
+        //                if(!empty($before_manufacture_results)){
+        //                    //すでに検収数が相殺のしきい値を超えていたら相殺済み
+        //                    $offset_rate = floor($before_manufacture_results[0][0]["sum_approve"] / $row["Manufacture"]["quantity"] * 100) / 100;
+        //                    //new dbug($offset_rate);exit;
+        //                    if($offset_rate >= _def_threshold){
+        //                        $flg = true;
+        //                    }
+        //                }
+        //                //new dbug($flg);exit;
+        //
+        //                if(!$flg){
+        //                    //指定期間の外注伝票に対する検収数の総数を取得
+        //                    $sql = " select ";
+        //                    $sql.= "  sum(approve) as sum_approve ";
+        //                    $sql.= " from ";
+        //                    $sql.= "  manufacture_results as ManufactureResult ";
+        //                    $sql.= " where 1=1 ";
+        //                    $sql.= "  and manufacture_id = ".$row["Manufacture"]["id"]." ";
+        //                    $sql.= "  and order_date between '".$date_from."' and '".$date_to."' ";
+        //                    $sql.= "  and status = 8 ";
+        //                    $sql.= " group by ";
+        //                    $sql.= "  manufacture_id ";
+        //                    $manufacture_results = $this->query($sql);
+        //                    //new dbug($manufacture_results);exit;
+        //
+        //                    if(!empty($manufacture_results[0][0]["sum_approve"])){
+        //                        //期間前の検収数と期間内の検収数の合計がしきい値を超えた場合は残りすべてを相殺
+        //                        $sum_approve = $manufacture_results[0][0]["sum_approve"];
+        //                        $before_sum_approve = 0;
+        //                        if(!empty($before_manufacture_results[0][0]["sum_approve"])){
+        //                            $before_sum_approve += $before_manufacture_results[0][0]["sum_approve"];
+        //                        }
+        //                        $offset_rate = floor(($before_sum_approve + $sum_approve) / $row["Manufacture"]["quantity"] * 100) / 100;
+        //                        //new dbug($offset_rate);exit;
+        //                        if($offset_rate >= _def_threshold){
+        //                            $sum_approve = $row["Manufacture"]["quantity"] - $before_sum_quantity;
+        //                        }
+        //
+        //                        //相殺金額計算
+        //                        //小計の計算
+        //                        $subtotal = $this->calcSubtotal(
+        //                            $row["Customer"]["value_round_type"],
+        //                            $sum_approve,
+        //                            $row["Manufacture"]["price"]
+        //                        );
+        //
+        //                        //税金の計算
+        //                        if($row["Customer"]["tax_calc_type"] == 1){
+        //                            $tax = $this->calcTaxByCalcType(
+        //                                $row["Customer"]["tax_calc_type"],
+        //                                $row["Customer"]["tax_round_type"],
+        //                                $subtotal
+        //                            );
+        //                        }else{
+        //                            $tax = 0;
+        //                        }
+        //
+        //                        //合計の計算
+        //                        $split_offset = $subtotal + $tax;
+        //
+        //                        //外注先ごとに変数に格納
+        //                        if(!isset($ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]])){
+        //                            $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["Customer"] = $row["Customer"];
+        //                        }
+        //                        if(!isset($ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["split_offset"])){
+        //                            $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["split_offset"] = $split_offset;
+        //                            $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["sum_offset"] = $split_offset;
+        //                        }else{
+        //                            $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["split_offset"] += $split_offset;
+        //                            $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["sum_offset"] += $split_offset;
+        //                        }
+        //                        $ret["total_split_offset"] += $split_offset;
+        //                        $ret["data"][$formated_date][1]["sum_split_offset"] += $split_offset;
+        //                        $ret["total_sum_offset"] += $split_offset;
+        //                        $ret["data"][$formated_date][1]["sum_sum_offset"] += $split_offset;
+        //                    }
+        //                }
+        //            }
+        //        }
+        //
+        //        //一括相殺取得
+        //        //材料受払伝票が一括相殺のデータを取得
+        //        $sql = " select ";
+        //        $sql.= "  sum(MaterialSupply.subtotal) as sum_subtotal,sum(MaterialSupply.tax) as sum_tax, ";
+        //        $sql.= "  Customer.code,Customer.name,Customer.tax_calc_type,Customer.value_round_type,Customer.tax_round_type ";
+        //        $sql.= " from ";
+        //        $sql.= "  material_supplies as MaterialSupply";
+        //        $sql.= "   inner join ( ";
+        //        $sql.= "    select ";
+        //        $sql.= "     id,code,name,tax_calc_type,value_round_type,tax_round_type ";
+        //        $sql.= "    from ";
+        //        $sql.= "     customers as Customer ";
+        //        $sql.= "    where 1=1 ";
+        //        $sql.= "     and account_type = 2 ";
+        //        $sql.= "     and del_flg = 0 ";
+        //        $sql.= "     and close_day = ".$data["MaterialOffset"]["close_day"]." ";
+        //        $sql.= "   ) as Customer on MaterialSupply.customer_id = Customer.id";
+        //        $sql.= "   inner join ( ";
+        //        $sql.= "    select ";
+        //        $sql.= "     code ";
+        //        $sql.= "    from ";
+        //        $sql.= "     customers ";
+        //        $sql.= "    where 1=1 ";
+        //        $sql.= "     and account_type = 1 ";
+        //        $sql.= "     and del_flg = 0 ";
+        //        $sql.= "     and offset_type = 1 ";
+        //        $sql.= "   ) as TmpCustomer on Customer.code = TmpCustomer.code";
+        //        $sql.= " where 1=1 ";
+        //        $sql.= "  and MaterialSupply.order_date between '".$date_from."' and '".$date_to."' ";
+        //        $sql.= "  and MaterialSupply.del_flg = 0 ";
+        //        $sql.= "  and MaterialSupply.type = 16 ";
+        //        $sql.= " group by ";
+        //        $sql.= "  MaterialSupply.customer_id ";
+        //        $material_supplies = $this->query($sql);
+        //        //new dbug($material_supplies);exit;
+        //        //仕入先ごとに変数に格納
+        //        if(!empty($material_supplies)){
+        //            foreach ($material_supplies as $row) {
+        //                if(!isset($ret[1][$row["Customer"]["code"]])){
+        //                    $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["Customer"] = $row["Customer"];
+        //                }
+        //
+        //                $tax = $row[0]["sum_tax"];
+        //                if($row["Customer"]["tax_calc_type"] == 3){
+        //                    $tax = $this->calcTax($row["Customer"]["tax_round_type"],$row[0]["sum_subtotal"]);
+        //                }
+        //                if(!isset($ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["all_offset"])){
+        //                    $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["all_offset"] = $row[0]["sum_subtotal"] + $tax;
+        //                }else{
+        //                    $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["all_offset"] += $row[0]["sum_subtotal"] + $tax;
+        //                }
+        //                if(!isset($ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["sum_offset"])){
+        //                    $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["sum_offset"] = $row[0]["sum_subtotal"] + $tax;
+        //                }else{
+        //                    $ret["data"][$formated_date][1]["data"][$row["Customer"]["code"]]["sum_offset"] += $row[0]["sum_subtotal"] + $tax;
+        //                }
+        //                $ret["total_sum_offset"] += $row[0]["sum_subtotal"] + $tax;
+        //                $ret["data"][$formated_date][1]["sum_sum_offset"] += $row[0]["sum_subtotal"] + $tax;
+        //                $ret["total_all_offset"] += $row[0]["sum_subtotal"] + $tax;
+        //                $ret["data"][$formated_date][1]["sum_all_offset"] += $row[0]["sum_subtotal"] + $tax;
+        //            }
+        //        }
+        //
+        //        foreach ($ret["data"] as $formated_date => &$foo) {
+        //            foreach ($foo[1]["data"] as $supplier_code => &$row) {
+        //                //不足項目を埋める
+        //                if(!isset($row["kaikake"])){
+        //                    $row["kaikake"] = 0;
+        //                }
+        //                if(!isset($row["urikake"])){
+        //                    $row["urikake"] = 0;
+        //                }
+        //                if(!isset($row["split_offset"])){
+        //                    $row["split_offset"] = 0;
+        //                }
+        //                if(!isset($row["all_offset"])){
+        //                    $row["all_offset"] = 0;
+        //                }
+        //                if(!isset($row["sum_offset"])){
+        //                    $row["sum_offset"] = 0;
+        //                }
+        //                if(!isset($row["sub_offset"])){
+        //                    $row["sub_offset"] = 0;
+        //                }
+        //
+        //                //支払い予想額
+        //                $row["payable"] = $row["kaikake"] - $row["sum_offset"];
+        //                $foo[1]["sum_payable"] += $row["payable"];
+        //                $ret["total_payable"] += $row["payable"];
+        //
+        //                //相殺残
+        //                $row["sub_offset"] = $row["urikake"] - $row["sum_offset"];
+        //                $foo[1]["sum_sub_offset"] += $row["sub_offset"];
+        //                $ret["total_sub_offset"] += $row["sub_offset"];
+        //            }
+        //        }
+        //        unset($foo,$row);
+        //
+        //        ksort($ret["data"][$formated_date][1]["data"]);
+        //        //new dbug($ret);exit;
+        //
+        //        $tmp = array();
+        //
+        //        //通常相殺の取得
+        //        //支払エントリ(支払)データを取得
+        //        $payables = $this->model("Payable")->getPayable(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        foreach ($payables as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($ret["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Payable"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["payable"] = $row[0]["sum_amount"];
+        //        }
+        //        //new dbug($payables);exit;
+        //        //支払エントリ(振替)データを取得
+        //        $hurikaes = $this->model("Payable")->getHurikae(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        foreach ($hurikaes as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Payable"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["hurikae"] = $row[0]["sum_amount"];
+        //        }
+        //
+        //        //支払エントリ(相殺)データを取得
+        //        $offsets = $this->model("Payable")->getOffset(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        foreach ($offsets as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Payable"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["offset"] = $row[0]["sum_amount"];
+        //        }
+        //        //仕入データを取得
+        //        $purchases = $this->model("Payable")->getPurchase(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        foreach ($purchases as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Purchase"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["purchase"] = $row[0]["sum_subtotal"];
+        //            $tmp["data"][$formated_date][$supplier_code]["subtotal"] = $row[0]["sum_subtotal"];
+        //            $tmp["data"][$formated_date][$supplier_code]["tax"] = $row[0]["sum_tax"];
+        //            $tmp["data"][$formated_date][$supplier_code]["total"] = $row[0]["sum_total"];
+        //        }
+        //
+        //        //外注検収データを取得
+        //        $manufacture_results = $this->model("Payable")->getManufactureResult(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        foreach ($manufacture_results as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Manufacture"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["purchase"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["purchase"] += $row[0]["sum_subtotal"];
+        //                $tmp["data"][$formated_date][$supplier_code]["subtotal"] += $row[0]["sum_subtotal"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["purchase"] = $row[0]["sum_subtotal"];
+        //                $tmp["data"][$formated_date][$supplier_code]["subtotal"] = $row[0]["sum_subtotal"];
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["tax"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["tax"] += $row[0]["sum_tax"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["tax"] = $row[0]["sum_tax"];
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["total"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["total"] += $row[0]["sum_total"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["total"] = $row[0]["sum_total"];
+        //            }
+        //        }
+        //
+        //        //返品(外注検収で不良品)データを取得
+        //        $returns = $this->model("Payable")->getReturn(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        foreach ($returns as $row) {
+        //            $supplier_code = $row["Supplier"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$supplier_code])){
+        //                $tmp["data"][$formated_date][$supplier_code]["Supplier"] = $row["Supplier"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Payable")->getPrevBalance(
+        //                    $row["Manufacture"]["supplier_id"],
+        //                    $supplier_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$supplier_code]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$supplier_code]["return"] = $row[0]["sum_subtotal"];
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["subtotal"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["subtotal"] += $row[0]["sum_subtotal"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["subtotal"] = $row[0]["sum_subtotal"];
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["tax"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["tax"] += $row[0]["sum_tax"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["tax"] = $row[0]["sum_tax"];
+        //            }
+        //            if(isset($tmp["data"][$formated_date][$supplier_code]["total"])){
+        //                $tmp["data"][$formated_date][$supplier_code]["total"] += $row[0]["sum_total"];
+        //            }else{
+        //                $tmp["data"][$formated_date][$supplier_code]["total"] = $row[0]["sum_total"];
+        //            }
+        //        }
+        //
+        //        if(!empty($tmp)){
+        //            foreach ($tmp["data"] as $formated_date => $foo) {
+        //                $ret["data"][$formated_date][2]["sum_kaikake"] = 0;
+        //                $ret["data"][$formated_date][2]["sum_urikake"] = 0;
+        //                $ret["data"][$formated_date][2]["sum_normal_offset"] = 0;
+        //                $ret["data"][$formated_date][2]["sum_sum_offset"] = 0;
+        //                $ret["data"][$formated_date][2]["sum_payable"] = 0;
+        //                $ret["data"][$formated_date][2]["sum_receivable"] = 0;
+        //                $ret["data"][$formated_date][2]["sum_sub_offset"] = 0;
+        //
+        //                foreach ($foo as $supplier_code => $row) {
+        //                    $ret["data"][$formated_date][2]["data"][$supplier_code]["Customer"] = $row["Supplier"];
+        //
+        //
+        //                    //不足項目を埋める
+        //                    if(!isset($row["prev_balance"])){
+        //                        $row["prev_balance"] = 0;
+        //                    }
+        //                    if(!isset($row["payable"])){
+        //                        $row["payable"] = 0;
+        //                    }
+        //                    if(!isset($row["hurikae"])){
+        //                        $row["hurikae"] = 0;
+        //                    }
+        //                    if(!isset($row["offset"])){
+        //                        $row["offset"] = 0;
+        //                    }
+        //                    if(!isset($row["purchase"])){
+        //                        $row["purchase"] = 0;
+        //                    }
+        //                    if(!isset($row["return"])){
+        //                        $row["return"] = 0;
+        //                    }
+        //                    if(!isset($row["subtotal"])){
+        //                        $row["subtotal"] = 0;
+        //                    }
+        //                    if(!isset($row["tax"])){
+        //                        $row["tax"] = 0;
+        //                    }
+        //                    if(!isset($row["total"])){
+        //                        $row["total"] = 0;
+        //                    }
+        //
+        //                    //繰越の計算
+        //                    $row["kurikoshi"] = $row["prev_balance"] - $row["payable"] + $row["hurikae"] + $row["offset"];
+        //
+        //                    //当月残高の計算
+        //                    $ret["data"][$formated_date][2]["data"][$supplier_code]["kaikake"] = $row["total"] + $row["kurikoshi"];
+        //                    $ret["data"][$formated_date][2]["sum_kaikake"] += $row["total"] + $row["kurikoshi"];
+        //                    $ret["total_kaikake"] += $row["total"] + $row["kurikoshi"];
+        //                }
+        //            }
+        //        }
+        //
+        //        $tmp = array();
+        //
+        //        //入金(支払)データを取得
+        //        $receivables = $this->model("Receivable")->getReceivable(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        //new dbug($receivables);exit;
+        //        foreach ($receivables as $row) {
+        //            $customer_code = $row["Customer"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$customer_code])){
+        //                $tmp["data"][$formated_date][$customer_code]["Customer"] = $row["Customer"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Receivable")->getPrevBalance(
+        //                    $row["Receivable"]["customer_id"],
+        //                    $customer_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["receivable"] = $row[0]["sum_amount"];
+        //        }
+        //        //new dbug($ret);exit;
+        //        //入金(振替)データを取得
+        //        $hurikaes = $this->model("Receivable")->getHurikae(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        foreach ($hurikaes as $row) {
+        //            $customer_code = $row["Customer"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$customer_code])){
+        //                $tmp["data"][$formated_date][$customer_code]["Customer"] = $row["Customer"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Receivable")->getPrevBalance(
+        //                    $row["Receivable"]["customer_id"],
+        //                    $customer_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["hurikae"] = $row[0]["sum_amount"];
+        //        }
+        //
+        //        //入金(相殺)データを取得
+        //        $offsets = $this->model("Receivable")->getOffset(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        foreach ($offsets as $row) {
+        //            $customer_code = $row["Customer"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$customer_code])){
+        //                $tmp["data"][$formated_date][$customer_code]["Customer"] = $row["Customer"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Receivable")->getPrevBalance(
+        //                    $row["Receivable"]["customer_id"],
+        //                    $customer_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["prev_balance"] = $prev_balance;
+        //            }
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["offset"] = $row[0]["sum_amount"];
+        //        }
+        //
+        //        //売上データを取得
+        //        $sales = $this->model("Receivable")->getSale(
+        //            $date_from,
+        //            $date_to,
+        //            $data["MaterialOffset"]["close_day"],
+        //            $data["MaterialOffset"]["customer_code_from"],
+        //            $data["MaterialOffset"]["customer_code_to"],
+        //            array(
+        //                "mode" => "offset",
+        //                "offset_type" => 2,
+        //            )
+        //        );
+        //        //new dbug($sales);exit;
+        //        foreach ($sales as $row) {
+        //            $customer_code = $row["Customer"]["code"];
+        //            if(!isset($tmp["data"][$formated_date][$customer_code])){
+        //                $tmp["data"][$formated_date][$customer_code]["Customer"] = $row["Customer"];
+        //
+        //                //前月残高の取得
+        //                $prev_balance = $this->model("Receivable")->getPrevBalance(
+        //                    $row["Sale"]["customer_id"],
+        //                    $customer_code,
+        //                    $prev_date_to,
+        //                    $data["MaterialOffset"]["close_day"],
+        //                    array(
+        //                        "mode" => "offset",
+        //                        "offset_type" => 2,
+        //                    )
+        //                );
+        //
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["prev_balance"] = $prev_balance;
+        //            }
+        //
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["sale"] = $row[0]["sum_subtotal"];
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["tax"] = $row[0]["sum_tax"];
+        //            if($row["Customer"]["tax_calc_type"] == 2){
+        //                $tmp["data"][$formated_date][$customer_code]["data"]["tax"] = $this->calcTax($row["Customer"]["tax_round_type"],$row[0]["sum_subtotal"]);
+        //            }
+        //            $tmp["data"][$formated_date][$customer_code]["data"]["total"] = $row[0]["sum_subtotal"] + $tmp["data"][$formated_date][$customer_code]["data"]["tax"];
+        //        }
+        //        //new dbug($tmp);exit;
+        //        if(!empty($tmp)){
+        //            foreach ($tmp["data"] as $formated_date => &$foo) {
+        //                foreach ($foo as $customer_code => &$row) {
+        //                    if(!isset($ret["data"][$formated_date][2]["data"][$customer_code])){
+        //                        $ret["data"][$formated_date][2]["data"][$customer_code]["Customer"] = $row["Customer"];
+        //                    }
+        //
+        //                    //不足項目を埋める
+        //                    if(!isset($row["data"]["prev_balance"])){
+        //                        $row["data"]["prev_balance"] = 0;
+        //                    }
+        //                    if(!isset($row["data"]["receivable"])){
+        //                        $row["data"]["receivable"] = 0;
+        //                    }
+        //                    if(!isset($row["data"]["hurikae"])){
+        //                        $row["data"]["hurikae"] = 0;
+        //                    }
+        //                    if(!isset($row["data"]["offset"])){
+        //                        $row["data"]["offset"] = 0;
+        //                    }
+        //                    if(!isset($row["data"]["sale"])){
+        //                        $row["data"]["sale"] = 0;
+        //                    }
+        //
+        //                    //繰越の計算
+        //                    $row["data"]["kurikoshi"] = $row["data"]["prev_balance"] - $row["data"]["receivable"] + $row["data"]["hurikae"] + $row["data"]["offset"];
+        //
+        //                    //請求合計の時の税額計算
+        //                    if($row["Customer"]["tax_calc_type"] == 3){
+        //                        $row["data"]["tax"] = $this->calcTax($row["Customer"]["tax_round_type"],$row["data"]["sale"]);
+        //                    }
+        //
+        //                    $row["data"]["total"] = $row["data"]["sale"] + $row["data"]["tax"];
+        //                    if(!isset($row["data"]["tax"])){
+        //                        $row["data"]["tax"] = 0;
+        //                    }
+        //
+        //                    //当月残高の計算
+        //                    $ret["data"][$formated_date][2]["data"][$customer_code]["urikake"] = $row["data"]["sale"] + $row["data"]["tax"] + $row["data"]["kurikoshi"];
+        //                    $ret["total_urikake"] += $row["data"]["sale"] + $row["data"]["tax"] + $row["data"]["kurikoshi"];
+        //                    $ret["data"][$formated_date][2]["sum_urikake"] += $row["data"]["sale"] + $row["data"]["tax"] + $row["data"]["kurikoshi"];
+        //                }
+        //            }
+        //            //	new dbug($ret);exit;
+        //            foreach ($ret["data"] as $formated_date => &$foo) {
+        //                foreach ($foo[2]["data"] as $supplier_code => &$row) {
+        //                    //不足項目を埋める
+        //                    if(!isset($row["kaikake"])){
+        //                        $row["kaikake"] = 0;
+        //                    }
+        //                    if(!isset($row["urikake"])){
+        //                        $row["urikake"] = 0;
+        //                    }
+        //
+        //                    //通常相殺と相殺合計を計算
+        //                    $abs_offset = abs($row["kaikake"] - $row["urikake"]);
+        //                    $offset = abs($row["kaikake"] - $row["urikake"]);
+        //                    $row["normal_offset"] = $abs_offset;
+        //                    $foo[2]["sum_normal_offset"] += $abs_offset;
+        //                    $foo[2]["sum_sum_offset"] += $abs_offset;
+        //                    $ret["total_normal_offset"] += $abs_offset;
+        //                    $ret["total_sum_offset"] += $abs_offset;
+        //
+        //                    //支払予想額の計算
+        //                    if($offset > 0){
+        //                        $row["receivable"] = $abs_offset;
+        //                        $foo[2]["sum_receivable"] += $abs_offset;
+        //                        $ret["total_receivable"] += $abs_offset;
+        //                    }elseif($offset < 0){
+        //                        $row["payable"] = $abs_offset;
+        //                        $foo[2]["sum_payable"] += $abs_offset;
+        //                        $ret["total_payable"] += $abs_offset;
+        //                    }
+        //
+        //                    //相殺残の計算
+        //    /*				$row["sub_offset"] = $abs_offset;
+        //                    $foo[2]["sum_sub_offset"] += $abs_offset;
+        //                    $ret["total_sub_offset"] += $abs_offset;
+        //     */
+        //                }
+        //            }
+        //            unset($foo,$row);
+        //
+        //            ksort($ret["data"][$formated_date][2]["data"]);
+        //        }
+        //new dbug($ret);exit;
+        return $material_offsets;
+    }
+
+    /**
+     *	外注受入エントリでの相殺データ保存
+     *
+     *	@param $data array 保存に必要なデータ
+     *	array(
+     *		"type" => 1,
+     *		"offset_date" => 受入日,
+     *		"manufacture_result_id" => 受入伝票番号,
+     *		"customer_id" => 依頼先ID,
+     *		"manufacture_id" => 生産依頼番号,
+     *		"quantity" => 受入数,
+     *		);
+     */
+    function saveManufactureResult($data){
+        //生産依頼番号に基づく有償社給を取得
+        loadModel("MaterialSupply");
+        $MS = new MaterialSupply();
+        $c = array(
+            "manufacture_id" => $data["manufacture_id"],
+            "type" => 14
+        );
+        $f = array("id","material_id");
+        $material_supplies = $MS->findAll($c,$f,null,1);
+
+        if(!empty($material_supplies)){
+            $data["material_id"] = $material_supplies[0][$MS->name]["material_id"];
+            //金額計算
+            loadModel("Material");
+            $M = new Material();
+            $c = array("id" => $material_supplies[0][$MS->name]["material_id"]);
+            $price = $M->findVal($c,"price");
+            if($price == ""){
+                $price = 0;
+            }
+            $data["price"] = $price;
+            //計算区分を取得
+            loadModel("Customer");
+            $C = new Customer();
+            $f = array("value_round_type","tax_calc_type","tax_round_type");
+            $customers = $C->findById($data["customer_id"],$f);
+            $data["subtotal"] = $this->calcSubtotal($customers[$C->name]["value_round_type"],$data["quantity"],$price);
+            //税金額計算
+            $data["tax"] = $this->calcTaxByCalcType($customers[$C->name]["tax_calc_type"],$customers[$C->name]["tax_round_type"],$data["subtotal"]);
+            //合計計算
+            $data["total"] = $data["subtotal"] + $data["tax"];
+
+            $this->save($data,false);
+        }
+    }
+
+    function deleteManufactureResult($manufacture_result_id){
+        $id = $this->findVal(array("manufacture_result_id" => $manufacture_result_id));
+        if($id != ""){
+            $this->create();
+            $this->del($id);
+        }
+    }
+
+    function saveMaterialSupply($data){
+        $this->create();
+        $this->save($data);
+    }
+
+    function deleteMaterialSupply($material_supply_id){
+        $id = $this->findVal(array("material_supply_id" => $material_supply_id));
+        if($id != ""){
+            $this->create();
+            $this->del($id);
+        }
+    }
+}
+?>

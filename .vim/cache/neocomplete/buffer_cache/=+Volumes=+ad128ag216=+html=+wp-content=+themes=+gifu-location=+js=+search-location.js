@@ -1,0 +1,1 @@
+{'function', 'AllCheckCategory', 'click', 'cateogry', 'Category', 'parent', 'this', 'prop', 'checked', 'find', 'input', 'true', 'span', 'text', 'else', 'false', 'AllCheckArea', 'parent_area', 'area', 'child_area', 'child', 'closest', 'parent_ul', 'checked_child_area', 'filter', 'return', 'length'}

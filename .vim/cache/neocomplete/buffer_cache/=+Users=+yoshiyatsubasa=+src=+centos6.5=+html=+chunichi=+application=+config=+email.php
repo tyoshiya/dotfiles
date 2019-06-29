@@ -1,0 +1,1 @@
+{'$_SERVER', 'SERVER_NAME', 'chunichi', 'vagrant', '$config', 'email', 'protocol', 'smtp', 'smtp_host', 'mail', 'systems', 'smtp_user', 'smtp_pass', 'qCCoy5Pz', 'smtp_port', 'crlf', 'newline', 'charset', 'chunichi_admin', 'tyoshiya', 'kaihatsuya', 'chunichi_receive_admin', 'chunichi_admin_name', 'else', 'info', 'dalafarm', 'localhost', 'webmaster', '$LGX2', 'edu01'}

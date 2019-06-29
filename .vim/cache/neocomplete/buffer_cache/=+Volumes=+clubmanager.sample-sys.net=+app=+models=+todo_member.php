@@ -1,0 +1,1 @@
+{'class', 'TodoMember', 'extends', 'AppModel', '$name', '$validate_edit', 'array', 'user_id', 'rule1', 'message', 'attention', 'public', 'function', 'getByTodoId', '$todo_id', 'null', '$members', '$sql', 'select', 'from', 'todo_members', 'left', 'outer', 'join', 'users', 'where', 'todo_id', 'order', '$this', 'query', 'implode', 'return'}

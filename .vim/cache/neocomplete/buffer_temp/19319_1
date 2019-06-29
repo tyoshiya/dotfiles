@@ -1,0 +1,942 @@
+<?php use \Ospinto\dBug as dbug; ?>
+<main class="main">
+  <form action="/admin/reports/index" method="POST">
+    <?php $this->load->view("admin/elements/breadcrumb",$this->data); ?>
+    <div class="container-fluid">
+      <div class="animated fadeIn">
+        <div class="col-sm-12 d-print-none">
+          <div class="card">
+            <div class="card-header">
+              <strong><?php echo $this->page_title; ?></strong>
+            </div>
+            <div class="card-body">
+              <div id="Search">
+                <div class="row">
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="name" class="font-weight-bold">グループ名</label>
+                      <div><?php if(!empty($group)) echo $group["group_name"]; ?></div>
+                    </div>
+                  </div>
+                  <div class="col-sm-9">
+                    <div class="form-group">
+                      <label for="name" class="font-weight-bold">駐車場名</label>
+              <?php if(!empty($parks)){ ?>
+                <div>
+                  <?php foreach($parks as $park){ ?>
+                  <span class="mr-2"><?php echo $park["park_name"] ?></span>
+                  <?php } ?>
+                </div>
+              <?php } ?>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">表示区分<?php echo attention('display_type',$validation_rule); ?></label>
+                      <?php echo select("display_type",$this->index_display_type,array("class" => "form-control","blank" => false,"validation" => $validation_rule)); ?>
+                      <?php echo form_error("display_type"); ?>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccmonth" class="font-weight-bold">日付<?php echo attention('date',$validation_rule); ?></label>
+                      <fieldset class="form-group date daily_index">
+                        <div class="input-group">
+                          <span class="input-group-prepend">
+                            <span class="input-group-text">
+                              <i class="fa fa-calendar-alt"></i>
+                            </span>
+                          </span>
+                          <?php echo text("date",array("class" => "form-control datetimerangepicker","autocomplete" => "off","validation" => $validation_rule)); ?>
+                        </div>
+                        <?php echo form_error("date"); ?>
+                      </fieldset>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">車室</label>
+                      <?php echo select("carroom_number[]",$carroom_list,array("class" => "form-control select2","multiple" => "multiple","blank" => false)); ?>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">精算時料金体系</label>
+                      <?php echo select("price_service_class[]",$price_service_class_list,array("class" => "form-control select2","multiple" => "multiple","blank" => false)); ?>
+                    </div>
+                  </div>
+                </div>
+                <!-- /.row-->
+                <div class="row">
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">定期情報<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></label>
+                      <div class="row align-items-center col-px" id="Teiki">
+                        <div class="radio icheck-info mr-2">
+                          <input type="radio" id="teiki34" name="info">
+                          <label for="teiki34">除外</label>
+                        </div>
+                        <div class="radio icheck-info mr-2">
+                          <input type="radio" id="teiki1" name="info">
+                          <label for="teiki1">含む</label>
+                        </div>
+                        <div class="radio icheck-info mr-2">
+                          <input type="radio" id="teiki2" name="info">
+                          <label for="teiki2">のみ</label>
+                        </div>
+                        <button class="btn btn-secondary btn-sm reset" target="#Teiki">リセット</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">領収書<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></label>
+                      <div class="row align-items-center col-px" id="Ryoshu">
+                        <div class="radio icheck-info mr-2">
+                          <input type="radio" id="ryouhu34" name="ryoshu">
+                          <label for="ryouhu34">非表示</label>
+                        </div>
+                        <div class="radio icheck-info mr-2">
+                          <input type="radio" id="ryouhu1" name="ryoshu">
+                          <label for="ryouhu1">表示</label>
+                        </div>
+                        <button class="btn btn-secondary btn-sm reset" target="#Ryoshu">リセット</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-6" id="GraphCol">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">選択</label>
+                      <div class="row align-items-center col-px" id="Order">
+                        <?php foreach ($this->index_selection as $key => $val) { ?>
+                          <div class="checkbox icheck-info mr-2">
+                          <input type="checkbox" id="Selection<?php echo $key ;?>" name="selection[]" class="<?php echo required_class("selection[]",$validation_rule); ?>" value="<?php echo $key; ?>" <?php if(in_array($key,$this->input->post("selection"))) echo "checked"; ?>>
+                          <label for="Selection<?php echo $key; ?>"><?php echo $val; ?></label>
+                          </div>
+                        <?php } ?>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-sm-6" id="GraphCol">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">並び替え<?php echo attention('order',$validation_rule); ?></label>
+                      <div class="row align-items-center col-px" id="Order">
+                        <?php foreach ($this->index_order as $key => $val) { ?>
+                          <div class="radio icheck-info mr-2">
+                          <input type="radio" id="Order<?php echo $key ;?>" name="order" class="<?php echo required_class("order",$validation_rule); ?>" value="<?php echo $key; ?>" <?php if($this->input->post("order") == $key) echo "checked"; ?>>
+                          <label for="Order<?php echo $key; ?>"><?php echo $val; ?></label>
+                          </div>
+                        <?php } ?>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mb-3 mb-xl-0">
+                  <a class="btn btn-primary submit" id="BtnSearch" href="#" data-action="/admin/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>">検　索</a>
+                  <button class="btn btn-secondary reset" href="#" target="#Search">リセット</button>
+                  <a class="btn btn-secondary" href="/admin/common/park_unselect/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>">駐車場を再選択</a>
+                </div>
+              </div>
+              <?php hidden("park_group_id"); ?>
+              <?php hidden("park_id"); ?>
+            </div>
+          </div>
+        </div>
+        <!-- /.col-->
+
+        <?php if(!empty($data)){ ?>
+          <div class="col-lg-12">
+            <div class="card print-border-none">
+              <div class="card-body">
+                <?php if($data["total_count"] !== null){ ?>
+                  <div class="row align-items-end mb-2">
+<?php
+$col_sm_left = 10;
+$col_sm_right = 2;
+if($this->input->post("display_type") == "monthly_index"){
+  $col_sm_left = 8;
+  $col_sm_right = 4;
+}
+?>
+                    <div class="col-sm-<?php echo $col_sm_left; ?> font-weight-bold">
+                      <?php if(!empty($group)){ ?>
+                        <div><?php echo $group["group_name"]; ?>グループ</div>
+                      <?php } ?>
+                      <?php if(!empty($parks)){ ?>
+                        <div>
+                          <?php foreach($parks as $park){ ?>
+                            <span class="mr-2"><?php echo $park["park_name"] ?></span>
+                          <?php } ?>
+                        </div>
+                      <?php } ?>
+                      <div>
+<?php
+if($this->input->post("display_type") != "yearly_index"){
+  echo number_format($data["total_count"])."台&nbsp";
+}
+echo $this->input->post("date_".$this->input->post("display_type"));
+if($this->input->post("display_type") == "yearly_index"){
+  echo "から".$past_year[$this->input->post("past_year")];
+}
+?>
+                      </div>
+                    </div>
+                    <div class="col-sm-<?php echo $col_sm_right; ?> row justify-content-end pr-0 d-print-none">
+                      <div class="form-group mb-0">
+                        <?php if($this->input->post("display_type") == "monthly_index"){ ?>
+                        <a class="btn btn-light ml-2 change-calendar-month" href="#" data-month="<?php echo date("Y/m",strtotime($this->input->post("date_monthly_index")."/01 -1 month")); ?>"><i class="fas fa-angle-double-left mr-2"></i>前月</a>
+                          <a class="btn btn-light ml-2 mr-4 change-calendar-month" href="#" data-month="<?php echo date("Y/m",strtotime($this->input->post("date_monthly_index")."/01 +1 month")); ?>">次月<i class="fas fa-angle-double-right ml-2"></i></a>
+                        <?php } ?>
+                        <a class="btn btn-light print ml-2" href="#">印刷</a>
+                        <a class="btn btn-light submit ml-2" href="#" data-action="/admin/reports/index/csv" data-target="_blank">CSV出力</a>
+                      </div>
+                    </div>
+                  </div>
+                  <?php if($this->input->post("display_type") == "daily_index"){ ?>
+                    <table class="table table-sm table-responsive-sm">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-center" style="width:4em;">時間</th>
+                          <th class="text-right">売上金額</th>
+                          <th class="text-right">出庫件数</th>
+                          <th class="text-right">受領金額<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <th class="text-right">別納金額<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                      <?php foreach ($data["data"] as $hour => $dat) { ?>
+                        <tr>
+                          <th class="text-center bg-thead-light thead-light-border-right"><?php echo $hour; ?>時</th>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_count"],null,null,null,null,"件"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                        </tr>
+                      <?php } ?>
+                      <tr>
+                        <th class="text-center bg-thead-light thead-light-border-right">計</th>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_count"],null,null,null,null,"件"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                      </tr>
+                      </tbody>
+                    </table>
+                    <canvas id="Graph" style="width:100%;height:500px;" class="mt-2"></canvas >
+                  <?php } ?>
+                  <?php if($this->input->post("display_type") == "weekly_index"){ ?>
+                    <table class="table table-sm table-responsive-sm">
+                      <thead class="thead-light">
+                        <tr>
+                          <th>&nbsp;</th>
+                          <?php foreach ($data["data"] as $key => $dat) { ?>
+                            <?php 
+                            $class = array();
+                            $class[] = "text-right"; 
+                            if($key == 6){
+                              $class[] = "color-blue"; 
+                            }
+                            if($key == 0){
+                              $class[] = "color-red"; 
+                            }
+                            ?>
+                              <th class="<?php echo implode(" ",$class); ?>"><?php echo $w[$key]; ?></th>
+                          <?php } ?>
+                          <th class="text-right">計</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <th class="text-center bg-thead-light thead-light-border-right">売上金額</th>
+                          <?php foreach ($data["data"] as $key => $dat) { ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                          <?php } ?>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                        </tr>
+                        <tr>
+                          <th class="text-center bg-thead-light thead-light-border-right">出庫件数</th>
+                          <?php foreach ($data["data"] as $key => $dat) { ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["sum_count"],null,null,null,null,"件"); ?></td>
+                          <?php } ?>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_count"],null,null,null,null,"件"); ?></td>
+                        </tr>
+                        <tr>
+                          <th class="text-center bg-thead-light thead-light-border-right">受領金額<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <?php foreach ($data["data"] as $key => $dat) { ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["sum_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          <?php } ?>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_receipt_amount"],null,null,null,null,"円"); ?></td>
+                        </tr>
+                        <tr>
+                          <th class="text-center bg-thead-light thead-light-border-right">別納金額<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <?php foreach ($data["data"] as $key => $dat) { ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["sum_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          <?php } ?>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                        </tr>
+                        <tr>
+                          <th class="text-center bg-thead-light thead-light-border-right">平均金額</th>
+                          <?php foreach ($data["data"] as $key => $dat) { ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["average_parking_charge"],null,null,null,null,"円"); ?></td>
+                          <?php } ?>
+                          <td>&nbsp;</td>
+                        </tr>
+                        <tr>
+                          <th class="text-center bg-thead-light thead-light-border-right">平均件数</th>
+                          <?php foreach ($data["data"] as $key => $dat) { ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["average_count"],null,null,null,null,"件"); ?></td>
+                          <?php } ?>
+                          <td>&nbsp;</td>
+                        </tr>
+                        <tr>
+                          <th class="text-center bg-thead-light thead-light-border-right">期間</th>
+                          <?php foreach ($data["data"] as $key => $dat) { ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["day_count"],null,null,null,null,"回"); ?></td>
+                          <?php } ?>
+                          <td>&nbsp;</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <canvas id="Graph" style="width:100%;height:500px;" class="mt-2"></canvas >
+                  <?php } ?>
+                  <?php if($this->input->post("display_type") == "monthly_index"){ ?>
+                    <span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">「入」「稼」クリック時のモーダルは分析レポートの入出庫件数一覧と同時に実装予定</span> 
+                    <table class="table table-sm table-responsive-sm table-bordered calendar">
+                      <thead class="thead-light">
+                        <tr>
+                          <th>&nbsp;</th>
+                          <?php foreach($data["day_total"] as $key => $day_count){ ?>
+                            <?php 
+                            $class = array();
+                            $class[] = "text-center"; 
+                            if($key == 6){
+                              $class[] = "color-blue"; 
+                            }
+                            if($key == 0){
+                              $class[] = "color-red"; 
+                            }
+                            ?>
+                              <th class="<?php echo implode(" ",$class); ?>"><?php echo $w[$key]; ?></th>
+                          <?php } ?>
+                          <th class="text-center">計</th>
+                        </tr>
+                      </thead>
+                      <?php foreach($data["data"] as $week_num => $week){ ?>
+                        <thead class="thead-light">
+                          <tr>
+                            <th>&nbsp;</th>
+                            <?php foreach($week["data"] as $key => $cell){ ?>
+                              <th class="text-center">
+                                <?php if($cell["day"] != ""){ ?>
+                                  <?php 
+                                  $class = array();
+                                  if($key == 5){
+                                    $class[] = "color-blue"; 
+                                  }
+                                  if($key == 6){
+                                    $class[] = "color-red"; 
+                                  }
+                                  ?>
+                                    <div class="<?php echo implode(" ",$class); ?>"><?php echo $cell["day"]; ?></div>
+                                  <small>(<a href="#">入</a>&nbsp;&nbsp;<a href="#">稼</a>)</small>
+                                <?php } ?>
+                              </th>
+                            <?php } ?>
+                            <th>&nbsp;</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <th class="text-center bg-thead-light">売上金額</th>
+                            <?php foreach($week["data"] as $key => $cell){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($cell["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($week["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light">出庫件数</th>
+                            <?php foreach($week["data"] as $key => $cell){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($cell["sum_count"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($week["total_count"],null,null,null,null,"件"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light">受領金額<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                            <?php foreach($week["data"] as $key => $cell){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($cell["sum_receipt_amount"],null,null,null,null,"円"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($week["total_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light">別納金額<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                            <?php foreach($week["data"] as $key => $cell){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($cell["sum_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($week["total_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                        </tbody>
+                      <?php } ?>
+                      <tbody>
+                        <tr>
+                          <th class="text-center bg-thead-light">売上総計</th>
+                          <?php foreach($data["day_total"] as $total){ ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($total,null,null,null,null,"円"); ?></td>
+                          <?php } ?>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <table class="table table-sm table-responsive-sm mt-2 table-bordered">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-right">売上計</th>
+                          <th class="text-right">件数計</th>
+                          <th class="text-right">受領計<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <th class="text-right">別納計<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <th class="text-right">差<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">計算方法不明</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                          <tr>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["total_count"],null,null,null,null,"件"); ?></td>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["total_receipt_amount"],null,null,null,null,"円"); ?></td>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["total_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["total_sub"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                        <tr>
+                      </tbody>
+                    </table>
+                    <table class="table table-sm table-responsive-sm mt-2 table-bordered">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-right" style="width:20%;">前月繰越現金<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <th class="text-right" style="width:20%;">当月入金<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <th class="text-right" style="width:20%;">翌月繰越現金<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <th class="text-right" style="width:20%;">件数単価<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                          <th class="text-right" style="width:20%;">回転数(実価)<span class="badge bg-gray-600 color-white position-relative ml-1" style="top:-1px">DB不明</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["prev_forward"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["receivable"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["forward"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["count_price"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["rotation"]); ?><?php echo number_format_if_not_null($data["price_rotation"],null,null,null,"(",")"); ?></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <table class="table table-sm table-responsive-sm mt-2 table-bordered">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-right" style="width:20%;">売上上旬計(1〜10日)</th>
+                          <th class="text-right" style="width:20%;">売上中旬計(11〜20日)</th>
+                          <th class="text-right" style="width:20%;">売上下旬計(21〜末)</th>
+                          <th class="text-right" style="width:20%;">上旬+中旬計</th>
+                          <th class="text-right" style="width:20%;">売上計</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["biginning_parking_charge"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["middle_parking_charge"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["end_parking_charge"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["biginning_middle_parking_charge"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div class="print-page-break-before">
+                      <canvas id="Graph" class="print-page-break-before" style="width:100%;height:500px;" class="mt-2"></canvas>
+                    </div>
+                  <?php } ?>
+
+                  <?php if($this->input->post("display_type") == "yearly_index"){ ?>
+                    <?php $first_year = key($data["data"]); ?>
+                    <table class="table table-sm table-responsive-sm">
+                      <thead class="thead-light">
+                        <tr>
+                          <th>&nbsp;</th>
+                          <?php foreach($data["data"][$first_year]["data"] as $year_month => $dat){ ?>
+                            <th class="text-right"><?php echo date("n月",strtotime("{$year_month}-01")); ?></th>
+                          <?php } ?>
+                          <th class="text-right">計</th>
+                        </tr>
+                      </thead>
+                      <?php foreach($data["data"] as $year => $year_data){ ?>
+                        <tbody>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right"><?php echo $year; ?>年度 売上金額</th>
+                            <?php foreach($year_data["data"] as $year_month => $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($year_data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right">前年比</th>
+                            <?php foreach($year_data["data"] as $year_month => $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_parking_charge_comparison"],1,null,null,null,"%"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($year_data["total_parking_charge_comparison"],1,null,null,null,"%"); ?></td>
+                          </tr>
+                        </tbody>
+                      <?php } ?>
+                      <thead class="thead-light">
+                        <tr>
+                          <th>&nbsp;</th>
+                          <?php foreach($data["data"][$first_year]["data"] as $year_month => $dat){ ?>
+                            <th class="text-right"><?php echo date("n月",strtotime("{$year_month}-01")); ?></th>
+                          <?php } ?>
+                          <th class="text-right">計</th>
+                        </tr>
+                      </thead>
+                      <?php foreach($data["data"] as $year => $year_data){ ?>
+                        <tbody>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right"><?php echo $year; ?>年度 出庫件数</th>
+                            <?php foreach($year_data["data"] as $year_month => $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_count"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($year_data["total_count"],null,null,null,null,"件"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right">前年比</th>
+                            <?php foreach($year_data["data"] as $year_month => $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_count_comparison"],1,null,null,null,"%"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($year_data["total_count_comparison"],1,null,null,null,"%"); ?></td>
+                          </tr>
+                        </tbody>
+                      <?php } ?>
+                      <thead class="thead-light">
+                        <tr>
+                          <th>&nbsp;</th>
+                          <?php foreach($data["data"][$first_year]["data"] as $year_month => $dat){ ?>
+                            <th class="text-right"><?php echo date("n月",strtotime("{$year_month}-01")); ?></th>
+                          <?php } ?>
+                          <th class="text-right">計</th>
+                        </tr>
+                      </thead>
+                      <?php foreach($data["data"] as $year => $year_data){ ?>
+                        <tbody>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right"><?php echo $year; ?>年度 受領金額</th>
+                            <?php foreach($year_data["data"] as $year_month => $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_receipt_amount"],null,null,null,null,"円"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($year_data["total_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right">前年比</th>
+                            <?php foreach($year_data["data"] as $year_month => $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_receipt_amount_comparison"],1,null,null,null,"%"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($year_data["total_receipt_amount_comparison"],1,null,null,null,"%"); ?></td>
+                          </tr>
+                        </tbody>
+                      <?php } ?>
+                      <thead class="thead-light">
+                        <tr>
+                          <th>&nbsp;</th>
+                          <?php foreach($data["data"][$first_year]["data"] as $year_month => $dat){ ?>
+                            <th class="text-right"><?php echo date("n月",strtotime("{$year_month}-01")); ?></th>
+                          <?php } ?>
+                          <th class="text-right">計</th>
+                        </tr>
+                      </thead>
+                      <?php foreach($data["data"] as $year => $year_data){ ?>
+                        <tbody>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right"><?php echo $year; ?>年度 受領金額</th>
+                            <?php foreach($year_data["data"] as $year_month => $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($year_data["total_other_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right">前年比</th>
+                            <?php foreach($year_data["data"] as $year_month => $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_other_receipt_amount_comparison"],1,null,null,null,"%"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($year_data["total_other_receipt_amount_comparison"],1,null,null,null,"%"); ?></td>
+                          </tr>
+                        </tbody>
+                      <?php } ?>
+                    </table>
+                    <div class="print-page-break-before">
+                      <canvas id="Graph" class="print-page-break-before" style="width:100%;height:500px;" class="mt-2"></canvas>
+                    </div>
+                  <?php } ?>
+                <?php }else{ ?>
+                  <?php $this->load->view("admin/elements/empty",$this->data); ?>
+                <?php } ?>
+              </div>
+            </div>
+          </div>
+        <?php } ?>
+          <!-- /.col-->
+      </div>
+    </div>
+  </form>
+</main>
+
+<script>
+$(function(){
+  //daterangepicker
+  moment.locale('ja', {
+      week: {
+          dow: 1
+      }
+  });
+  var options = {
+    opens: 'left',
+    showDropdowns: false,
+    ranges: {
+      '今日': [moment(), moment()],
+      '昨日': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+      '直近7日': [moment().subtract(6, 'days'), moment()],
+      '直近30日': [moment().subtract(29, 'days'), moment()],
+      '今月': [moment().startOf('month'), moment().endOf('month')],
+      '前月': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+    },
+    locale: {
+      applyLabel: '反映',
+      cancelLabel: '取消',
+      fromLabel: '開始日',
+      toLabel: '終了日',
+      weekLabel: 'W',
+      customRangeLabel: '自分で指定',
+      daysOfWeek: moment.weekdaysMin(),
+      monthNames: moment.monthsShort(),
+      firstDay: moment.localeData()._week.dow
+    },
+  }
+  <?php list($start_date,$end_date) = explode(" - ",$this->input->post("date")); ?>
+  var format = 'YYYY/MM/DD HH:mm';
+  options.format = format;
+  options.locale.format = format; 
+  options.startdate = moment().format('[<?php echo $start_date; ?>]');
+  options.enddate = moment().format('[<?php echo $end_date; ?>]');
+  options.timePicker = true;
+  options.timePicker24Hour = true;
+  $('.datetimerangepicker').daterangepicker(options);
+
+  //選択がクリックされたときのイベント
+  $("#selection").on("click",function(e){
+    if($this)
+  
+  });
+  //=========================================================
+  //
+  // グラフ
+  //
+  //=========================================================
+<?php if($this->input->post("display_type") == "daily_index"){ ?>
+  <?php if(!empty($data)){ ?>
+    <?php if($data["total_count"] !== null){ ?>
+      var ctx = document.getElementById('Graph').getContext('2d');
+      var labels = [];
+      var linedata = [];
+      var bardata = [];
+      <?php foreach($data["data"] as $hour => $dat){ ?>
+        labels.push('<?php echo $hour; ?>時'); 
+        linedata.push(<?php echo $dat["sum_count"] !== null ? $dat["sum_count"] : 0; ?>); 
+        bardata.push(<?php echo $dat["sum_parking_charge"] !== null ? $dat["sum_parking_charge"] : 0; ?>); 
+      <?php } ?>
+      var chartData = {
+        labels: labels,
+        datasets: [
+          {
+            type: 'line',
+              label: '出庫件数',
+              borderColor: _LINECHARTCOLORS.redpurple,
+              borderWidth: 2,
+              fill: false,
+              data: linedata,
+              yAxisID: "y-axis-line",
+          }, {
+          type: 'bar',
+            label: '売上金額',
+            backgroundColor: _BARCHARTCOLORS.green,
+            data: bardata,
+            borderColor: 'white',
+            borderWidth: 2,
+            yAxisID: "y-axis-bar",
+          }
+        ]
+      };
+
+      var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: true
+          },
+          scales: {
+              yAxes: [{
+                  id: "y-axis-bar",
+                  type: "linear", 
+                  position: "left",
+              }, {
+                  id: "y-axis-line",
+                  type: "linear", 
+                  position: "right",
+                  gridLines: {
+                    drawOnChartArea: false, 
+                  },
+              }],
+          }
+        }
+      });
+    <?php } ?>
+  <?php } ?>
+<?php } ?>
+
+<?php if($this->input->post("display_type") == "weekly_index"){ ?>
+  <?php if(!empty($data)){ ?>
+    <?php if($data["total_count"] !== null){ ?>
+      var ctx = document.getElementById('Graph').getContext('2d');
+      var labels = [];
+      var linedata = [];
+      var bardata = [];
+      <?php foreach($data["data"] as $key => $dat){ ?>
+        labels.push('<?php echo $w[$key]; ?>'); 
+        <?php if($this->input->post("graph") == "all"){ ?>
+          linedata.push(<?php echo $dat["sum_count"] !== null ? $dat["sum_count"] : 0; ?>); 
+          bardata.push(<?php echo $dat["sum_parking_charge"] !== null ? $dat["sum_parking_charge"] : 0; ?>); 
+        <?php }else{ ?>
+          linedata.push(<?php echo $dat["average_count"] !== null ? $dat["average_count"] : 0; ?>); 
+          bardata.push(<?php echo $dat["average_parking_charge"] !== null ? $dat["average_parking_charge"] : 0; ?>); 
+        <?php } ?>
+      <?php } ?>
+      var chartData = {
+        labels: labels,
+        datasets: [
+          {
+            type: 'line',
+              label: '出庫件数',
+              borderColor: _LINECHARTCOLORS.redpurple,
+              borderWidth: 2,
+              fill: false,
+              data: linedata,
+              yAxisID: "y-axis-line",
+          }, {
+          type: 'bar',
+            label: '売上金額',
+            backgroundColor: _BARCHARTCOLORS.green,
+            data: bardata,
+            borderColor: 'white',
+            borderWidth: 2,
+            yAxisID: "y-axis-bar",
+          }
+        ]
+      };
+
+      var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: true
+          },
+          scales: {
+              yAxes: [{
+                  id: "y-axis-bar",
+                  type: "linear", 
+                  position: "left",
+              }, {
+                  id: "y-axis-line",
+                  type: "linear", 
+                  position: "right",
+                  gridLines: {
+                    drawOnChartArea: false, 
+                  },
+              }],
+          }
+        }
+      });
+    <?php } ?>
+  <?php } ?>
+<?php } ?>
+<?php if($this->input->post("display_type") == "monthly_index"){ ?>
+  <?php if(!empty($data)){ ?>
+    <?php if($data["total_count"] !== null){ ?>
+      //カレンダーの月変更
+      $(".change-calendar-month").on("click",function(e){
+        e.preventDefault(); 
+        var date = $(this).attr("data-month");
+        $("#display_type").val("monthly_index");
+        $("#date_monthly_index").val(date);
+        $("#BtnSearch").click();
+      });
+      
+      var ctx = document.getElementById('Graph').getContext('2d');
+      var labels = [];
+      var linedata = [];
+      var bardata = [];
+      <?php foreach($data["data"] as $week_num => $week){ ?>
+        <?php foreach($week["data"] as $key => $cell){ ?>
+          <?php if($cell["day"] != ""){ ?>
+            <?php $tmp_key = $key + 1 == 7 ? 0 : $key + 1; ?>
+            labels.push('<?php echo $cell["day"]; ?>(<?php echo $w[$tmp_key]; ?>)'); 
+            linedata.push(<?php echo $cell["sum_count"] !== null ? $cell["sum_count"] : 0; ?>); 
+            bardata.push(<?php echo $cell["sum_parking_charge"] !== null ? $cell["sum_parking_charge"] : 0; ?>); 
+          <?php } ?>
+        <?php } ?>
+      <?php } ?>
+      var chartData = {
+        labels: labels,
+        datasets: [
+          {
+            type: 'line',
+              label: '出庫件数',
+              borderColor: _LINECHARTCOLORS.redpurple,
+              borderWidth: 2,
+              fill: false,
+              data: linedata,
+              yAxisID: "y-axis-line",
+          }, {
+          type: 'bar',
+            label: '売上金額',
+            backgroundColor: _BARCHARTCOLORS.green,
+            data: bardata,
+            borderColor: 'white',
+            borderWidth: 2,
+            yAxisID: "y-axis-bar",
+          }
+        ]
+      };
+
+      var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: true
+          },
+          scales: {
+              yAxes: [{
+                  id: "y-axis-bar",
+                  type: "linear", 
+                  position: "left",
+              }, {
+                  id: "y-axis-line",
+                  type: "linear", 
+                  position: "right",
+                  gridLines: {
+                    drawOnChartArea: false, 
+                  },
+              }],
+          }
+        }
+      });
+    <?php } ?>
+  <?php } ?>
+<?php } ?>
+<?php if($this->input->post("display_type") == "yearly_index"){ ?>
+  <?php if(!empty($data)){ ?>
+    <?php if($data["total_count"] !== null){ ?>
+      var ctx = document.getElementById('Graph').getContext('2d');
+      var labels = [];
+      <?php foreach ($data["data"][$first_year]["data"] as $year_month => $dat) { ?>
+        labels.push('<?php echo date("n月",strtotime($year_month."-01")); ?>'); 
+      <?php } ?>
+      <?php foreach ($data["data"] as $year => $year_data) { ?>
+        var linedata<?php echo $year; ?> = [];
+        var bardata<?php echo $year; ?> = [];
+        <?php foreach ($year_data["data"] as $year_month => $dat) { ?>
+          linedata<?php echo $year; ?>.push(<?php echo $dat["sum_count"] !== null ? $dat["sum_count"] : 0; ?>); 
+          bardata<?php echo $year; ?>.push(<?php echo $dat["sum_parking_charge"] !== null ? $dat["sum_parking_charge"] : 0; ?>); 
+        <?php } ?>
+      <?php } ?>
+      var bar_colors = [];
+      $.each(_BARCHARTCOLORS,function(color_name,hex){
+        bar_colors.push(hex); 
+      });
+      var line_colors = [];
+      $.each(_LINECHARTCOLORS,function(color_name,hex){
+        line_colors.push(hex); 
+      });
+      var chartData = {
+        labels: labels,
+        datasets: [
+          <?php $i = 0; ?>
+          <?php foreach ($data["data"] as $year => $year_data) { ?>
+            {
+              type: 'line',
+              label: '<?php echo $year; ?>年度 出庫件数',
+              borderColor: line_colors[<?php echo $i; ?>],
+              borderWidth: 2,
+              fill: false,
+              data: linedata<?php echo $year; ?>,
+              yAxisID: "y-axis-line",
+            },
+            {
+              type: 'bar',
+              label: '<?php echo $year; ?>年度 売上金額',
+              backgroundColor: bar_colors[<?php echo $i; ?>],
+              data: bardata<?php echo $year; ?>,
+              borderColor: 'white',
+              borderWidth: 2,
+              yAxisID: "y-axis-bar",
+            },
+            <?php $i++; ?>
+          <?php } ?>
+        ]
+      };
+
+      var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: true
+          },
+          scales: {
+            yAxes: [{
+              id: "y-axis-bar",
+              type: "linear", 
+              position: "left",
+            }, {
+              id: "y-axis-line",
+              type: "linear", 
+              position: "right",
+              gridLines: {
+                drawOnChartArea: false, 
+              },
+            }],
+          }
+        }
+      });
+    <?php } ?>
+  <?php } ?>
+<?php } ?>
+});
+</script>
+

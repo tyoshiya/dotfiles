@@ -1,0 +1,659 @@
+(function( $ ){
+
+    var defaults = {}
+
+    var window_height = $(window).innerHeight() * 0.8;
+
+    var methods = {
+        init : function( options ) {
+            var settings = $.extend(defaults, options);
+
+            methods.setContainerHeight();
+            methods.onDefaultEventHundler(settings);
+            methods.getBody();
+            methods.setClock();
+            methods.interval();
+
+            return;
+        },
+
+
+        interval : function() {
+            var userAgent = window.navigator.userAgent.toLowerCase();
+            if (userAgent.indexOf('trident/7') != -1) {
+//                setInterval(function(){
+//                    methods.setClock();
+//                },60000);
+            }else{
+                setInterval(function(){
+                    //  $(document).off();
+                    methods.getBody();
+                    methods.setClock();
+                },60000);
+            }
+
+            return this;
+        },
+
+        onDefaultEventHundler : function(settings) {
+            //卓モーダルのイベント
+            $('#remoteModal').on('hide.bs.modal', function (e) {
+                $(this).removeData();
+                methods.getBody();
+            });
+            $(document).on('click',"#addRow",function() {
+                var mode = $(this).data("mode");
+                var desk_name = $(this).data("desk-name");
+
+                var remote_query = "?e=";
+                var simei_cast_id = [];
+                $(".simei-cast-id").filter(function(){
+                    return $(this).val() != "";
+                }).each(function(){
+                    simei_cast_id.push($(this).val());
+                });
+                if(!$.isEmptyObject(simei_cast_id)){
+                    remote_query += "str-simei-cast-id="+simei_cast_id.join();
+                }
+
+                var counter = $(".Row").length;
+
+                var html = tagGen.addRow(mode,counter,remote_query,desk_name);
+                var lastRow = $('#nameTable tbody > tr:last').after(html)
+
+                func.setWaitTime(counter);
+            });
+
+            //指名解除
+            var arg = {"simei_item_id":settings.simei_item_id};
+            $(document).on('click',".release-simei",arg,function(e) {
+                var tr = $(this).closest("tr");
+                var row = $(this).data("row");
+                tr.find("#shimei_name_"+row).text("");
+                tr.find("#select_simei_"+row).val("");
+                tr.find("#select_favorite_flg_"+row).val("");
+
+                tr.find("#OrderList"+row+" li").each(function(){
+                    var item_id = $(this).find(".item_id").val();
+                    if(item_id == e.data.simei_item_id){
+                        $(this).remove();
+                    }
+                });
+            });
+
+            //指名解除編集時
+            var arg = {"simei_item_id":settings.simei_item_id};
+            $(document).on('click',".release-simei-edit",arg,function(e) {
+                var tr = $(this).closest("tr");
+                var row = $(this).data("row");
+                var taku_detail_id = $(this).data("taku-detail-id");
+                tr.find("#shimei_name_"+row).text("");
+                tr.find("#select_simei_"+row).val("");
+                tr.find("#select_favorite_flg_"+row).val("");
+
+                //データ更新
+                ajax.save("/taku_details/release_simei/"+taku_detail_id);
+            });
+
+            //顧客モーダルのイベント
+            $('#clientModal').on('hide.bs.modal', function (e) {
+                $(this).removeData();
+            });
+            $(document).on("click","#clientModal .select",function(e){
+                var row = $(this).data("row");
+                var client_name = $(this).data("name");
+                var client_id = $(this).data("id");
+                var url = "/customer_metas/find_by_id/"+client_id;
+                var params = {};
+                var customer_meta = ajax.get(url,"json",params);
+
+                var html = tagGen.selectClient(row,client_name,customer_meta);
+
+                $("#cus"+row).html(html);
+                $("#select_cus_"+row).val(client_id);
+
+                $("#taku-detail"+row).find(".cast-modal").each(function(){
+                    var data_remote = $(this).data("remote");
+                    var index = data_remote.indexOf("?");
+                    if(index == -1){
+                        data_remote += "?customer_id="+client_id;
+                    }else{
+                        var tmp_data_remote = data_remote.split("?");
+                        data_remote = tmp_data_remote[0]+"?customer_id="+client_id;
+                    }
+                    $(this).removeData("remote");
+                    $(this).attr("data-remote",data_remote);
+                });
+
+                var detail_id = $("#detail_id_"+row).val();
+
+                if(detail_id != ""){
+                    var params = {"id":detail_id,"customer_id":client_id};
+                    ajax.save("/taku_details/ajax_save",params);
+                }
+            });
+            $('#customerMetaModal').on('hide.bs.modal', function (e) {
+                $(this).removeData();
+            });
+
+            //キャストモーダルのイベント
+            $('#castModal').on('hide.bs.modal', function (e) {
+                //  $(document).off();
+                $(this).removeData();
+            });
+
+            //オーダーモーダルのイベント
+            $('#orderModal').on('hide.bs.modal', function (e) {
+                $(this).removeData();
+            });
+
+            //卓登録のオーダー追加
+            $(document).on("click","#orderModal .select",function(e){
+                var row = $(this).data("row");
+                var item_name = $(this).data("name");
+                var item_id = $(this).data("id");
+                var mode = $(this).data("mode");
+                var split = $(this).data("split");
+                var quantity = $(this).parent().prev().find(".quantity").val();
+
+                if(split == "0"){
+                    var cast_id = $("#select_simei_"+row).val();
+                    var cast_name = $("#shimei_name_"+row).text();
+                }else{
+                    var cast_id = [];
+                    var cast_name = [];
+                    $(".Row").each(function(key,obj){
+                        if($(this).find("#select_simei_"+key).val() != ""){
+                            if($("#select_favorite_flg_"+key).val() == 1){//本指名のみ
+                                cast_id.push($(this).find("#select_simei_"+key).val());
+                                cast_name.push($(this).find("#shimei_name_"+key).text());
+                            }
+                        }
+                    });
+                    var cast_id = cast_id.join(",");
+                    var cast_name = cast_name.join(",");
+                }
+
+                var html = tagGen.selectOrder(row,item_id,item_name,quantity,cast_id,cast_name);
+                $("#OrderList"+row).append(html);
+
+                $('#orderModal').modal('hide');
+            });
+
+            //卓編集時のオーダー追加
+            $(document).on("click","#orderModal .select-order-edit",function(e){
+                var taku_detail_id = $(this).data("taku-detail-id");
+                var item_name = $(this).data("name");
+                var item_id = $(this).data("id");
+                var split = $(this).data("split");
+                var row = $(this).data("row");
+                var quantity = $(this).parent().prev().find(".quantity").val();
+
+                if(split == "0"){
+                    var cast_id = $("#select_simei_"+row).val();
+                }else{
+                    var cast_id = [];
+                    $(".Row").each(function(key,obj){
+                        if($(this).find("#select_simei_"+key).val() != ""){
+                            if($("#select_favorite_flg_"+key).val() == 1){//本指名のみ
+                                cast_id.push($(this).find("#select_simei_"+key).val());
+                            }
+                        }
+                    });
+                    var cast_id = cast_id.join(",");
+                }
+
+                var params = {"taku_detail_id":taku_detail_id,"item_id":item_id,"quantity":quantity,"cast_id":cast_id};
+                ajax.save("/taku_detail_items/save_add",params);
+                $('#orderModal').modal('hide');
+            });
+
+            //卓編集時のオーダー削除
+            $(document).on("click","#orderModal .remove-order",function(e){
+                var taku_detail_item_id = $(this).data("id");
+                var params = {"id":taku_detail_item_id};
+
+                //消した商品が指名系だった場合taku_details.customer_noが返ってくる
+                var customer_no = ajax.responseText("/taku_detail_items/del",params);
+
+                if(customer_no != ""){
+                    //custoner_noがあれば指名系商品が削除されたということなので指名のい表示を消す
+                    $("#shimei_name_"+customer_no).text("");
+                    $("#select_simei_"+customer_no).val("");
+                    $("#select_favorite_flg_"+customer_no).val("");
+                }
+                $('#orderModal').modal('hide');
+            });
+
+            //精算モーダル
+            $('#paymentModal').on('hide.bs.modal', function (e) {
+                $(this).removeData();
+            });
+            $('#paymentModal').on('shown.bs.modal', function (e) {
+                $(this).find(".modal-body").css("height",window_height+"px").focus();
+            });
+            //
+            //会計伝票
+            $(document).on("click","#paymentModal .kaikei",function(e){
+                $("#receipt").focus();
+                var query = $("#PaymentForm").serialize();
+                var url = "/prints/kaikei";
+                var str = ajax.responseText(url,query);
+                window.external.printData(str);
+            });
+
+            //明細書
+            $(document).on("click","#paymentModal .meisai",function(e){
+                $(this).attr("disabled","disabled");
+/                window.external.openDrawer();
+
+                var query = $("#PaymentForm").serialize();
+                var url = "/prints/meisai";
+                var str = ajax.responseText(url,query);
+                window.external.printData(str);
+
+                var params = {
+                };
+$($("#PaymentForm").serializeArray()).each(function(i, v) {
+	params[v.name] = v.value;
+});
+                var id = $("#id").val();
+                var url = "/takus/save_payment/"+id;
+                var t = ajax.responseText(url,query);
+//                var t = ajax.save(url,params);
+                location.href = "/users/top";
+            });
+
+            //レジ開け
+            $(".open-drawer").on("click",function(e){
+                window.external.openDrawer();
+            });
+
+            return this;
+        },
+
+        getBody : function() {
+            var posting = $.post("/users/top/ajax");
+
+            //リクエストが成功したときの処理
+            posting.done(
+                function(data){
+                    //モーダル閉じる
+                    $("#Taku").html(data);
+                }
+            );
+
+            //リクエストが失敗したときの処理
+            posting.fail(function(){"error:Err0001"});
+
+            //情報ウィンドウ表示
+            var posting = $.post("/users/ajax_get_info");
+            //リクエストが成功したときの処理
+            posting.done(
+                function(data){
+                    //内容
+                    $("#info").html(data);
+                }
+            );
+            //リクエストが失敗したときの処理
+            posting.fail(function(){"error:Err0001"});
+            return this;
+        },
+
+        setClock : function() {
+            //時計を書き換え
+            var d = new Date();
+            var hour   = d.getHours();
+            var minute = d.getMinutes();
+            if (hour < 10) {hour = "0" + hour;}
+            if (minute < 10) {minute = "0" + minute;}
+            $("#clock").text(hour+":"+minute);
+            return this;
+        },
+
+        setContainerHeight : function() {
+            var h = $(window).height();
+            var a = h - 135;
+            $(".container").css("max-height",a);
+            return this;
+        },
+
+        //レジ関係
+        register : function( options ) {
+            var settings = $.extend(defaults, options);
+
+            //レジ金点検クリック時
+            $("#RegisterInspection").on("click",function(e){
+                var query = $("form").serialize();
+                var url = "/prints/register_inspection?"+query;
+                var params = {};
+                var str = ajax.responseText(url,params);
+                window.external.printData(str);
+                location.href = "/registers/inspection?message=save";
+            });
+
+            //金額自動計算
+            $(".calc").on("change",function(){
+                var total = 0;
+                var amount_in_register = $("#amount_in_register").val();
+                $(".calc").each(function(){
+                    if($(this).val() > 0){
+                        var subtotal = Number($(this).val()) * Number($(this).data('val'));
+                        total += subtotal;
+                    }
+                });
+
+                if(total > 0){
+                    $("#total").val(total);
+                }
+                if(total != amount_in_register){
+                    $("#caution").val("合計がレジ内残存金額と一致しません");
+                }else{
+                    $("#caution").val("");
+                }
+
+                sub = amount_in_register - total;
+
+                $("#sub").val(sub);
+            });
+
+            $(".calc-sub").on("change",function(){
+                var total = $("#total").val();
+                var amount_in_register = $("#amount_in_register").val();
+                var sub = "";
+
+                if(Number(total) >= 0 && Number(amount_in_register) >= 0){
+                    sub = amount_in_register - total;
+                }
+
+                $("#sub").val(sub);
+
+            });
+
+            //点検クリック時
+            $("#Inspection").on("click",function(e){
+                var query = $("form").serialize();
+                var url = "/registers/save_inspection?"+query;
+                var params = {};
+                var memo = ajax.get(url,"text",params);
+                query += "&memo="+memo;
+                var url = "/prints/inspection?"+query;
+                var str = ajax.responseText(url,params);
+                window.external.printData(str);
+                location.href = "/registers/inspection?message=save";
+            });
+
+            //担当者別ポイント一覧
+            $("#PointIndex").on("click",function(e){
+                var query = $("form").serialize();
+                var url = "/point_histories/point_index";
+                var res = ajax.get(url,"json",query);
+                var date = $("#date").val();
+                date = date.replace(/\//g,"-");
+                var url = "/prints/point_index?date="+date;
+                var str = ajax.responseText(url,res);
+                window.external.printData(str);
+            });
+
+            return;
+        },
+    };
+
+    var func = {
+        checkCast : function(cast_id,mode){
+            var url = "/taku_details/ajax_check_cast/"+cast_id;
+            if(typeof mode != "undefined"){
+                url+= "/"+mode;
+            }
+            return ajax.get(url,"text",{});
+        },
+        toggleDouhan : function(simei_cast_id,row){
+            var douhan = $("[name='douhan_"+row+"']");
+            //console.log(douhan);
+
+            if(simei_cast_id == ""){
+                douhan.prop("checked",false);
+                douhan.attr("disabled");
+            }else{
+                douhan.removeAttr("disabled","disabled");
+            }
+        },
+        setWaitTime : function(cus_num){
+            //待ち時間返却URLに客数をポストする
+            var posting = ajax.responseText("/takus/ajax_return_wait","cus_num="+cus_num)
+
+            if(posting == 'no_wait'){
+                $("#wait").css("display","none");
+            }else{
+                console.log("待ち");
+                $("#wait").html('現在待ちがでております。最短'+posting+'分後にご案内');
+                $("#wait").css("display","block");
+            }
+        }
+    }
+
+    var ajax = {
+        save : function(path,params) {
+            var ret;
+            $.ajax({
+                type:'POST',
+                url:path,
+                dataType:"text",
+                data:params,
+                async: false,
+                success: function(res){
+                }
+            });
+        },
+        get : function(path,type,params){
+            var ret
+            $.ajax({
+                type: "POST",
+                url:path, 
+                dataType: type,
+                data:params,
+                async: false,
+                success: function(res){
+                    ret = res;
+                }
+            });
+
+            return ret;
+        },
+        responseText : function(path,params){
+            var posting = $.ajax({
+                type: 'POST',
+                url:path,
+                data: params,
+                cache: false,
+                async: false
+            }).responseText;
+            return posting;
+        }
+    }
+
+    var tagGen = {
+        selectClient : function(row,client_name,customer_meta) {
+            var html = '<button type="button" class="btn btn-default btn-sm client_modal" data-remote="/users/ajax_client_data/'+row+'" data-toggle="modal" data-target="#clientModal">'
+            html+= '<div>'+client_name+'</div>'
+            html+= '</button>'
+            html+= '<div class="customer_meta_tooltip">'
+            if(typeof customer_meta != "undefined"){
+                html+= '<div class="form-group">';
+                html+= '<div class="head">';
+                html+= '会員ランク';
+                html+= '</div>';
+                html+= '<div class="body">';
+                if(customer_meta.customer_ranks_name){
+                    html+= customer_meta.customer_ranks_name;
+                }
+                html+= '</div>';
+                html+= '</div>';
+                html+= '<div class="form-group">';
+                html+= '<div class="head">';
+                html+= 'キープボトル';
+                html+= '</div>';
+                html+= '<div class="body">';
+                if(customer_meta.items_name){
+                    html+= customer_meta.items_name;
+                }
+                html+= '</div>';
+                html+= '</div>';
+                html+= '<div class="form-group">';
+                html+= '<div class="head">';
+                html+= '飲むお酒';
+                html+= '</div>';
+                html+= '<div class="body">';
+                if(customer_meta.drink){
+                    html+= customer_meta.drink;
+                }
+                html+= '</div>';
+                html+= '</div>';
+                html+= '<div class="form-group">';
+                html+= '<div class="head">';
+                html+= '領収書';
+                html+= '</div>';
+                html+= '<div class="body">';
+                if(customer_meta.receipt){
+                    html+= customer_meta.receipt;
+                }
+                html+= '</div>';
+                html+= '</div>';
+                html+= '<div class="form-group">';
+                html+= '<div class="head">';
+                html+= '請求書送付先';
+                html+= '</div>';
+                html+= '<div class="body">';
+                html+= '<div>';
+                if(customer_meta.invoice_zip){
+                    html+= customer_meta.invoice_zip;
+                }
+                html+= '</div>';
+                html+= '<div>';
+                if(customer_meta.invoice_addr){
+                    html+= customer_meta.invoice_addr;
+                }
+                html+= '</div>';
+                html+= '<div>';
+                if(customer_meta.invoice_addr2){
+                    html+= customer_meta.invoice_addr2;
+                }
+                html+= '</div>';
+                html+= '</div>';
+                html+= '</div>';
+                html+= '<div class="form-group">';
+                html+= '<div class="head">';
+                html+= '端数調整';
+                html+= '</div>';
+                html+= '<div class="body">';
+                html+= customer_meta.floor_length_name;
+                html+= '</div>';
+                html+= '</div>';
+            }else{
+                html+= 'データがありません。';
+            }
+            html+= '</div>';
+            return html;
+        },
+        selectSimei : function(row,cast_name,cnum) {
+            var html = '<button type="button" class="btn btn-default btn-sm" data-remote="/users/ajax_cast_data/'+row+'/'+cnum+'" data-toggle="modal" data-target="#castModal">';
+            html+= '<div>'+cast_name+'</div>';
+            html+= '</button>';
+
+            return html;
+        },
+        selectResvCast : function(row,cnum,cast_name) {
+            var html = '<button type="button" class="btn btn-danger btn-sm" data-remote="/users/ajax_cast_data/'+row+'/'+cnum+'" data-toggle="modal" data-target="#castModal">';
+            html+= '<div>'+cast_name+'</div>';
+            html+= '</button>';
+
+            return html;
+        },
+        selectCast : function(row,cnum,cast_name) {
+            var html = '<button type="button" class="btn btn-default btn-sm" data-remote="/users/ajax_cast_data/'+row+'/'+cnum+'" data-toggle="modal" data-target="#castModal">'
+            html+= '<div>'+cast_name+'</div>'
+            html+= '</button>'
+
+            return html;
+        },
+        selectOrder : function(row,item_id,item_name,quantity,cast_id,cast_name) {
+            var html = "<li>";
+            html+= quantity+':'+item_name;
+            if(cast_name != ""){
+                html+= ":"+cast_name;
+            }
+            html+= '<input type="hidden" name=item_id['+row+'][] value="'+item_id+'">';
+            html+= '<input type="hidden" name=quantity['+row+'][] value="'+quantity+'">';
+            html+= '<input type="hidden" name=cast_id['+row+'][] value="'+cast_id+'">';
+            html+= '</li>'
+            return html;
+        },
+        addRow : function(mode,counter,remote_query,desk_name){
+            var addtd = '<tr class="Row"><td><span id="cus'+counter+'" style="position:relative;"><button type="button" class="btn btn-default btn-sm" data-remote="/users/ajax_client_data/'+counter+'" data-toggle="modal" data-target="#clientModal">選択</button></span><input type="hidden" name="select_cus_'+counter+'" id="select_cus_'+counter+'"></td>'
+            addtd += '<td><span id="shimei_name_'+counter+'" class="text-danger"></span><input type="hidden" id="select_simei_'+counter+'" name="select_simei_'+counter+'" class="form-control simei-cast-id"><input type="hidden" id="select_favorite_flg_'+counter+'" name="select_favorite_flg_'+counter+'" class="form-control"></td>';
+            addtd += '<td><span id="cast'+counter+'_1"><button type="button" class="btn btn-default btn-sm cast-modal" data-remote="/users/ajax_cast_data/'+counter+'/1'+remote_query+'&desk='+desk_name+'" data-toggle="modal" data-target="#castModal">選択</button></span><input type="hidden" name="select_cast_'+counter+'_1" id="select_cast_'+counter+'_1"></td>'
+            addtd += '<td><span id="cast'+counter+'_2"><button type="button" class="btn btn-default btn-sm cast-modal" data-remote="/users/ajax_cast_data/'+counter+'/2'+remote_query+'&desk='+desk_name+'" data-toggle="modal" data-target="#castModal">選択</button></span><input type="hidden" name="select_cast_'+counter+'_2" id="select_cast_'+counter+'_2"></td>'
+            addtd += '<td><span id="cast'+counter+'_3"><button type="button" class="btn btn-default btn-sm cast-modal" data-remote="/users/ajax_cast_data/'+counter+'/3'+remote_query+'&desk='+desk_name+'" data-toggle="modal" data-target="#castModal">選択</button></span><input type="hidden" name="select_cast_'+counter+'_3" id="select_cast_'+counter+'_3"></td>'
+
+            if(mode == "add"){
+                addtd += '<td><ul id=OrderList'+counter+' style="list-style-type:none;"></ul></td>';
+            }
+            addtd += '<td>';
+            addtd += '<button type="button" data-remote="/users/ajax_cast_data/'+counter+'/1/s" data-toggle="modal" data-target="#castModal" class="btn btn-default cast-modal"><i class="fa fa-thumbs-o-up"></i>指名</button>';
+            if(mode == "add"){
+                addtd += '<button type="button" data-remote="/items/ajax_item_data/'+counter+'/add" data-toggle="modal" data-target="#orderModal" class="btn btn-default order-modal"><i class="fa fa-thumbs-o-up"></i>オーダー</button>';
+            }else{
+
+            }
+            addtd += '<button type="button" class="btn btn-danger" onclick="delRow(this);" style="margin-left:3px;">削除</button>';
+            addtd += '</td>';
+            addtd += '</tr>';
+
+            return addtd;
+        }
+    }
+
+
+    var common = {
+        ajaxGet : function(controller,action,model,data_type,params) {
+            var ret;
+            $.ajax({
+                type:'POST',
+                url:'/ajaxs/ajax_get/'+controller+'/'+action+'/'+'/'+model+'/'+data_type,
+                dataType:data_type,
+                data:params,
+                async: false,
+                success: function(data){
+                    ret = data;
+                }
+            });
+            return ret;
+        },
+
+        getUrlVars : function() {
+            var vars = [], max = 0, hash = "", array = "";
+            var url = window.location.search;
+
+            //?を取り除くため、1から始める。複数のクエリ文字列に対応するため、&で区切る
+            hash  = url.slice(1).split('&');    
+            max = hash.length;
+            for (var i = 0; i < max; i++) {
+                array = hash[i].split('=');    //keyと値に分割。
+                vars.push(array[0]);    //末尾にクエリ文字列のkeyを挿入。
+                vars[array[0]] = array[1];    //先ほど確保したkeyに、値を代入。
+            }
+
+            return vars;
+        },
+    };
+
+    $.fn.taku = function( method ) {
+        if ( methods[method] ) {
+            return methods[ method ].apply( this, Array.prototype.slice.call( arguments, 1 ));
+        } else if ( typeof method === 'object' || ! method ) {
+            return methods.init.apply( this, arguments );
+        } else {
+            $.error( 'Method ' +  method + ' does not exist on jQuery.tooltip' );
+        }
+    };
+})( jQuery );

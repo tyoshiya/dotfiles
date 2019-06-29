@@ -1,0 +1,1 @@
+{'IfModule', 'mod_rewrite', 'RewriteEngine', 'RewriteRule', 'webroot', 'php_flag', 'display_errors', 'php_value', 'error_reporting', 'E_ALL', 'E_NOTICE', 'E_DEPRECATED', 'session', 'gc_maxlifetime', 'upload_max_filesize', 'post_max_size', 'allow_call_time_pass_reference', 'memory_limit', 'use_trans_sid', 'use_cookies', 'use_only_cookies', 'auto_start'}

@@ -1,0 +1,1 @@
+{'function', 'setHighCharts', 'func', 'disp', 'getCockpitData', 'done', 'data', 'textStatus', 'jqXHR', 'fail', 'errorThrown', 'always', 'Ajax', 'undefined', 'return', 'ajax', 'type', 'dataType', 'json', 'TOBIRA', 'https', 'tobira', 'Cockpit'}

@@ -1,0 +1,143 @@
+<div class="index-wrapper">
+<?php if(!empty($posts)){ ?>
+<?php foreach ($posts as $unix_created => $foo) { ?>
+<?php foreach ($foo as $id => $row) { ?>
+<div class="index">
+    <div class="index-header">
+        <div class="icon"><a href="/users/mypage/<?php echo str_replace("/","_",$this->encrypt->encode($row->user_id)); ?>"><img src="<?php echo userIcon($row->user_id,$row->users_extension); ?>" class="icon-circle"></a></div>
+        <div>
+            <div class="name"><?php echo $row->users_name; ?></div>
+            <div><?php echo $row->created; ?></div>
+        </div>
+    </div>
+    <div class="index-content">
+        <img src="/images/posts/<?php echo $id; ?>.<?php echo $row->extension; ?>">
+    </div>
+<?php if(isset($_SESSION["user"])){ ?>
+    <div class="index-btn-group">
+        <div>
+            <?php if($row->nice_cnt > 0){ ?>
+                <a class="delete-nice" data-post-id="<?php echo $id; ?>"><img src="/images/btn_nice_focus.svg"></a>
+            <?php }else{ ?>
+                <a class="save-nice" data-post-id="<?php echo $id; ?>"><img src="/images/btn_nice_default.svg"></a>
+            <?php } ?>
+
+            <?php if($row->cute_cnt > 0){ ?>
+                <a class="delete-cute" data-post-id="<?php echo $id; ?>"><img src="/images/btn_cute_focus.svg"></a>
+            <?php }else{ ?>
+                <a class="save-cute" data-post-id="<?php echo $id; ?>"><img src="/images/btn_cute_default.svg"></a>
+            <?php } ?>
+        </div>
+        <?php if($row->user_id != $_SESSION["user"]->id && $row->allow == 1){ ?>
+            <?php if($row->followed == ""){ ?>
+                <div class="">
+                    <a class="follow" data-user-id="<?php echo $row->user_id; ?>"><img src="/images/btn_apply_follow.svg"></a>
+                </div>
+            <?php } ?>
+        <?php } ?>
+    </div>
+<?php } ?>
+    <div class="index-count-group">
+        <div>
+            <span><img src="/images/ic_count_nice.svg">いいね <span class="total-nice-count"><?php echo number_format($row->total_nice_cnt); ?></span>件</span>
+            <span><img src="/images/ic_count_cute.svg">かわいいね <span class="total-cute-count"><?php echo number_format($row->total_cute_cnt); ?></span>件</span>
+        </div>
+        <
+    </div>
+    <div class="caption">
+        <?php echo nl2br($row->caption); ?>
+    </div>
+    <div class="index-hashtag-group">
+<?php foreach ($row->post_tags as $key => $post_tag) { ?>
+<a class="hash-tag" data-tag="<?php echo $post_tag->name; ?>">#<?php echo $post_tag->name; ?></a>
+<?php } ?>
+    </div>
+</div>
+<?php } ?>
+<?php } ?>
+<?php } ?>
+</div>
+
+<script>
+$(function(){
+    //いいね登録
+    $(document).on("click",".save-nice",function(e){
+        var obj = this;
+        $.ajax({
+            method:"POST",
+            url: "/post_nices/save_nice/"+$(this).data("post-id"),
+            type:"text",
+            async:false
+        }).done(function(cnt) {
+            console.log();
+            $(obj).children().remove(); 
+            $(obj).removeClass("save-nice"); 
+            $(obj).addClass("delete-nice"); 
+            $(obj).append('<img src="/images/btn_nice_focus.svg">'); 
+            $(obj).closest(".index").find(".index-count-group").find(".total-nice-count").text(cnt);
+        }).fail(function(data) {});
+    });
+    //いいね解除
+    $(document).on("click",".delete-nice",function(e){
+        var obj = this;
+        $.ajax({
+            method:"POST",
+            url: "/post_nices/delete_nice/"+$(this).data("post-id"),
+        }).done(function(cnt) {
+            $(obj).children().remove(); 
+            $(obj).removeClass("delete-nice"); 
+            $(obj).addClass("save-nice"); 
+            $(obj).append('<img src="/images/btn_nice_default.svg">'); 
+            $(obj).closest(".index").find(".index-count-group").find(".total-nice-count").text(cnt);
+        }).fail(function(data) {});
+    });
+
+    //かわいいね登録
+    $(document).on("click",".save-cute",function(e){
+        var obj = this;
+        $.ajax({
+            method:"POST",
+            url: "/post_cutes/save_cute/"+$(this).data("post-id"),
+            dataType:"text",
+        }).done(function(cnt) {
+            $(obj).children().remove(); 
+            $(obj).removeClass("save-cute"); 
+            $(obj).addClass("delete-cute"); 
+            $(obj).append('<img src="/images/btn_cute_focus.svg">'); 
+            $(obj).closest(".index").find(".index-count-group").find(".total-cute-count").text(cnt);
+        }).fail(function(data) {});
+    })
+
+    $(document).on("click",".delete-cute",function(e){
+        var obj = this;
+        $.ajax({
+            method:"POST",
+            url: "/post_cutes/delete_cute/"+$(this).data("post-id"),
+            dataType:"text",
+        }).done(function(cnt) {
+            $(obj).children().remove(); 
+            $(obj).removeClass("delete-cute"); 
+            $(obj).addClass("save-cute"); 
+            $(obj).append('<img src="/images/btn_cute_default.svg">'); 
+            $(obj).closest(".index").find(".index-count-group").find(".total-cute-count").text(cnt);
+        }).fail(function(data) {});
+    });
+
+    $(".hash-tag").on("click",function(e){
+        $("#s").val($(this).data("tag"));
+        $("#m").val("hash-tags");
+        $(this).closest("form").attr("action","/users/index").submit();
+    });
+
+    $(".follow").on("click",function(e){
+        var obj = this;
+        $.ajax({
+            method:"POST",
+            url: "/follows/save_follow/"+$(this).data("user-id"),
+            dataType:"text",
+        }).done(function() {
+            $(obj).parent().remove(); 
+        }).fail(function(data) {});
+    });
+});
+</script>

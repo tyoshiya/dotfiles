@@ -1,0 +1,102 @@
+<script>
+function getData(section,target){
+	if(section == "supplier"){
+		var data = ajaxGetByCode(target,'customers');
+		if(data){
+			$('#SubcontractSupplierId').val(data.Customer.id);
+			$('#SupplierCode').val(target);
+			$('#SupplierName').val(data.Customer.name);
+			$('#SupplierName2').val(data.Customer.name2);
+		}
+	}
+}
+</script>
+<div class="no-print">
+	<div class="title">内職依頼注残照会</div>
+
+	<?php $session->flash(); ?>
+
+	<div style="text-align:right;">
+			<input type="button" value="終了" onclick="return Href('/users/index',null,'<?=_def_admin_finish_message;?>')">
+	</div>
+
+	<form name="frm" method="post" id="frm">
+		<table width="100%" class="search" style="margin-top:3px;">
+			<tr>
+				<td class="head w100">
+					仕入先
+				</td>
+				<td class="plane_body">
+					<?=$html->input("Supplier/code",array("class"=>"nomal_text_w100 imd",'onchange'=>'getData("supplier",$(this).val())'))?>
+					<input type="button" class="btn-modal" value="検索" data-url="/customers/modal_search/2/2" data-title="仕入先検索" data-section="supplier" data-target="code"><br />
+					<?=$html->hidden("Subcontract/supplier_id")?>
+					<?=$html->input("Supplier/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?><br />
+					<?=$html->input("Supplier/name2",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+				</td>
+			</tr>
+			<tr>
+				<td class="foot" colspan="2">
+					<button type="button" class="btn btn-default" onclick="return Send('/<?=$this->viewPath?>/<?=$this->action?>')">検索実行</button>
+					<button type="button" class="btn btn-default" onclick="clearSearchElem('/<?=$this->viewPath?>/<?=$this->action?>')">クリア</button>
+					<button type="button" class="btn btn-default" onclick="window.print()">印刷</button>
+					<button type="button" class="btn btn-default" onclick="return Send('/<?=$this->viewPath?>/<?=$this->action?>?mode=csv')">CSV出力</button>
+				</td>
+			</tr>
+		</table>
+		<?=$html->hidden("Subcontract/execute",array("value"=>"on"))?>
+	</form>
+</div>
+<?if(!empty($subcontracts)){?>
+	<div class="print print-A4-sideways">
+<
+		<div class="print_header">
+			<div class="right_header">
+				DATE:<?=date('Y/m/d H:i:s')?>
+			</div>
+			<div class="center_header">
+				内職依頼注残照会
+			</div>
+            <div class="left_header">
+                <?=$arr['JobberCustomer']['code'].' '.$arr['JobberCustomer']['name']?>
+            </div>
+		</div>
+		<table width="100%">
+			<tr class="bb">
+				<td class="head">内注番号</td>
+				<td class="head">仕入先</td>
+				<td class="head">作業名</td>
+				<td class="head">注文数</td>
+				<td class="head">納品数</td>
+				<td class="head">注文残</td>
+				<td class="head">納期</td>
+			</tr>
+			<?foreach ($subcontracts as $row) {?>
+				<tr>
+					<td class="plane_body">
+						<?=h(getStrId($row['Subcontract']['id'],'Subcontract'))?>
+					</td>
+					<td class="plane_body">
+						<?=h($row['Supplier']['code'])?> <?=h($row['Supplier']['name'])?>
+					</td>
+					<td class="plane_body">
+						<?=h($row['Product']['code'])?> <?=h($row['Product']['name'])?> <?=h($row['Product']['name2'])?>
+					</td>
+					<td class="plane_body nf">
+						<?=h(number_format($row['Subcontract']['quantity']))?>
+					</td>
+					<td class="plane_body nf">
+						<?=h(number_format($row[0]['total_quantity']))?>
+					</td>
+					<td class="plane_body nf">
+						<?=h(number_format($row[0]['sub_quantity']))?>
+					</td>
+					<td class="plane_body">
+						<?=h($row['Subcontract']['exp_delivery_date'])?>
+					</td>
+				</tr>
+			<?}?>
+		</table>
+	</div>
+<?}else{?>
+	<p class="no-print">データがありません</p>
+<?}?>

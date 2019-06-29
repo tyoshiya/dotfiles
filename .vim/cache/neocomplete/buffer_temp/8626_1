@@ -1,0 +1,456 @@
+"----------------------
+" 基本設定 
+"----------------------
+"シンタックスハイライト機能をオンにする
+syntax enable
+"vi互換
+set nocompatible
+" ;と:入れ替え 
+nnoremap ;  :
+nnoremap :  ;
+vnoremap ;  :
+vnoremap :  ;
+"半角文字の設定
+set guifont=MS_Gothic:h20
+"全角文字の設定
+set guifontwide=MS_Gothic:h20
+" CakePHPのファイルをphpと認識
+au BufNewFile,BufRead *.thtml setfiletype php
+au BufNewFile,BufRead *.ctp setfiletype php
+" 挿入モード終了時に IME 状態を保存しない
+"inoremap <Esc> <Esc>
+inoremap <C-c> <Esc>
+
+"----------------------
+" カッコ 
+"----------------------
+"対応するカッコを強調
+set showmatch
+
+"----------------------
+"  補完 
+"----------------------
+inoremap { {}<Left><CR><CR><ESC>ki
+inoremap {{ {}<Left><ESC>i
+inoremap ( ()<ESC>i
+inoremap [ []<ESC>i
+inoremap " ""<ESC>i
+inoremap ' ''<ESC>i
+
+"----------------------
+" ステータスライン
+"----------------------
+" ステータス行を常に表示
+set laststatus=2
+"ファイルナンバー表示
+set statusline=[%n]
+"ホスト名表示
+set statusline+=%{matchstr(hostname(),'\\w\\+')}@
+"ファイル名表示
+set statusline+=%<%F
+"変更のチェック表示
+set statusline+=%m
+"読み込み専用かどうか表示
+set statusline+=%r
+"ヘルプページなら[HELP]と表示
+set statusline+=%h
+"プレビューウインドウなら[Prevew]と表示
+set statusline+=%w
+"ファイルフォーマット表示
+set statusline+=[%{&fileformat}]
+set statusline+=[%{&fileencoding}]
+
+"----------------------
+" コマンドライン
+"----------------------
+"コマンドラインモードでtabで補完
+set wildmenu wildmode=list:longest,full
+"入力中のコマンドを表示
+set showcmd
+
+"----------------------
+" ウインドウ
+"----------------------
+if has("gui_running")
+  set fuoptions=maxvert,maxhorz
+  au GUIEnter * set fullscreen
+endif
+" 保存されていないファイルがあるときでも別のファイルを開くことが出来る
+set hidden
+"行番号を表示
+set number
+" カーソルが何行目の何列目に置かれているかを表示する。（有効:ruler/無効:noruler）
+set ruler
+" メッセージ表示欄を2行確保
+set cmdheight=2
+" タイトル表示
+set title
+" 保存と終了
+nnoremap <Space>w  :<C-u>w<CR>
+nnoremap <Space>q  :<C-u>q<CR>
+nnoremap <Space>Q  :<C-u>q!<CR>
+"画面分割
+nnoremap s <Nop>
+nnoremap ss :<C-u>sp<CR>
+nnoremap sv :<C-u>vs<CR>
+"分割画面の移動
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l
+nnoremap sw <C-w>w
+nnoremap sJ <C-w>J
+nnoremap sK <C-w>K
+nnoremap sL <C-w>L
+nnoremap sH <C-w>H
+nnoremap sr <C-w>r
+nnoremap s= <C-w>=
+nnoremap so <C-w>_<C-w>|
+
+" ----------------------
+" 検索
+" ----------------------
+"  大文字小文字を区別しない
+set ignorecase
+"  大文字で検索ならば大文字限定
+set smartcase
+" 最後まで検索したら一番上に戻る
+set wrapscan
+" 検索結果ハイライト
+set hlsearch
+" インクリメンタルサーチ
+set incsearch
+" 直近の検索ハイライトを消す
+nnoremap <C-c> :noh<CR>
+
+nnoremap <Space>/  *<C-o>
+nnoremap g<Space>/ g*<C-o>
+nnoremap <expr> n <SID>search_forward_p() ? 'nzv' : 'Nzv'
+nnoremap <expr> N <SID>search_forward_p() ? 'Nzv' : 'nzv'
+vnoremap <expr> n <SID>search_forward_p() ? 'nzv' : 'Nzv'
+vnoremap <expr> N <SID>search_forward_p() ? 'Nzv' : 'nzv'
+function! s:search_forward_p()
+  return exists('v:searchforward') ? v:searchforward : 1
+endfunction
+nnoremap <>s /
+
+" ----------------------
+" インデント
+" ----------------------
+"  自動インデント
+set autoindent
+set backspace=indent,eol,start
+" ファイル内自動インデント
+nnoremap <Space>ia ggVG=<C-o><C-o>
+
+" ----------------------
+" クリップボード
+" ----------------------
+" OSのクリップボードにレジスタ指定なしでyank,putする
+set clipboard=unnamed,unnamedplus
+" ビジュアルモードで選択した文字がシステムのクリップボードに入る。他のアプリケーションとクリップボードを共有するオプション
+set guioptions+=a
+
+" タブ
+" --------------------
+" タブがスペース何個分か
+set tabstop=4
+" タブをスペースにする
+set expandtab
+" 行頭の余白内で Tab を打ち込むと、'shiftwidth' の数だけインデントする
+set smarttab
+" インデントに使われるスペースの数
+set shiftwidth=4
+" インデントをshiftwidthの数に丸める
+set shiftround
+
+" バックアップ
+" --------------------
+" バックアップしない
+set nobackup
+"set backupdir=~/vim_backup
+" スワップファイルを作らない
+set noswapfile
+"set directory=~/vim_swap
+" unファイルを作らない
+set noundofile
+
+" ------------------------------------------------
+" エンコーディング
+" > http://www.kawaz.jp/pukiwiki/?vim#cb691f26
+" ------------------------------------------------
+if &encoding !=# 'utf-8'
+set encoding=japan
+set fileencoding=japan
+endif
+if has('iconv')
+let s:enc_euc = 'euc-jp'
+let s:enc_jis = 'iso-2022-jp'
+" iconvがeucJP-msに対応しているかをチェック
+if iconv("\x87\x64\x87\x6a", 'cp932', 'eucjp-ms') ==# "\xad\xc5\xad\xcb"
+let s:enc_euc = 'eucjp-ms'
+let s:enc_jis = 'iso-2022-jp-3'
+endif
+" fileencodingsを構築
+if &encoding ==# 'utf-8'
+let s:fileencodings_default = &fileencodings
+let &fileencodings = s:enc_jis .','. s:enc_euc .',cp932'
+let &fileencodings = &fileencodings .','. s:fileencodings_default
+unlet s:fileencodings_default
+else
+let &fileencodings = &fileencodings .','. s:enc_jis
+set fileencodings+=utf-8,ucs-2le,ucs-2
+if &encoding =~# '^\(euc-jp\|euc-jisx0213\|eucjp-ms\)$'
+set fileencodings+=cp932
+set fileencodings-=euc-jp
+set fileencodings-=euc-jisx0213
+set fileencodings-=eucjp-ms
+let &encoding = s:enc_euc
+let &fileencoding = s:enc_euc
+else
+let &fileencodings = &fileencodings .','. s:enc_euc
+endif
+endif
+" 定数を処分
+unlet s:enc_euc
+unlet s:enc_jis
+endif
+" 日本語を含まない場合は fileencoding に encoding を使うようにする
+if has('autocmd')
+function! AU_ReCheck_FENC()
+if &fileencoding =~# 'iso-2022-jp' && search("[^\x01-\x7e]", 'n') == 0
+let &fileencoding=&encoding
+endif
+endfunction
+autocmd BufReadPost * call AU_ReCheck_FENC()
+endif
+" 改行コードの自動認識
+set fileformats=unix,dos,mac
+" □とか○の文字があってもカーソル位置がずれないようにする
+if exists('&ambiwidth')
+set ambiwidth=double
+endif
+
+" --------------------
+" キーマップ
+" --------------------
+set bioskey
+set timeout
+set timeoutlen=500
+
+" --------------------
+" 移動
+" --------------------
+" 上下左右
+inoremap <C-j> <Down>
+inoremap <C-k> <Up>
+noremap! <C-h> <Left>
+noremap! <C-l> <Right>
+noremap! <C-d> <BS>
+nnoremap k   gk
+nnoremap j   gj
+nnoremap gk  k
+nnoremap gj  j
+vnoremap k   gk
+vnoremap j   gj
+vnoremap gk  k
+vnoremap gj  j
+" 矢印キー無効
+vnoremap  <Up>     <nop>
+vnoremap  <Down>   <nop>
+vnoremap  <Left>   <nop>
+vnoremap  <Right>  <nop>
+inoremap  <Up>     <nop>
+inoremap  <Down>   <nop>
+inoremap  <Left>   <nop>
+inoremap  <Right>  <nop>
+noremap   <Up>     <nop>
+noremap   <Down>   <nop>
+noremap   <Left>   <nop>
+noremap   <Right>  <nop>
+" 行末行頭
+nnoremap <Space>h  ^
+nnoremap <Space>l  $
+
+" --------------------
+" 行挿入
+" --------------------
+nnoremap <Space>o  :<C-u>for i in range(v:count1) \| call append(line('.'), '') \| endfor<CR>
+nnoremap <Space>O  :<C-u>for i in range(v:count1) \| call append(line('.')-1, '') \| endfor<CR>
+
+" --------------------
+" 置換
+" --------------------
+" 全置換
+nnoremap gs  :<C-u>%s///g<Left><Left><Left>
+" 選択範囲置換
+vnoremap gs  :s///g<Left><Left><Left>
+
+" --------------------
+" 削除
+" --------------------
+" ファイル内全削除
+nnoremap <Space>da ggVGd
+
+"---------------------------
+" NeoBundle
+"---------------------------
+" bundleで管理するディレクトリを指定
+set runtimepath+=~/.vim/bundle/neobundle.vim/
+" Required:
+call neobundle#begin(expand('~/.vim/bundle/'))
+" neobundle自体をneobundleで管理
+NeoBundleFetch 'Shougo/neobundle.vim'
+
+"---------------------------
+" プラグインインストール
+"---------------------------
+" unite
+NeoBundle 'Shougo/unite.vim'
+
+" カラースキーム
+NeoBundle 'altercation/vim-colors-solarized'
+
+" ----------------------
+" カラースキーマ
+" ----------------------
+" カラースキーム一覧表示に Unite.vim を使う
+NeoBundle 'ujihisa/unite-colorscheme'
+
+" --------------------
+" unite.vim
+" --------------------
+let g:unite_enable_start_insert=1
+let g:unite_source_history_yank_enable =1
+let g:unite_source_file_mru_limit = 200
+nnoremap <silent> <Space>y :<C-u>Unite history/yank<CR>
+nnoremap <silent> <Space>b :<C-u>Unite buffer<CR>
+nnoremap <silent> <Space>f :<C-u>UniteWithBufferDir -buffer-name=files file<CR>
+nnoremap <silent> <Space>r :<C-u>Unite -buffer-name=register register<CR>
+
+" --------------------
+" neocomplete
+" --------------------
+NeoBundle     'Shougo/neocomplete'
+if neobundle#tap('neocomplete')
+  call neobundle#config({
+  \   'depends': ['Shougo/context_filetype.vim', 'ujihisa/neco-look', 'pocke/neco-gh-issues', 'Shougo/neco-syntax'],
+  \ })
+  " 起動時に有効化
+  let g:neocomplete#enable_at_startup = 1
+  " 大文字が入力されるまで大文字小文字の区別を無視する
+  let g:neocomplete#enable_smart_case = 1
+  " _(アンダースコア)区切りの補完を有効化
+  let g:neocomplete#enable_underbar_completion = 1
+  let g:neocomplete#enable_camel_case_completion  =  1
+  " ポップアップメニューで表示される候補の数
+  let g:neocomplete#max_list = 20
+  " シンタックスをキャッシュするときの最小文字長
+  let g:neocomplete#sources#syntax#min_keyword_length = 3
+  " 補完を表示する最小文字数
+  let g:neocomplete#auto_completion_start_length = 2
+  " preview window を閉じない
+  let g:neocomplete#enable_auto_close_preview = 0
+  "AutoCmd InsertLeave * silent! pclose!
+  let g:neocomplete#max_keyword_width = 10000
+
+  if !exists('g:neocomplete#delimiter_patterns')
+    let g:neocomplete#delimiter_patterns= {}
+  endif
+  let g:neocomplete#delimiter_patterns.ruby = ['::']
+
+  if !exists('g:neocomplete#same_filetypes')
+    let g:neocomplete#same_filetypes = {}
+  endif
+  let g:neocomplete#same_filetypes.ruby = 'eruby'
+
+  if !exists('g:neocomplete#force_omni_input_patterns')
+    let g:neocomplete#force_omni_input_patterns = {}
+  endif
+
+  let g:neocomplete#force_omni_input_patterns.cpp = '[^.[:digit:] *\t]\%(\.\|->\)\w*\|\h\w*::\w*'
+  let g:neocomplete#force_omni_input_patterns.typescript = '[^. \t]\.\%(\h\w*\)\?' " Same as JavaScript
+  let g:neocomplete#force_omni_input_patterns.go = '[^. \t]\.\%(\h\w*\)\?'         " Same as JavaScript
+
+  let s:neco_dicts_dir = $HOME . '/dicts'
+  if isdirectory(s:neco_dicts_dir)
+    let g:neocomplete#sources#dictionary#dictionaries = {
+    \   'ruby': s:neco_dicts_dir . '/ruby.dict',
+    \   'javascript': s:neco_dicts_dir . '/jquery.dict',
+    \ }
+  endif
+  let g:neocomplete#data_directory = $HOME . '/.vim/cache/neocomplete'
+
+  call neobundle#untap()
+endif
+
+" --------------------
+" neosnippet
+" --------------------
+NeoBundle 'Shougo/neosnippet'
+NeoBundle 'Shougo/neosnippet-snippets'
+" Plugin key-mappings.
+imap <C-e>     <Plug>(neosnippet_expand_or_jump)
+smap <C-e>     <Plug>(neosnippet_expand_or_jump)
+xmap <C-e>     <Plug>(neosnippet_expand_target)
+" SuperTab like snippets behavior.
+imap <expr><TAB> neosnippet#expandable_or_jumpable() ?
+\ "\<Plug>(neosnippet_expand_or_jump)"
+\: pumvisible() ? "\<C-n>" : "\<TAB>"
+smap <expr><TAB> neosnippet#expandable_or_jumpable() ?
+\ "\<Plug>(neosnippet_expand_or_jump)"
+\: "\<TAB>"
+" For snippet_complete marker.
+if has('conceal')
+  set conceallevel=2 concealcursor=i
+endif
+" original snippets 
+let g:neosnippet#snippets_directory='~/.vim/bundle/neosnippet-snippets/snippets/'
+
+" --------------------
+" vim-expand-region
+" --------------------
+NeoBundle 'terryma/vim-expand-region'
+vmap v <Plug>(expand_region_expand)
+vmap <C-v> <Plug>(expand_region_shrink)
+
+" --------------------
+" emmet
+" --------------------
+NeoBundle 'mattn/emmet-vim'
+let g:user_emmet_leader_key='<C-e>'
+" --------------------
+" lightline
+" --------------------
+NeoBundle 'itchyny/lightline.vim'
+
+" --------------------
+" vim-indent-line
+" --------------------
+NeoBundle 'nathanaelkane/vim-indent-guides'
+" vim立ち上げたときに、自動的にvim-indent-guidesをオンにする
+let g:indent_guides_enable_on_vim_startup=1
+" ガイドをスタートするインデントの量
+let g:indent_guides_start_level=2
+" 自動カラーを無効にする
+let g:indent_guides_auto_colors=0
+" 奇数インデントのカラー
+autocmd VimEnter,Colorscheme * :hi IndentGuidesOdd guibg=#778899 ctermbg=darkgray
+" 偶数インデントのカラー
+autocmd VimEnter,Colorscheme * :hi IndentGuidesEven guibg=#778899 ctermbg=darkgray
+" ハイライト色の変化の幅
+let g:indent_guides_color_change_percent = 30
+" ガイドの幅
+let g:indent_guides_guide_size = 1
+
+call neobundle#end()
+
+syntax enable
+set background=dark
+colorscheme solarized
+
+" Required:
+filetype plugin indent on
+" 未インストールのプラグインがある場合、インストールするかどうかを尋ねてくれるようにする設定
+" 毎回聞かれると邪魔な場合もあるので、この設定は任意です。
+NeoBundleCheck

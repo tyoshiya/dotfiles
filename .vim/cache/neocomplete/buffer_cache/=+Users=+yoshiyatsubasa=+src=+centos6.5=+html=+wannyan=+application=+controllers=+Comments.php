@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto\\dBug', 'dbug', 'class', 'Comments', 'extends', 'MY_Controller', 'public', 'function', '__construct', 'parent::__construct', '$this', 'isLogin', '$post_id', 'null', '$user_id', '$saves', 'array', 'post_id', 'user_id', 'body', 'input', 'post', 'model', 'comments', 'save', 'echo', 'success'}

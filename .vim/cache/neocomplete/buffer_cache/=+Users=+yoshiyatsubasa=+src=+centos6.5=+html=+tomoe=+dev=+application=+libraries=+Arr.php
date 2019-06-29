@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto\\dBug', 'dbug', 'class', 'function', '__construct', '$this', 'get_instance', 'public', 'transformForPost', '$data', '$model_name', '$ret', 'array', 'empty', '$tmp', '$detail', 'unset', 'foreach', '$key', '$row', '$col', '$val', 'return'}

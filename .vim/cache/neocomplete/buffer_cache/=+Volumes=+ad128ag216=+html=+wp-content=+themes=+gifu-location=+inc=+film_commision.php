@@ -1,0 +1,1 @@
+{'<div ', 'class', 'box_in', 'bn_fc', '<ul ', 'clearfix', 'imgHover', '<li>', 'href', 'http', 'ogaki', 'target', '_blank', '<img ', 'echo', 'get_template_directory_uri', 'images', 'bn_ogaki', '</a>', '</li>', 'city', 'kakamigahara', 'bn_kakamigahara', 'gujo', 'bn_gujyo', 'hida', 'bn_hida', 'https', 'tajimi', 'filmengine', 'bn_tajimi', '</ul>', '</div>'}

@@ -1,0 +1,1 @@
+{'<div ', 'Slide', '<img ', 'slide', 'slide1', '</div>', 'TwoCol', 'class', 'container', 'LeftCol', '<section>', 'section', 'header1', 'icon_section_header1', '<h2>', '</h2>', 'content', 'aichi', '</section>', 'font', 'size', 'text', 'align', 'right', 'flex', 'grow', '<span ', 'color', 'weight', 'bold', 'margin', 'left', '</span>', 'RightCol', '$this', 'element', 'right_col'}

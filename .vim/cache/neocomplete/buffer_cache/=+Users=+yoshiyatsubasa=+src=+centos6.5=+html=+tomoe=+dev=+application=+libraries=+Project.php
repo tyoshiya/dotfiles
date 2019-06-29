@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto\\dBug', 'dbug', 'class', 'Project', 'function', '__construct', '$this', 'get_instance', 'public', 'calcTax', '$subtotal', '$tax_round_type', '$tax_rate', '$tax', 'calcRound', 'return', '$val', '$round_type', 'floor', 'round', 'ceil'}

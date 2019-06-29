@@ -1,0 +1,693 @@
+<?php
+/**
+ * Template Name: 物件検索
+ */
+
+get_header(); ?>
+
+<?php
+$args = array();
+$args["posts_per_page"] = -1;
+
+//ポストタイプ定義
+//未選択の場合は全ポストタイプとする
+if(isset($_POST["search-property-post_type"])){
+    if($_POST["search-property-post_type"] == "house"){
+        if(isset($_POST["search-property-sub_post_type"])){
+            $sub = array();
+            if(in_array("new",$_POST["search-property-sub_post_type"])){
+                $sub[] = "new";
+            }
+            if(in_array("used",$_POST["search-property-sub_post_type"])){
+                $sub[] = "used";
+            }
+            $args["post_type"] = $sub;
+        }
+    }
+    if($_POST["search-property-post_type"] == "land"){
+        $args["post_type"] = array("land");
+    }
+    if($_POST["search-property-post_type"] == "rental"){
+        $args["post_type"] = array("rental");
+    }
+}else{
+    $args["post_type"] = array("new","used","land","rental");
+}
+
+//キーワード検索
+$keyword_post_id = array();
+if($_POST["search-property-keywords"] != ""){
+    //カスタムフィールドとタクソノミーを両方加味してのor検索がwordpressの仕様上できないので、idを抽出
+    //駅名マッチ
+    $args["meta_query"] = array(
+        "relation" => "OR",
+        array(
+            'key' => 'station_hiromi',
+            'value' => $_POST["search-property-keywords"],
+            'compare' => 'LIKE',
+        ),
+        array(
+            'key' => 'station_ota',
+            'value' => $_POST["search-property-keywords"],
+            'compare' => 'LIKE',
+        ),
+        array(
+            'key' => 'station_takayama',
+            'value' => $_POST["search-property-keywords"],
+            'compare' => 'LIKE',
+        ),
+        array(
+            'key' => 'station_totetsu',
+            'value' => $_POST["search-property-keywords"],
+            'compare' => 'LIKE',
+        ),
+        array(
+            'key' => 'station_nagara',
+            'value' => $_POST["search-property-keywords"],
+            'compare' => 'LIKE',
+        ),
+        array(
+            'key' => 'access_other',
+            'value' => $_POST["search-property-keywords"],
+            'compare' => 'LIKE',
+        ),
+    );
+    $results = get_posts( $args );
+    if(!empty($results)){
+        foreach ($results as $result) {
+            $keyword_post_id[] = $result->ID;
+        }
+    }
+    unset($args["meta_query"]);
+
+    //エリアマッチ
+    //キーワード合致するタクソノミーの取得
+    $tax_args = array();
+    $tax_args["name__like"] = $_POST["search-property-keywords"];
+    $terms = get_terms( "tax_area", $tax_args );
+    if(!empty($terms)){
+        //タクソノミーに一致する投稿の取得
+        $terms_id = array();
+        foreach ($terms as $term) {
+            $terms_id[] = $term->term_id;
+        }
+        $args["tax_query"] = array(
+            array(
+                'taxonomy' => 'tax_area',
+                'field' => 'term_id',
+                'terms' => $terms_id,
+            ),
+        );
+        $results = get_posts( $args );
+        if(!empty($results)){
+            foreach ($results as $result) {
+                $keyword_post_id[] = $result->ID;
+            }
+        }
+        unset($args["tax_query"]);
+    }
+}
+//取得したid組込
+if(!empty($keyword_post_id)){
+    $args["post__in"] = $keyword_post_id;
+}
+
+//タクソノミーの検索
+//エリア検索
+if(isset($_POST["search-area"])){
+    if(isset($args["tax_query"]) === false){
+        $args["tax_query"] = array();
+    }
+    $args["tax_query"] = array(
+        array(
+            'taxonomy' => 'tax_area',
+            'field' => 'term_id',
+            'terms' => $_POST["search-area"],
+        ),
+    );
+}
+//こだわり検索
+if(isset($_POST["search-property-adhere_new"])){
+    if(isset($args["tax_query"]) === false){
+        $args["tax_query"] = array();
+    }
+    $args["tax_query"] = array(
+        array(
+            'taxonomy' => 'adhere_new',
+            'field' => 'term_id',
+            'terms' => $_POST["search-property-adhere_new"],
+        ),
+    );
+}
+if(isset($_POST["search-property-adhere_used"])){
+    if(isset($args["tax_query"]) === false){
+        $args["tax_query"] = array();
+    }
+    $args["tax_query"] = array(
+        array(
+            'taxonomy' => 'adhere_used',
+            'field' => 'term_id',
+            'terms' => $_POST["search-property-adhere_used"],
+        ),
+    );
+}
+if(isset($_POST["search-property-adhere_land"])){
+    if(isset($args["tax_query"]) === false){
+        $args["tax_query"] = array();
+    }
+    $args["tax_query"] = array(
+        array(
+            'taxonomy' => 'adhere_land',
+            'field' => 'term_id',
+            'terms' => $_POST["search-property-adhere_land"],
+        ),
+    );
+}
+if(isset($_POST["search-property-adhere_rental"])){
+    if(isset($args["tax_query"]) === false){
+        $args["tax_query"] = array();
+    }
+    $args["tax_query"] = array(
+        array(
+            'taxonomy' => 'adhere_rental',
+            'field' => 'term_id',
+            'terms' => $_POST["search-property-adhere_rental"],
+        ),
+    );
+}
+
+//カスタムフィールドの検索
+//価格検索
+if(isset($_POST["search-property-price"])){
+    if
+    $prices = explode("-",$_POST["search-property-price"]);
+    if(isset($args["meta_query"]) === false){
+        $args["meta_query"] = array();
+    }
+    if($prices[0] != ""){
+        $args["meta_query"][] = array(
+            'key' => 'price',
+            'value' => $prices[0],
+            'type' => 'numeric',
+            'compare' => '>=',
+        );
+    }
+    if($prices[1] != ""){
+        $args["meta_query"][] = array(
+            'key' => 'price',
+            'value' => $prices[1],
+            'type' => 'numeric',
+            'compare' => '<=',
+        );
+    }
+}
+//建物面積検索
+if(isset($_POST["search-property-size"])){
+    $sizes = explode("-",$_POST["search-property-size"]);
+    if(isset($args["meta_query"]) === false){
+        $args["meta_query"] = array();
+    }
+    if($sizes[0] != ""){
+        $args["meta_query"][] = array(
+            'key' => 'building_size',
+            'value' => $sizes[0],
+            'type' => 'decimal',
+            'compare' => '>=',
+        );
+    }
+    if($sizes[1] != ""){
+        $args["meta_query"][] = array(
+            'key' => 'building_size',
+            'value' => $sizes[1],
+            'type' => 'decimal',
+            'compare' => '<=',
+        );
+    }
+}
+//土地面積検索
+if(isset($_POST["search-property-land-size"])){
+    $land_sizes = explode("-",$_POST["search-property-land-size"]);
+    if(isset($args["meta_query"]) === false){
+        $args["meta_query"] = array();
+    }
+    if($land_sizes[0] != ""){
+        $args["meta_query"][] = array(
+            'key' => 'land_size',
+            'value' => $land_sizes[0],
+            'type' => 'decimal',
+            'compare' => '>=',
+        );
+    }
+    if($land_sizes[1] != ""){
+        $args["meta_query"][] = array(
+            'key' => 'land_size',
+            'value' => $land_sizes[1],
+            'type' => 'decimal',
+            'compare' => '<=',
+        );
+    }
+}
+//築年数検索
+if(isset($_POST["search-property-age"])){
+    $ages = explode("-",$_POST["search-property-age"]);
+    $year_from = null;
+    if($ages[0] != ""){
+        $year_to = date("Y") - $ages[0];
+    }
+    $year_to = null;
+    if($ages[1] != ""){
+        $year_from = date("Y") - $ages[1];
+    }
+    if(isset($args["meta_query"]) === false){
+        $args["meta_query"] = array();
+    }
+    if($year_from !== null){
+        $args["meta_query"][] = array(
+            'key' => 'year',
+            'value' => $year_from,
+            'type' => 'numeric',
+            'compare' => '>=',
+        );
+    }
+    if($year_to !== null){
+        $args["meta_query"][] = array(
+            'key' => 'year',
+            'value' => $year_to,
+            'type' => 'numeric',
+            'compare' => '<=',
+        );
+    }
+}
+//学校検索
+//中学校と小学校はor検索とする
+//中学校
+$school = array();
+if(isset($_POST["search-property-middle"])){
+    if(empty($school)){
+        $school["relation"] = "OR";
+    }
+    $school[] = array(
+        'key' => 'middle',
+        'value' => $_POST["search-property-middle"],
+        'compare' => "IN"
+    );
+}
+//小学校
+if(isset($_POST["search-property-primary"])){
+    if(empty($school)){
+        $school["relation"] = "OR";
+    }
+    $school[] = array(
+        'key' => 'primary',
+        'value' => $_POST["search-property-primary"],
+        'compare' => "IN"
+    );
+}
+if(!empty($school)){
+    if(isset($args["meta_query"])){
+        $args["meta_query"][] = $school;
+    }else{
+        $args["meta_query"] = $school;
+    }
+}
+
+//並び順
+if(isset($_GET["order"])){
+    if($_GET["order"] == "date"){
+        $args["orderby"] = "date";
+        $args["order"] = "DESC";
+    }else{
+        $args["orderby"] = "meta_value";
+        $args["meta_key"] = "price";
+        $args["order"] = "ASC";
+    }
+}
+$posts_array = get_posts( $args );
+//new dbug($args);
+//global $wpdb;
+//new dbug($wpdb->queries);
+?>
+                <div id="container-inner">
+                    <?php get_template_part('content-info');?>
+
+                    <!-- content -->
+                    <div id="content">
+                        <!-- main -->
+                        <main>
+                            <div class="section" id="property-area">
+                                <div class="property-item">
+                                    <dl class="property-item-list">
+                                        <dt>選択項目</dt>
+                                        <dd>
+                                            <ul class="property-tag">
+<?php
+//ポストタイプ
+if(isset($_POST["search-property-post_type"])){
+    if($_POST["search-property-post_type"] == "house"){
+        if(isset($_POST["search-property-sub_post_type"])){
+            if(in_array("new",$_POST["search-property-sub_post_type"])){
+                echo '<li class="tag-new"><a href="'.get_post_type_archive_link( "new" ).'">新築住宅</a></li>';
+            }
+            if(in_array("used",$_POST["search-property-sub_post_type"])){
+                echo '<li class="tag-used"><a href="'.get_post_type_archive_link( "used" ).'">中古住宅</a></li>';
+            }
+        }
+    }
+    if($_POST["search-property-post_type"] == "land"){
+        echo '<li class="tag-land"><a href="'.get_post_type_archive_link( "land" ).'">売地</a></li>';
+    }
+    if($_POST["search-property-post_type"] == "rental"){
+        echo '<li class="tag-rent"><a href="'.get_post_type_archive_link( "rental" ).'">賃貸</a></li>';
+    }
+}
+?>
+
+<?php
+//エリア
+if(isset($_POST["search-area"])){
+    if(!empty($_POST["search-area"])){
+        foreach ($_POST["search-area"] as $term_id) {
+        $term = get_term_by("id",$term_id,"tax_area");
+        echo '<li class="tag-default"><a href="#">'.$term->name.'</a></li>';
+        }
+    }
+}
+
+//価格
+if(isset($_POST["search-property-price"])){
+    if($_POST["search-property-price"] != ""){
+        $prices = explode("-",$_POST["search-property-price"]);
+        $strprice = "";
+        if($prices[0] > 0){
+            $strprice.= $prices[0];
+            $strprice.= "万円";
+        }
+        $strprice.="〜";
+        if($prices[1] > 0){
+            $strprice.= $prices[1];
+            $strprice.= "万円";
+        }
+        echo '<li class="tag-default"><a href="#">'.$strprice.'</a></li>';
+    }
+}
+
+//建物面積
+if(isset($_POST["search-property-size"])){
+    if($_POST["search-property-size"] != ""){
+        $sizes = explode("-",$_POST["search-property-size"]);
+        $strsize = "";
+        if($sizes[0] > 0){
+            $strsize.= $sizes[0];
+            $strsize.= "平米";
+        }
+        $strsize.="〜";
+        if($sizes[1] > 0){
+            $strsize.= $sizes[1];
+            $strsize.= "平米";
+        }
+        echo '<li class="tag-default"><a href="#">'.$strsize.'</a></li>';
+    }
+}
+
+//土地面積
+if(isset($_POST["search-property-land-size"])){
+    if($_POST["search-property-land-size"] != ""){
+        $sizes = explode("-",$_POST["search-property-land-size"]);
+        $strsize = "";
+        if($sizes[0] > 0){
+            $strsize.= $sizes[0];
+            $strsize.= "平米";
+        }
+        $strsize.="〜";
+        if($sizes[1] > 0){
+            $strsize.= $sizes[1];
+            $strsize.= "平米";
+        }
+        echo '<li class="tag-default"><a href="#">'.$strsize.'</a></li>';
+    }
+}
+
+//築年数
+if(isset($_POST["search-property-age"])){
+    if($_POST["search-property-age"] != ""){
+        $ages = explode("-",$_POST["search-property-age"]);
+        $strage = "";
+        if($ages[0] > 0){
+            $strage.= $ages[0];
+            $strage.= "年";
+        }
+        $strage.="〜";
+        if($ages[1] > 0){
+            $strage.= $ages[1];
+            $strage.= "年";
+        }
+        echo '<li class="tag-default"><a href="#">'.$strage.'</a></li>';
+    }
+}
+
+//こだわり検索
+if(isset($_POST["search-property-adhere_new"])){
+    if(!empty($_POST["search-property-adhere_new"])){
+        foreach ($_POST["search-property-adhere_new"] as $term_id) {
+        $term = get_term_by("id",$term_id,"adhere_new");
+        echo '<li class="tag-default"><a href="#">'.$term->name.'</a></li>';
+        }
+    }
+}
+if(isset($_POST["search-property-adhere_used"])){
+    if(!empty($_POST["search-property-adhere_used"])){
+        foreach ($_POST["search-property-adhere_used"] as $term_id) {
+            $term = get_term_by("id",$term_id,"adhere_used");
+            echo '<li class="tag-default"><a href="#">'.$term->name.'</a></li>';
+        }
+    }
+}
+if(isset($_POST["search-property-adhere_land"])){
+    if(!empty($_POST["search-property-adhere_land"])){
+        foreach ($_POST["search-property-adhere_land"] as $term_id) {
+            $term = get_term_by("id",$term_id,"adhere_land");
+            echo '<li class="tag-default"><a href="#">'.$term->name.'</a></li>';
+        }
+    }
+}
+if(isset($_POST["search-property-adhere_rental"])){
+    if(!empty($_POST["search-property-adhere_rental"])){
+        foreach ($_POST["search-property-adhere_rental"] as $term_id) {
+            $term = get_term_by("id",$term_id,"adhere_rental");
+            echo '<li class="tag-default"><a href="#">'.$term->name.'</a></li>';
+        }
+    }
+}
+
+//学校
+$acf_post_custom = get_post_custom(128);
+$acf_fields_object = array();
+foreach ( $acf_post_custom as $key => $arr ) {
+    if ( preg_match( "/^field_/", $key ) ) {
+        $arr = unserialize($arr[0]);
+        $field_name = $arr['name'];
+        $acf_fields_object[$field_name] = $arr;
+    }
+}
+$middles = $acf_fields_object["middle"]["choices"];
+$primaries = $acf_fields_object["primary"]["choices"];
+if(isset($_POST["search-property-middle"]) || isset($_POST["search-property-primary"])){
+    if(isset($_POST["search-property-middle"])){
+        if(!empty($_POST["search-property-middle"])){
+            foreach ( $_POST["search-property-middle"] as $key ) {
+                echo '<li class="tag-default"><a href="#">'.$middles[$key].'</a></li>';
+            }
+        }
+    }
+    if(isset($_POST["search-property-primary"])){
+        if(!empty($_POST["search-property-primary"])){
+            foreach ( $_POST["search-property-primary"] as $key ) {
+                echo '<li class="tag-default"><a href="#">'.$primaries[$key].'</a></li>';
+            }
+        }
+    }
+}
+?>
+
+                                            </ul>
+                                        </dd>
+                                    </dl>
+                                </div>
+
+                                <div class="property-search-result">
+                                    <p class="property-search-result-num">
+                                    <b><?php echo count($posts_array); ?>件</b>の物件が見つかりました
+                                    </p>
+
+                                    <dl class="property-search-sort">
+                                        <dt>並び替え</dt>
+                                        <dd class="form-style">
+                                            <div class="form-select-wrap w100">
+                                                <select class="w100" id="select-order">
+                                                    <option value="date">新着順</option>
+                                                    <option value="price">価格順</option>
+                                                </select>
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script>
+$(function(){
+    $("#select-order").on("change",function(e){
+        var action = $("#sidebar-form").attr("action");
+        action += "?order="+$(this).val();
+        $("#sidebar-form").attr("action",action).submit();
+    });
+});
+</script>
+                                                <i class="ico-arrowd01 ico-front" aria-hidden="true"></i>
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+
+                                <div class="property-inner">
+                                    <div id="property-tab-recommend">
+                                        <div class="grid-wrap">
+                                            <ul class="property-grid01 grid-style03-list02">
+<?php foreach($posts_array as $post){ ?>
+    <?php $custom_fields = get_post_custom($post_id); ?>
+    <!-- 1matter -->
+    <li>
+        <ul class="property-tag">
+            <?php if(new_entry($post->ID)): ?>
+                <li class="tag-new"><a href="<?php the_permalink(); ?>">NEW</a></li>
+            <?php endif; ?>
+            <?php if($post->post_type == "new"){ ?>
+                <li class="tag-new"><a href="<?php echo get_post_type_archive_link( "new" ); ?>">新築住宅</a></li>
+            <?php } ?>
+            <?php if($post->post_type == "used"){ ?>
+                <li class="tag-used"><a href="<?php echo get_post_type_archive_link( "used" ); ?>">中古住宅</a></li>
+            <?php } ?>
+            <?php if($post->post_type == "land"){ ?>
+                <li class="tag-land"><a href="<?php echo get_post_type_archive_link( "land" ); ?>">売地</a></li>
+            <?php } ?>
+            <?php if($post->post_type == "rental"){ ?>
+                <li class="tag-rent"><a href="<?php echo get_post_type_archive_link( "rental" ); ?>">賃貸</a></li>
+            <?php } ?>
+        </ul>
+
+        <div class="property-favorite"><a class="fav active" href="#" data-id="<?php echo the_ID(); ?>"><i class="ico-favorite01 ico-front" aria-hidden="true"></i>お気に入り</a></div>
+
+        <dl class="property-list01">
+        <dt><?php echo $post->post_title; ?></dt>
+            <dd>
+                <figure>
+                    <a href="/property/detail.html">
+<?php
+$image_url = "";
+if( have_rows('gallery') ):
+    the_row();
+    $attachment_id = get_sub_field('photo');
+    $size = 'base';
+    $image = wp_get_attachment_image_src( $attachment_id, $size );
+    $image_url = @$image[0];
+else:
+    $image_url = THEME."/images/p_icatch.jpg";
+endif;
+?>
+    <img src="<?php echo $image_url; ?>" width="352" height="211" alt="<?php echo $post->title; ?>">
+                    </a>
+                </figure>
+
+                <p><?php echo get_the_custom_excerpt($custom_fields["pr"][0] , 45); ?></p>
+            </dd>
+        </dl>
+
+        <table class="table-style01 js-table-swipe">
+            <col class="w024">
+            <col>
+
+            <tbody>
+            <tr><th>価格</th><td><?php echo number_format($custom_fields["price"][0]); ?>万円（税込み）</td></tr>
+            <tr><th>所在地</th><td><?php echo $custom_fields["address"][0]; ?></td></tr>
+<?php
+$traffics = array();
+if($custom_fields["station_hiromi"][0] != ""){
+    $traffics[] = "名鉄広見線".$custom_fields["station_hiromi"][0]." 徒歩".$custom_fields["walk_hiromi"][0]."分";
+}
+if($custom_fields["station_ota"][0] != ""){
+    $traffics[] = "名鉄太多線".$custom_fields["station_ota"][0]." 徒歩".$custom_fields["walk_ota"][0]."分";
+}
+if($custom_fields["station_takayama"][0] != ""){
+    $traffics[] = "JR高山本線".$custom_fields["station_takayama"][0]." 徒歩".$custom_fields["walk_takayama"][0]."分";
+}
+if($custom_fields["station_totetsu"][0] != ""){
+    $traffics[] = "東鉄バス".$custom_fields["station_totetsu"][0]." 徒歩".$custom_fields["walk_totetsu"][0]."分";
+}
+if($custom_fields["station_nagara"][0] != ""){
+    $traffics[] = "長良川鉄道".$custom_fields["station_nagara"][0]." 徒歩".$custom_fields["walk_nagara"][0]."分";
+}
+if($custom_fields["access_other"][0] != ""){
+    $traffics[] = $custom_fields["access_other"][0];
+}
+?>
+                <tr><th>交通</th><td><?php echo implode("<br />",$traffics); ?></td></tr>
+<?php
+$yoshiya = array();
+$tsubasa = array();
+if(isset($custom_fields["land_size"])){
+    $yoshiya[] = "土地面積";
+    $tsubasa[] = $custom_fields["land_size"][0]."m<sup>2</sup>（".$custom_fields["land_tsubo"][0]."坪）";
+}
+if(isset($custom_fields["building_size"])){
+    $yoshiya[] = "建物面積";
+    $tsubasa[] = $custom_fields["building_size"][0]."m<sup>2</sup>（".$custom_fields["building_tsubo"][0]."坪）";
+}
+if(!empty($yoshiya)){
+?>
+                <tr><th><?php echo implode("/",$yoshiya); ?></th><td><?php echo implode(" / ",$tsubasa); ?></td></tr>
+
+<?php } ?>
+<?php if(isset($custom_fields["year"])){ ?>
+                <tr><th>築年数</th><td><?php echo $custom_fields["year"][0]; ?>年<?php echo $custom_fields["month"][0]; ?>月（<?php echo $custom_fields["era"][0].$custom_fields["era_year"][0]; ?>年）</td></tr>
+<?php } ?>
+                <tr><th>学区分</th><td><?php echo $primaries[$custom_fields["primary"][0]]; ?>／<?php echo $middles[$custom_fields["middle"][0]]; ?></td></tr>
+<?php if(isset($custom_fields["floor"])){ ?>
+                <tr><th>間取り</th><td><?php echo $custom_fields["floor"][0]; ?></td></tr>
+<?php } ?>
+            </tbody>
+        </table>
+
+        <ul class="list-gutter08 mat15">
+            <li class="w050"><a class="btn-style02 btn-ico-back" href="<?php the_permalink(); ?>"><span>詳細を見る<i class="ico-arrowr01" aria-hidden="true"></i></span></a></li>
+            <li class="w050"><a class="btn-style04 btn-ico-back" href="/pcontact/?post_id=<?php the_ID(); ?>"><span>お問い合わせ<i class="ico-arrowr01" aria-hidden="true"></i></span></a></li>
+        </ul>
+    </li>
+    <!-- /1matter -->
+<?php } ?>
+                                            </ul>
+
+<!--
+                                            <div class="property-more">
+                                                <a class="btn-style03 tac" href="#"><span>もっと見る<i class="ico-plus01 ico-back" aria-hidden="true"></i></span></a>
+                                            </div>
+-->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- favorite-area -->
+                            <div class="section" id="favorite-area">
+                                <div class="favorite-inner">
+                                    <h3 class="favorite-heading01"><i class="ico-favorite01 ico-front" aria-hidden="true"></i>お気に入りした物件</h3>
+
+                                    <div id="favorite-slider">
+                                        <p class="no-fav">お気に入りした物件はありません</p></div>
+
+                                    <div class="favorite-more">
+                                        <a class="btn-style03 tac" href="/favorite_property/"><span>お気に入り物件一覧<i class="ico-arrowr01 ico-back" aria-hidden="true"></i></span></a>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- /favorite-area -->
+                        </main>
+                        <!-- /main -->
+
+                    </div>
+                    <!-- /content -->
+                </div>
+<?php get_footer(); ?>

@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto', 'dBug', 'dbug', 'class', 'Error', 'protected', 'public', 'function', '__construct', '$this', 'get_instance', 'custom_error', '$message', 'set_title', '_MESSAGE_CUSTOM_ERROR', 'data', 'message', 'load', 'view', 'errors', 'html'}

@@ -1,0 +1,729 @@
+<div class="title">受注エントリ</div>
+
+<?php $session->flash(); ?>
+
+<div>
+	<div style="float:left;">
+		<a id="open-help" href="#">画面の説明</a>
+	</div>
+	<div style="float:right;">
+		<?if($id !== null && $this->data['Saleorder']['current_print_type'] != 2){?>
+			<button type="button" class="btn btn-default" onclick="return Send('/pdfs/single/<?=$this->data['Saleorder']['id'];?>/saleorders','_blank')">受注報告書発行</button>
+		<?}?>
+		<button type="button" class="btn btn-default not-readonly" onclick="return Href('/users/index',null,'<?=_def_admin_finish_message;?>')">終了</button>
+	</div>
+	<div style="clear:both;"></div>
+</div>
+
+<form name="frm" method="post" id="frm">
+<table width="100%" style="margin-top:3px;">
+<tr>
+	<td class="head w100">
+		受注番号<br /><?=$error->attention("id",$validate)?>
+	</td>
+	<td class="plane_body">
+		<div id="id-error" class="error-message-n"></div>
+		<span style="font-weight:bold;">U</span> <?=$html->input("Saleorder/id",array("class"=>"nomal_text_w100 not-readonly",'onchange'=>'getData("saleorder",$(this).val())'))?>
+		<input type="button" class="btn-modal not-readonly" value="検索" data-url="/saleorders/modal_search" data-title="受注エントリ検索" data-section="saleorder">
+		<?=$error->messageFor("Saleorder/id")?>
+	</td>
+</tr>
+</table>
+<br />
+<table style="width:100%">
+<tr>
+	<td class="head w100">
+		部品KI<br /><?=$error->attention("product_id",$validate)?>
+	</td>
+	<td class="plane_body">
+		<div id="product_id-error" class="error-message-n"></div>
+		<?=$html->input("Product/code",array("class"=>"nomal_text_w100",'onchange'=>'getData("product",$(this).val())'))?>
+		<input type="button" class="btn-modal" value="検索" data-url="/products/modal_search" data-title="部品先検索" data-section="product" data-target="code">
+		<?=$html->hidden("Saleorder/product_id")?>
+		<?=$error->messageFor("Saleorder/product_id")?>
+	</td>
+</tr>
+<tr>
+	<td class="plane_head w100">
+		カタログ番号
+	</td>
+	<td class="plane_body">
+		<?=$html->input("Product/code2",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+	</td>
+</tr>
+<tr>
+	<td class="plane_head w100">
+		得意先
+	</td>
+	<td class="plane_body" colspan="3">
+		<div>
+			<?=$html->input("Customer/code",array("class"=>"nomal_text_w100 disabled","readonly"=>"readonly"))?>
+			<?=$html->hidden("Product/customer_id")?>
+		</div>
+		<div><?=$html->input("Customer/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?></div>
+		<div><?=$html->input("Customer/name2",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?></div>
+	</td>
+</tr>
+<tr>
+	<td class="plane_head w100">
+		図番
+	</td>
+	<td class="plane_body" colspan="3">
+		<?=$html->input("Product/image_number",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+	</td>
+</tr>
+<tr>
+	<td class="plane_head w100">
+		品名
+	</td>
+	<td class="plane_body" colspan="3">
+		<div>
+			<?=$html->input("Product/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+		</div>
+		<div>
+			<?=$html->input("Product/name2",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+		</div>
+	</td>
+</tr>
+</table>
+<br />
+<table width="100%">
+<tr>
+	<td class="head w100">
+		注文番号<br /><?=$error->attention("order_number",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		<?=$html->input("Saleorder/order_number",array("class"=>"nomal_text"))?>
+		<?=$error->messageFor("Saleorder/order_number")?>
+	</td>
+</tr>
+</table>
+<br />
+<table width="100%">
+<tr>
+	<td class="head w100">
+		生産ロットNo.<br /><?=$error->attention("manufacture_id",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		L <?=$html->input("Saleorder/manufacture_id",array("class"=>"nomal_text_w100"))?>
+		<?=$error->messageFor("Saleorder/manufacture_id")?>
+	</td>
+</tr>
+</table>
+<br />
+<div id="stock-error" class="error-message-n"></div>
+<table width="100%">
+<tr>
+	<td class="head" colspan="2">
+		在庫状況
+	</td>
+</tr>
+<tr>
+	<td class="plane_head w100">在庫数</td>
+	<td class="plane_body">
+		<?=$html->input("ProductStock/stock",array("class"=>"nomal_text_w100 disabled nf","readonly"=>"readonly"))?>
+	</td>
+</tr>
+<tr>
+	<td class="plane_head w100">注残</td>
+	<td class="plane_body">
+		<?=$html->input("ProductStock/reserved",array("class"=>"nomal_text_w100 disabled nf","readonly"=>"readonly"))?>
+	</td>
+</tr>
+<tr>
+	<td class="plane_head w100">JOB残</td>
+	<td class="plane_body">
+		<?=$html->input("ProductStock/production",array("class"=>"nomal_text_w100 disabled nf","readonly"=>"readonly"))?>
+	</td>
+</tr>
+</table>
+<br />
+<table width="100%">
+<tr>
+	<td class="head w100">
+		受注先<br /><?=$error->attention("jobber_customer_id",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		<div id="jobber_customer_id-error" class="error-message-n"></div>
+		<?=$html->input("JobberCustomer/code",array("class"=>"nomal_text_w100",'onchange'=>'getData("jobber_customer",$(this).val())'))?>
+		<input type="button" class="btn-modal" value="検索" data-url="/customers/modal_search/1" data-title="受注先検索" data-section="jobber_customer" data-target="code">
+		<?=$html->hidden("Saleorder/jobber_customer_id")?>
+		<?=$error->messageFor("Saleorder/jobber_customer_id")?>
+		<div>
+			<?=$html->input("JobberCustomer/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?></div>
+		<div><?=$html->input("JobberCustomer/name2",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?></div>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		受注日<br /><?=$error->attention("order_date",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+    <?=$html->input("Saleorder/order_date",array("class"=>"nomal_text_w150　vd check-invoice-adjust",
+"data-type" => 1))?>
+		&nbsp;<a href="javascript:openCal('cal1','frm','data[Saleorder][order_date]');"><img src="/img/calendar.gif"></a><span id="cal1"></span>
+		<?=$error->messageFor("Saleorder/order_date")?>
+	</td>
+</tr>
+
+<tr>
+	<td class="head w100">
+		納期<br /><?=$error->attention("apo_deliv_date",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		<?=$html->input("Saleorder/apo_deliv_date",array("class"=>"nomal_text_w150 vd"))?>
+		&nbsp;<a href="javascript:openCal('calAPoDelivDate','frm','data[Saleorder][apo_deliv_date]');"><img src="/img/calendar.gif"></a><span id="calAPoDelivDate"></span>
+		<?=$error->messageFor("Saleorder/apo_deliv_date")?>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		納期メモ<br /><?=$error->attention("apo_deliv_date_memo",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		<?=$html->input("Saleorder/apo_deliv_date_memo",array("class"=>"nomal_text"))?>
+		<?=$error->messageFor("Saleorder/apo_deliv_date_memo")?>
+	</td>
+</tr>
+
+
+<tr>
+	<td class="head w100">
+		出荷日<br /><?=$error->attention("deliv_date",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		<?=$html->input("Saleorder/deliv_date",array("class"=>"nomal_text_w150 vd"))?>
+		&nbsp;<a href="javascript:openCal('deliv_date','frm','data[Saleorder][deliv_date]');"><img src="/img/calendar.gif"></a><span id="deliv_date"></span>
+		<?=$error->messageFor("Saleorder/deliv_date")?>
+	</td>
+</tr>
+
+<tr>
+	<td class="head w100">
+		受注数<br /><?=$error->attention("quantity",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		<?=$html->input("Saleorder/quantity",array("class"=>"nomal_text_w150 nf"))?>
+		<?=$error->messageFor("Saleorder/quantity")?>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		単価<br /><?=$error->attention("price",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		<div id="price-error" class="error-message-n"></div>
+		<?=$html->input("Saleorder/price",array("class"=>"nomal_text_w100 nf"))?> (<?=$html->input("ProductPrice/price",array("class"=>"nomal_text_w100 disabled nf","readonly"=>"readonly"))?>)
+		<?=$error->messageFor("Saleorder/price")?>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		工場<br /><?=$error->attention("factory_id",$validate)?>
+	</td>
+	<td class="plane_body auth" colspan="3" data-auth="<?=$session->read('site.user.auth_group_id')?>">
+		<div id="factory-error" class="error-message-n"></div>
+		<?=$html->input("Factory/code",array("class"=>"nomal_text_w100",'onchange'=>'getData("factory",$(this).val())'))?>
+		<input type="button" class="btn-modal" value="検索" data-url="/factories/modal_search" data-title="工場検索" data-section="factory" data-target="code">
+		<?=$html->hidden("Saleorder/factory_id")?>
+		<?=$html->input("Factory/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+		<?=$error->messageFor("Saleorder/factory_id")?>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		担当者<br /><?=$error->attention("staff_id",$validate)?>
+	</td>
+	<td class="plane_body" colspan="3">
+		<div id="staff-error" class="error-message-n"></div>
+		<?=$html->input("Staff/code",array("class"=>"nomal_text_w100",'onchange'=>'getData("staff",$(this).val())'))?>
+		<input type="button" class="btn-modal" value="検索" data-url="/users/modal_search?factory_id=<?php echo $session->read('site.user.factory_id'); ?>" data-title="担当者検索" data-section="staff" data-target="code">
+		<?=$html->hidden("Saleorder/staff_id")?>
+		<?=$html->input("Staff/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+		<?=$error->messageFor("Saleorder/staff_id")?>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		納入場所
+	</td>
+	<td class="plane_body">
+		<div id="deliv_client-error" class="error-message-n"></div>
+		<?=$html->input("DelivClient/code",array("class"=>"nomal_text_w100",'onchange'=>'getData("deliv_client",$(this).val())'))?>
+		<input type="button" class="btn-modal" value="検索" data-url="/customers/modal_search/3" data-title="納入場所検索" data-section="deliv_client" data-target="code">
+		<?=$html->hidden("Saleorder/deliv_client_id")?>
+		<div><?=$html->input("DelivClient/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?></div>
+		<div><?=$html->input("DelivClient/name2",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?></div>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		納入先担当<br /><?=$error->attention("deliv_client_name3",$validate)?>
+	</td>
+	<td class="plane_body">
+		<?=$html->input("Saleorder/deliv_client_name3",array("class"=>"nomal_text ima"))?>
+		<?=$error->messageFor("Saleorder/deliv_client_name3")?>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		発注先
+	</td>
+	<td class="plane_body">
+		<div id="client-error" class="error-message-n"></div>
+		<?=$html->input("Client/code",array("class"=>"nomal_text_w100",'onchange'=>'getData("client",$(this).val())'))?>
+		<input type="button" class="btn-modal" value="検索" data-url="/customers/modal_search/3" data-title="発注先検索" data-section="client" data-target="code">
+		<?=$html->hidden("Saleorder/client_id")?>
+		<div>
+		<?=$html->input("Client/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+		</div>
+		<div>
+		<?=$html->input("Client/name2",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+		</div>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		発注先注番<br /><?=$error->attention("client_order_number",$validate)?>
+	</td>
+	<td class="plane_body">
+		<?=$html->input("Saleorder/client_order_number",array("class"=>"nomal_text"))?>
+		<?=$error->messageFor("Saleorder/client_order_number")?>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		発注先担当<br /><?=$error->attention("client_name3",$validate)?>
+	</td>
+	<td class="plane_body">
+		<?=$html->input("Saleorder/client_name3",array("class"=>"nomal_text ima"))?>
+		<?=$error->messageFor("Saleorder/client_name3")?>
+	</td>
+</tr>
+</table>
+<br />
+<table width="100%">
+<tr>
+	<td class="head w100" rowspan="4">
+		付帯項目
+	</td>
+	<td class="head">
+		内容<br /><?=$error->attention("name1",$validate_saleorder_detail)?>
+	</td>
+	<td class="head">
+		数量<br /><?=$error->attention("quantity1",$validate_saleorder_detail)?>
+	</td>
+	<td class="head">
+		単価<br /><?=$error->attention("price1",$validate_saleorder_detail)?>
+	</td>
+	<td class="head">
+		金額<br /><?=$error->attention("total1",$validate_saleorder_detail)?>
+	</td>
+</tr>
+<?for($i = 1; $i <=3; $i++){?>
+	<tr>
+		<td class="body">
+			<?=$html->input("SaleorderDetail/name".$i,array("class"=>"nomal_text_w150 ima"))?>
+			<?=$error->messageFor("SaleorderDetail/name".$i)?>
+		</td>
+		<td class="body">
+			<?=$html->input("SaleorderDetail/quantity".$i,array("class"=>"nomal_text_w150 nf calc-total","data-cnt"=>$i))?>
+			<?=$error->messageFor("SaleorderDetail/quantity".$i)?>
+		</td>
+		<td class="body">
+			<?=$html->input("SaleorderDetail/price".$i,array("class"=>"nomal_text_w150 nf calc-total","data-cnt"=>$i))?>
+			<?=$error->messageFor("SaleorderDetail/price".$i)?>
+		</td>
+		<td class="body">
+			<?=$html->input("SaleorderDetail/total".$i,array("class"=>"nomal_text_w150 nf","data-cnt"=>$i))?>
+			<?=$error->messageFor("SaleorderDetail/total".$i)?>
+		</td>
+	</tr>
+<?}?>
+</table>
+<br />
+<table width="100%">
+<tr>
+	<td class="head w100">
+		備考<br /><?=$error->attention("note",$validate)?>
+	</td>
+	<td class="plane_body">
+		<div>
+			<?=$html->input("Saleorder/note",array("class"=>"nomal_text ima"))?>
+			<?=$error->messageFor("Saleorder/note")?>
+		</div>
+		<div>
+			<?=$html->input("Saleorder/note2",array("class"=>"nomal_text ima"))?>
+			<?=$error->messageFor("Saleorder/note2")?>
+		</div>
+		<div>
+			<?=$html->input("Saleorder/note3",array("class"=>"nomal_text ima"))?>
+			<?=$error->messageFor("Saleorder/note3")?>
+		</div>
+	</td>
+</tr>
+<tr>
+	<td class="head w100">
+		印刷区分<br /><?=$error->attention("print_type",$validate)?>
+	</td>
+	<td class="plane_body">
+		<?=$html->selectTag("Saleorder/print_type",$print_type,null,null,null,false)?>
+			<?=$error->messageFor("Saleorder/print_type")?>
+	</td>
+</tr>
+</table>
+<br />
+<table width="100%">
+<tr>
+	<td class="head w100">
+		セットKI
+	</td>
+	<td class="plane_body">
+		<div id="product-set-error" class="error-message-n"></div>
+		<?=$html->input("ProductSet/code",array("class"=>"nomal_text_w100",'onchange'=>'getData("product_set",$(this).val())'))?>
+		<input type="button" class="btn-modal" value="検索" data-url="/product_sets/modal_search" data-title="セット検索" data-section="product_set" data-target="code">
+		<?=$html->hidden("Saleorder/product_set_id")?>
+		<div>
+		<?=$html->input("ProductSet/name",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+		<?=$html->input("ProductSet/name2",array("class"=>"nomal_text disabled","readonly"=>"readonly"))?>
+		</div>
+	</td>
+</tr>
+<tr>
+	<td class="plane_head w100">
+		セット数
+	</td>
+	<td class="plane_body">
+		<?=$html->input("ProductSet/count",array("class"=>"nomal_text_w150 disabled nf","readonly"=>"readonly"))?>
+	</td>
+</tr>
+</table>
+<br />
+<table width="100%">
+<tr>
+	<td class="foot" colspan="2">
+		<button type="submit" class="btn btn-primary btn-lg" onclick="return Send('/saleorders/edit',null,'<?=_def_admin_add_message;?>')">書込</button>
+		<button type="submit" class="btn btn-primary btn-lg" onclick="return Send('/saleorders/edit?mode=manufacture',null,'<?=_def_admin_add_message;?>')">書込して生産依頼</button>
+		<button type="button" class="btn btn-default btn-lg" onclick="return Href('/saleorders/edit',null,'<?=_def_admin_cancel_message;?>')">取消</button>
+	</td>
+</tr>
+</table>
+<?=$html->hidden("Saleorder/execute",array("value"=>"on"))?>
+<?=$html->hidden("Saleorder/current_print_type")?>
+</form>
+
+<div id="help">
+	<ol>
+		<li>初期状態時、工場と担当者はログインユーザーの情報が自動入力されています</li>
+		<li>部品KIを入力すると部品の得意先が受注先に、部品の発注担当が担当者に自動入力されます</li>
+		<li>工場は権限が「システム管理者」か「管理者」のユーザーのみ変更可能です</li>
+		<li>在庫情報は部品と工場を選択後に表示されます</li>
+		<li>受注先と部品が入力されると売価が自動入力されます。売価は単価に自動入力されます<br />
+		※すでに入力されている単価があっても上書きされます。注意してください</li>
+		<li>受注先は得意先マスタから参照されます</li>
+		<li>納入場所は発注先マスタから参照されます</li>
+		<li>発注先は発注先マスタから参照されます</li>
+	</ol>
+</div>
+
+<script>
+function getData(section,target){
+	if(section == "saleorder"){
+		if(target !== undefined){
+			var j = ajaxJudgeExistId(target,'saleorders');
+			if(j == 'true'){
+				window.location.href = '/saleorders/edit/'+target;
+			}else{
+				$('#id-error').text('入力した受注番号'+target+'はありません').show();
+				$('#SaleorderId').val('');
+			}
+		}
+	}
+
+	/**
+	*	部品情報取得
+	*/
+	if(section == "product"){
+		$.ajax({
+			type:'POST',
+			url:'/products/ajax_get_in_saleorders_edit',
+			dataType: 'json',
+			data:{
+				'code': target
+			},
+			async: false,
+			success: function(data){
+				if(data){
+					//部品情報挿入
+					$('#SaleorderProductId').val(data.Product.id);
+					$('#ProductCode').val(target);
+					$('#ProductCode2').val(data.Product.code2);
+					$('#SaleorderCustomerId').val(data.Customer.id);
+					$('#CustomerCode').val(data.Customer.code);
+					$('#CustomerName').val(data.Customer.name);
+					$('#CustomerName2').val(data.Customer.name2);
+					$('#SaleorderJobberCustomerId').val(data.Customer.id);
+					$('#JobberCustomerCode').val(data.Customer.code);
+					$('#JobberCustomerName').val(data.Customer.name);
+					$('#JobberCustomerName2').val(data.Customer.name2);
+					$('#ProductImageNumber').val(data.Product.image_number);
+					$('#ProductName').val(data.Product.name);
+					$('#ProductName2').val(data.Product.name2);
+//					$('#SaleorderStaffId').val(data.Product.purchase_staff_id);
+//					$('#StaffCode').val(data.Staff.code);
+//					$('#StaffName').val(data.Staff.name);
+
+                    if(data.ProductSet.id != ""){
+                        $('#SaleorderProductSetId').val(data.ProductSet.id);
+                        $('#ProductSetCode').val(data.ProductSet.code);
+                        $('#ProductSetName').val(data.ProductSet.name);
+                        $('#ProductSetName2').val(data.ProductSet.name2);
+                        $('#ProductSetCount').val(data.ProductSet.count);
+                    }
+
+					//在庫情報取得
+					getStock();
+
+					//売価取得
+					getProductPrice();
+
+					$('#product_id-error').text('').hide();
+				}else{
+					$('#product_id-error').text('入力した部品KI'+target+'はありません').show();
+				}
+			}
+		});
+	}
+
+	/**
+	*	受注先取得
+	*/
+	if(section == "jobber_customer"){
+		var conditions = {
+			'code':target,
+			'account_type':1
+		};
+		var data = ajaxGetCustomer(conditions);
+		if(data){
+			$('#SaleorderJobberCustomerId').val(data.Customer.id);
+			$('#JobberCustomerCode').val(target);
+			$('#JobberCustomerName').val(data.Customer.name);
+			$('#JobberCustomerName2').val(data.Customer.name2);
+
+			//売価取得
+			getProductPrice();
+
+			$('#jobber_customer_id-error').text('').hide();
+		}else{
+			$('#jobber_customer_id-error').text('入力した受注先'+target+'はありません').show();
+		}
+	}
+
+	/**
+	*	工場取得
+	*/
+	if(section == "factory"){
+		var data = ajaxGetByCode(target,'factories');
+		if(data){
+			$('#SaleorderFactoryId').val(data.Factory.id);
+			$('#FactoryCode').val(target);
+			$('#FactoryName').val(data.Factory.name);
+
+			//在庫情報取得
+			getStock();
+
+			$('#factory-error').text('').hide();
+		}else{
+			$('#factory-error').text('入力した工場コード'+target+'はありません').show();
+		}
+	}
+
+	/**
+	*	担当者取得
+	*/
+	if(section == "staff"){
+		var data = ajaxGetByCode(target,'users');
+		if(data){
+			$('#SaleorderStaffId').val(data.Staff.id);
+			$('#StaffCode').val(target);
+			$('#StaffName').val(data.Staff.name);
+			$('#staff-error').text('').hide();
+		}else{
+			$('#staff-error').text('入力した担当者コード'+target+'はありません').show();
+		}
+	}
+
+	/**
+	*	納入場所取得
+	*/
+	if(section == "deliv_client"){
+		var conditions = {
+			'code':target,
+			'account_type':3
+		};
+		var data = ajaxGetCustomer(conditions);
+		if(data){
+			$('#SaleorderDelivClientId').val(data.Customer.id);
+			$('#DelivClientCode').val(target);
+			$('#DelivClientName').val(data.Customer.name);
+			$('#DelivClientName2').val(data.Customer.name2);
+			$('#deliv_client-error').text('').hide();
+		}else{
+			$('#deliv_client-error').text('入力した納入場所コード'+target+'はありません').show();
+		}
+	}
+
+	/**
+	*	発注先取得
+	*/
+	if(section == "client"){
+		var conditions = {
+			'code':target,
+			'account_type':3
+		};
+		var data = ajaxGetCustomer(conditions);
+		if(data){
+			$('#SaleorderClientId').val(data.Customer.id);
+			$('#ClientCode').val(target);
+			$('#ClientName').val(data.Customer.name);
+			$('#ClientName2').val(data.Customer.name2);
+			$('#client-error').text('').hide();
+		}else{
+			$('#client-error').text('入力した発注先コード'+target+'はありません').show();
+		}
+	}
+
+	/**
+	*	セット取得
+	*/
+	if(section == "product_set"){
+		var data = ajaxGetByCode(target,'product_sets');
+        console.log(data);
+		if(data){
+			$('#SaleorderProductSetId').val(data.ProductSet.id);
+			$('#ProductSetCode').val(target);
+			$('#ProductSetName').val(data.Product.name);
+			$('#ProductSetName2').val(data.Product.name2);
+			$('#ProductSetCount').val(data.ProductSet.count);
+			$('#product-set-error').text('').hide();
+		}else{
+			$('#product-set-error').text('入力したセットKI'+target+'はありません').show();
+		}
+	}
+}
+
+/**
+*	在庫状況の取得
+*/
+function getStock(){
+	var product_id = $('#SaleordeProductId').val();
+	var factory_id = $('#SaleorderFactoryId').val();
+	var e = '';
+	if(factory_id != '' && product_id != ''){
+		var stocks = ajaxGetProductStock(product_id,factory_id);
+		if(stocks){
+			$('#ProductStockStock').val(nf(stocks.ProductStock.stock));
+			$('#ProductStockReserved').val(nf(stocks.ProductStock.reserved));
+			$('#ProductStockProduction').val(nf(stocks.ProductStock.production));
+			$('#ProductStockAllowable').val(nf(stocks.ProductStock.allowable));
+			$('#stock-error').text('').hide();
+		}else{
+			e = '在庫情報が登録されていません';
+		}
+	}else{
+		e = '在庫表示には部品と工場を入力してください';
+	}
+	if(e != ''){
+		$('#stock-error').text(e).show();
+		$('#ProductStockStock').val();
+		$('#ProductStockReserved').val();
+		$('#ProductStockProduction').val();
+		$('#ProductStockAllowable').val();
+	}
+}
+
+/**
+*	売価の取得
+*/
+function getProductPrice(){
+	var product_id = $('#SaleorderProductId').val();
+	var jobber_customer_id = $('#SaleorderJobberCustomerId').val();
+	var e = '';
+	if(jobber_customer_id != '' && product_id != ''){
+		var price = ajaxGetProductPrice(product_id,jobber_customer_id);
+		if(price){
+			$('#ProductPricePrice').val(nf(price));
+			$('#SaleorderPrice').val(nf(price));
+			$('#price-error').text('').hide();
+		}else{
+			e = '売価が登録されていません';
+		}
+	}else{
+		e = '売価表示には受注先と部品を入力してください';
+	}
+	if(e != ''){
+		$('#price-error').text(e).show();
+		$('#ProductPricePrice').val('');
+		$('#SaleorderPrice').val('');
+	}
+
+}
+//付帯項目の金額の計算
+$(function(){
+	/**
+	*	ヘルプモーダル
+	**/
+	//モーダル設定
+	$('#help').dialog({
+	  autoOpen: false,
+	  title: 'マニュアル',
+	  modal: true,
+	  width: '80%',
+		position:{
+			of : 'body',
+	    at: 'center top',
+	    my: 'center top'
+	  },
+	  buttons: {
+	    "閉じる": function(){
+	      $(this).dialog('close');
+	    }
+	  }
+	});
+	//ヘルプリンククリック時
+	$('#open-help').click(function(){
+	  $('#help').dialog('open');
+	});
+
+	//金額自動計算
+	$('.calc-total').change(function(){
+		var cnt = $(this).data('cnt');
+		var quantity = $('#SaleorderDetailQuantity'+cnt).val().replace(/,/g,'');
+		var price = $('#SaleorderDetailPrice'+cnt).val().replace(/,/g,'');
+		quantity != '' && price != '' ? $('#SaleorderDetailTotal'+cnt).val(Number(quantity) * Number(price)) : $('#SaleorderDetailTotal'+cnt).val('');
+		$('#SaleorderDetailTotal'+cnt).change();
+	});
+
+  var checkReceivableSummaries = function(){
+    var order_date = $("#SaleorderOrderDate").val();
+    if(order_date != ""){
+      order_date = order_date.replace("/","-"); 
+      $.ajax({
+          url: "/receivable_summaries/check_by_date/"+order_date+"/"+1,
+          method: "",
+          data: {},
+          dataType: "json",
+          async:false,
+      }).done(function(data) {
+          console.log(data);
+      }).fail(function(jqXHR, textStatus, errorThrown) {
+        alert("データ取得失敗\nstatus:"+jqXHR.status+"\ntextStatus:"+textStatus+"\nerrorThrown:"+errorThrown);
+      });
+
+    }
+    console.log(order_date);
+  }
+ checkReceivableSummaries();
+});
+
+</script>

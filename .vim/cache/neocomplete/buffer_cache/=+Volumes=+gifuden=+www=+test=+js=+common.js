@@ -1,0 +1,1 @@
+{'function', 'footer', 'ajax', 'elements', 'html', 'dataType', 'cache', 'false', 'async', 'done', 'footerSection', 'append', 'find', 'each', 'href', 'this', 'attr', 'fail', 'data', 'spNav', 'sp_nav', 'spNavSection'}

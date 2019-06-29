@@ -1,0 +1,1 @@
+{'<div ', 'missionLink', '</div>', '<section ', 'mission', 'class', 'sec5', '<h1 ', '<img ', 'hidden', 'feature', 'mission_back', 'MISSION', 'visible', 'style', 'width', '</h1>', 'quotation', '<br ', '</b>', '</p>', '<ul ', 'clearfix', '<li ', 'text', 'echo', '<br/>', '<br>', '</li>', '</ul>', 'float', 'left', 'sec5_1', 'sec5_2', 'sec5_3', '</section>'}

@@ -1,0 +1,1 @@
+{'include', 'includes', 'constants', 'functions', 'isset', '$_GET', '$mysqli', 'db_connect', '$sql', 'array', 'select', 'from', 'conves', 'where', 'del_flg', 'implode', '$data', 'db_select', 'update', 'modified', 'date', 'db_update', 'close', 'header', 'Location', 'conve_regist_end', 'mode', 'delete', 'exit', 'else'}

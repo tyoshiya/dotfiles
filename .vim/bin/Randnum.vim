@@ -1,0 +1,1 @@
+/Users/yoshiyatsubasa/src/vim-bin/Randnum.vim

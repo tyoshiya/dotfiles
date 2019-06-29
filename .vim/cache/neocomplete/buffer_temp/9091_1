@@ -1,0 +1,321 @@
+-------------------------------------------------
+#
+# 進行中のプロジェクト
+#
+-------------------------------------------------
+近畿電機
+    -売上アップロードでエラー
+    -材料操作一覧表の者旧単価は発注単価マスタの材料基準価格を表示
+    -材料相殺一覧票のcsvは小計と合計を縦に
+    -材料相殺金額記載リストのcsvは小計と合計を縦に
+    -材料相殺残リスト
+    -請求書
+    -残高を入力する
+    +請求明細表の年月をデフォルトで今月の年月に
+    +kinki2のマスタをkinkiに移す
+    +部品在庫一覧の棚卸数量->棚卸調整
+    +部品棚卸エントリで部品入力でその部品の棚卸履歴を表示する
+
+名古屋画廊
+
+卓
+    +途中退席機能
+    +ダブル指名、ダブル場内指名
+    +体験フラグ追加
+    +ハーフ延長と延長の切り替え（発注まだ）
+    +オーダーを複数入力可能に（発注まだ）
+    +待ちの仕様変更（発注まだ）
+    +商品原価登録機能（発注まだ）
+    +店舗のルール指定の中にポイントを商品ごとに誰にポイントを付けるか決めれる機能がほしい（発注まだ）
+
+わんにゃん
+    +投稿完了ページに文言追加　見積まだ 
+        投稿ありがとうございました。
+
+        「わんにゃん」は、殺処分される犬猫を救うための寄付活動を行っています。
+        寄付活動を多くの方に知っていただける様に、SNSでシェアをお願いします。
+
+        現在の寄付金額    円
+
+        Facebookボタン Twitterボタン 次回から表示させない
+    +ユーザー登録完了ページ作成
+        ユーザー登録ありがとうございました
+
+        「わんにゃん」は、殺処分される犬猫を救うための寄付活動を行っています。
+        寄付活動を多くの方に知っていただける様に、SNSでシェアをお願いします。
+
+        現在の寄付金額    円
+
+        Facebookボタン Twitterボタン 次回から表示させない
+    +ユーザー登録日時から計算して2週間ごとにメールを送る
+        配信設定等は後でやる
+    +いいねかわいいねもっと見る機能
+    +改修リスト見積まだ
+    -投稿詳細ページ
+        写真アイコンと名前からユーザーのマイページへ遷移するリンク
+        いいね、かわいいねのユーザー表示
+    -タイムライン 
+        コメントを書いたユーザーの名前を青文字にして、名前もユーザーのマイページへ遷移するリンク
+    -フォロー追加ページ
+        投稿ユーザーの名前からマイページへ遷移するリンク
+    -フォロー中フォロワーのモーダル
+        名前からユーザーのマイページへ遷移するリンク
+    +意見リンク設置
+
+トモエ
+    +受注売上管理
+    +売上管理
+    +発注仕入れ管理
+    +仕入れ管理
+    +生産管理
+
+ジョブジョブ
+    +コーディング
+
+ファミリーオート
+    +ブログ取得組み込み
+
+SHL
+    +新着情報RSS取得(納期聞く)
+
+イメージ彼女
+    +サーバー移行
+
+
+-------------------------------------------------
+#
+# メール
+#
+-------------------------------------------------
+-------------------------------------------------
+## 速攻サポート
+-------------------------------------------------
+セントラル画材株式会社
+百田英知　様
+
+お世話になっております。速攻サポートでございます。
+
+お問い合わせ頂いた内容について、回答致します。
+
+(1)名刺登録の「2回入力25円／枚」の2回入力とはどういうことでしょうか。
+->名刺の情報の入力は入力者が手作業で行っております。1回入力とは入力者が１回だけ入力しますが、2回入力は別々の入力者がそれぞれ入力し、計2回入力されるので、名刺の情報の誤入力が少なくなります。
+
+(2)登録内容の中の「担当社員」がセントラル画材株式会社のみですが、社員名（個別）の登録は出来ないのでしょうか。
+->名刺登録時の担当社員ですが、ご登録頂いた会社に登録されている利用者が選択肢として表示されています。
+ですので、管理画面からサービスを別途購入して、利用者を登録して頂く必要がございます。
+http://trinity-g.net/companies/manage_login
+からログインして頂き左メニューの利用者追加から登録をお願い致します。
+
+(3)登録後メール送信の際、担当者別のメールアドレスで送信ができるのでしょうか。
+->一括メール送信の際、自動的に担当者別の振り分けられ、それぞれのメールアドレスから送信される機能はございません。
+お手数ですが、担当者別に都度検索して頂き、メール送信をお願い致します。
+
+(4)メール送信についての費用はかかるのでしょうか。
+->メール送信に関しては一切費用はかかりません。
+
+以上、よろしくお願いいたします。
+
+
+セントラル画材株式会社
+百田英知　様
+
+お世話になっております。速効サポートでございます。
+
+返信が遅くなり申し訳ありません。
+お問い合わせ頂いた内容について、回答致します。
+
+(1)速効」サイトよりメール送信した場合でも、先方様には「nakata@central-gazai.co.jp」から送信したという形で届くのでしょうか。
+->メール送信をした場合、メール送信をした利用者のメールアドレスがFROMという形で、先方様に届きます。
+
+(2)上記の通りであれば、先方様が受け取ったメールに返信をした場合、「nakata@central-gazai.co.jp」に返信されるのでしょうか。
+->受け取ったメールを返信して頂ければ、そのメールの送信元に返信されます。
+
+以上、よろしくお願いいたします。
+
+
+
+-------------------------------------------------
+#
+# 打ち合わせ
+#
+-------------------------------------------------
+-------------------------------------------------
+## 近畿電機
+-------------------------------------------------
+-------------------------------------------------
+### 20170718
+-------------------------------------------------
+一括相殺は売掛に入る
+
+
+-------------------------------------------------
+## サポセン
+-------------------------------------------------
+事前準備・切り替え作業・号口検証
+チェックシート・エビデンスをかけるように
+インプットとアウトプットのエビデンスを残す
+完了条件をはっきりする
+修正をする前にはバックアップを必ず取る
+5番はフルパスで確認
+6番は上書き
+7番は号口環境テストケースを作る
+現状通り？とは何か？
+ケースはしっかり作りましょう
+テスト仕様書は共有
+そもそも仕様書が正しいとはどういう状態なのか？
+どの時点の仕様書にするのか。
+winmerge
+
+
+
+-------------------------------------------------
+## 共同東海
+-------------------------------------------------
+-------------------------------------------------
+### 20170906
+-------------------------------------------------
+あかさたな検索
+    公演一覧に飛ばす
+公演月のみの検索に変更
+    公演カレンダーに飛ばす
+ジャンル別検索
+youtube関連動画を消すタグ
+音声のリンクを入力できるようにする(アップロードつける場合も見積する)
+先行発売中の公演のブロックを足す（トップページ、一覧ページ）
+トップページスライドの切り替え日時を設定できるように
+
+
+-------------------------------------------------
+#
+# 料金
+#
+-------------------------------------------------
+-------------------------------------------------
+## コーディング
+-------------------------------------------------
+
+
+-------------------------------------------------
+#
+# メモ
+#
+-------------------------------------------------
+cd /home/httpd/vhosts/sample-sys.net/subdomains/kinki2/httpdocs
+git --git-dir=.git pull
+
+会社概要
+お問い合わせフォーム
+簡単にする（カテゴリを選んでそれに応じたメッセージを出す
+買い取りの流れ
+ラインでお問い合わせ
+メインカラーは白とオレンジ
+ネットで査定と電話で査定
+問い合わせの前に誓約
+レスポ
+ハンバーガー
+24のロゴ
+速さが大事
+
+root:Ws14zjz9
+redadmin:2dHzSP08
+
+<!--Logo & Menu Section-->	
+<nav class="navbar navbar-default">
+    <div class="container">
+        <p style="text-align:center;;font-size:small;margin:0 0 0 0;">愛知県・岐阜県の深夜出張買取は出張買取23-7にお任せください。</p>
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+            <h1>
+                <a class="navbar-brand" href="http://test.localhost/wordpress/">
+                    <img src="img/top/logo.png">
+                </a>
+            </h1>
+                    
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+        </div>
+        
+        
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                <div class=""><ul class="nav navbar-nav navbar-right"><li class="page_item"><a href="." title="TOP">TOP</a></li><li class="page_item page-item-2"><a href="inquiry/index.php">お問合せ</a><li class="page_item page-item-3"><a href="company/index.php">会社情報</a></li></li></ul></div>
+        </div><!-- /.navbar-collapse -->
+    </div><!-- /.container-fluid -->
+</nav>	
+<!--/Logo & Menu Section-->	
+
+
+
+<style>
+div.prefCityArea h3 {
+    font-size: 18px;
+    font-weight: bold;
+    color: #ef6a05;
+}
+div.prefCityArea p {
+    font-size: 12px;
+    line-height: 1.5em;
+    color: #434343;
+    padding: 10px 10px 20px;
+}
+</style>
+<div class="prefCityArea container">
+    <h3>愛知県全域</h3>
+    <p><?php include("data/aichiCityArea.php");?></p>
+    <h3>岐阜県全域</h3>
+    <p><?php include("data/gifuCityArea.php");?></p>
+</div>
+
+<!-- /Footer Section -->
+<div class="clearfix"></div>
+<!-- Footer Copyright Section -->
+<div class="footer-copyright-section">
+	<div class="container">
+		<div class="row">
+			<div class="col-md-8">
+				<div class="footer-copyright">
+										No copyright information has been saved yet.					</a>
+									</div>
+			</div>
+							<div class="col-md-4">
+			<ul class="footer-contact-social">
+										<li class="facebook"><a href="#" target='_blank' ><i class="fa fa-facebook"></i></a></li>
+										<li class="twitter"><a href="#" target='_blank' ><i class="fa fa-twitter"></i></a></li>
+										<li class="linkedin"><a href="#" target='_blank' ><i class="fa fa-linkedin"></i></a></li>
+										<li class="googleplus"><a href="#" target='_blank' ><i class="fa fa-google-plus"></i></a></li>
+										<li class="skype"><a href="#" target='_blank' ><i class="fa fa-skype"></i></a></li>
+									</ul>
+			</div>
+					</div>
+	</div>
+</div>
+<!-- /Footer Copyright Section -->
+<!--Scroll To Top--> 
+<a href="#" class="hc_scrollup"><i class="fa fa-chevron-up"></i></a>
+<!--/Scroll To Top--> 
+	<!--[if lte IE 8]>
+		<script type="text/javascript">
+			document.body.className = document.body.className.replace( /(^|\s)(no-)?customize-support(?=\s|$)/, '' ) + ' no-customize-support';
+		</script>
+	<![endif]-->
+	<!--[if gte IE 9]><!-->
+		<script type="text/javascript">
+			(function() {
+				var request, b = document.body, c = 'className', cs = 'customize-support', rcs = new RegExp('(^|\\s+)(no-)?'+cs+'(\\s+|$)');
+
+						request = true;
+		
+				b[c] = b[c].replace( rcs, ' ' );
+				// The customizer requires postMessage and CORS (if the site is cross domain)
+				b[c] += ( window.postMessage && request ? ' ' : ' no-' ) + cs;
+			}());
+		</script>
+	<!--<![endif]-->
+
+
+
+r8dHG0dht+

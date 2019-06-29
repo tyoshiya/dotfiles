@@ -1,0 +1,1 @@
+{'<main ', 'main', '<article ', 'class', 'notfound', 'wrap', 'href', 'HOME', '</a>', '</p>', '<section>', '<div ', 'text', 'echo', '$message', 'copy', 'Copyright', 'Chunichi', 'Shimbun', 'Rights', 'Reserved', '</div>', '</section>', '</article>', '</main>'}

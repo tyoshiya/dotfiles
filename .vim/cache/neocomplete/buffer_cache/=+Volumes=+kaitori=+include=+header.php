@@ -1,0 +1,1 @@
+{'$_SERVER', 'HTTP_USER_AGENT', 'strpos', 'iPhone', 'false', 'iPod', 'Android', '<div ', 'class', 'header', '</div>', '<nav ', 'menu', 'clearfix', 'menu1', 'menu2', 'menu3', '</nav>', 'style', 'display', 'none', 'href', '</a>', 'inquiry', 'company', 'else', 'width', 'border', 'solid', 'f65506', 'margin', 'right', 'cccccc', 'clear', 'both', 'height'}

@@ -1,0 +1,1 @@
+{'package', 'EverSeminar', 'author', 'Takao', 'Wada', 'copyright', 'Copyright', 'JIRO', 'Software', 'rights', 'reserved', 'since', 'Version', 'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'function', 'getNow', 'return', 'date'}

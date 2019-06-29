@@ -1,0 +1,1 @@
+{'function', 'submit', 'click', 'preventDefault', 'form', 'this', 'closest', 'length', 'true', 'confirm_message', 'data', 'confirm', 'typeof', 'undefined', 'false', 'action', 'attr', 'target', 'else', '_self'}

@@ -1,0 +1,1 @@
+{'Ospinto', 'dBug', 'function', 'replaceLink', '$str', 'preg_match', 'http', 'https', 'preg_match_all', '$pattarn', 'foreach', '$key', '$val', '$replace', 'href', 'target', '_blank', '</a>', 'str_replace', 'return', 'nl2br', 'my_number_format', '$num', '$float', '$prefix', '$suffix', '$ret', 'number_format'}

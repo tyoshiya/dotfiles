@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'class', 'MY_Email', 'extends', 'CI_Email', 'public', 'function', '__construct', 'parent', 'private', '_set_header', '$header', '$value', '$this', '_headers', 'subject', '$subject', 'Subject', 'return', 'message', '$body', '_body'}

@@ -1,0 +1,1 @@
+{'<nav ', 'l_gnav', '<ul>', '<li ', 'class', 'popular', 'href', 'blogs', '<span>', '</span>', '</a>', '</li>', 'category', '<ul ', 'inner', 'empty', '$categories', 'foreach', '$key', '$row', '<li>', 'index', 'echo', 'name', 'else', '$this', 'element', 'data_empty', '</ul>', 'movie', 'movies', 'seminar', 'seminars', 'news', '</nav>'}

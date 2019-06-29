@@ -1,0 +1,58 @@
+<?php
+/*
+ * 東邦不動産様 ガスビル会議室予約システム
+ *
+ * @author		kanetsuki@conextivo.co.jp
+ * @copyright	2010 CONEXTIVO Inc.
+ */
+require_once(dirname(__FILE__)."/../lib/public");
+echo dirname(__FILE__);exit;
+ini_set('display_errors', "On");
+chdir(dirname(__FILE__) . "/../../lib/admin/");
+require_once("sys/common.php");
+
+init();
+
+if (! connectDB()) {
+	trigger_error("データベースに接続できませんでした", ERROR);
+}
+
+ini_set('session.cookie_secure', true);
+session_cache_limiter('nocache');
+session_start();
+
+$auth = new Auth();
+
+$action = getPathInfo(0);
+//TODO 強制的にログイン
+$_SESSION['admin']['auth']['uid'] = 1234;
+if (strlen($_SESSION['admin']['auth']['uid']) > 0) {
+	switch ($action) {
+		case 'auth':
+		case 'task':
+		case 'cancel':
+		case 'reserve':
+		case 'room_fee':
+		case 'equip_fee':
+		case 'admin':
+			require_once("sys/controllers/{$action}.php");
+			break;
+		case 'logout':
+			$auth->logout();
+			break;
+		default:
+			$auth->displayMenu();
+	}
+
+} else {
+	if ($_SERVER['REQUEST_METHOD'] == "POST") {
+		if (! $auth->authentication()) {
+			$auth->displayLogin();
+		} else {
+			header("Location: " . BASE_URL);
+			exit;
+		}
+	} else {
+		$auth->displayLogin();
+	}
+}

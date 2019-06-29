@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto', 'dBug', 'dbug', 'class', 'Contact', 'extends', 'MY_Controller', 'public', 'function', '__construct', 'parent', '$this', 'page_title', 'data', 'array', 'index', 'layout', 'render', 'confirm', 'check', 'isExe', 'form_validation', 'set_rules', 'model', 'validate', 'else', 'view'}

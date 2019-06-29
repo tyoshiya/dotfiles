@@ -1,0 +1,37 @@
+			<section id="mission" class="top-sec5 ">
+				<h1 class="p1">
+					<img class="hidden-feature hidden-xs" src="img/top/mission_back.png" alt="MISSION 伝えたいこと" />
+					<img class="visible-feature hidden-xs" src="img/top/mission_back.png" alt="MISSION 伝えたいこと" />
+					<img class="visible-xs" style="max-width: 750px;" src="img/top/mission_back.png" alt="MISSION 伝えたいこと" />
+				</h1>
+				<div class="p2">
+                    <p class="quotation">"私たちはエコロブルーを通して、<br class="lg">一人でも<br class="xs">多くの人に安全な飲料水を届けたいと願っています。"</p>
+					<div class="p3">
+						<ul class="clearfix">
+							<li class="text-center">
+								<p>
+                                    人口が爆発的に増加し、工業の発展や多発する自然災害により、<? echo (( $sp != '' )? '' : '<br/>') ?>
+                                    世界は深刻な水不足に直面しています。<br>
+                                    さらに2025年には「人口の3分2が水不足になる」と予想されています。<? echo (( $sp != '' )? '' : '<br/>') ?>
+                                    9億人もの人々が継続的に飲み水を手に入れることができず、<? echo (( $sp != '' )? '' : '<br/>') ?>
+                                    年間約180万人もの子ども達が不衛生な水のために<? echo (( $sp != '' )? '' : '<br/>') ?>
+                                    命を落としているのが現実です。<br/>
+                                    『空気から飲料水をつくる技術』によって水不足問題だけでなく、<? echo (( $sp != '' )? '' : '<br/>') ?>
+                                    水をめぐる紛争問題も解決出来ると私たちは信じています。
+                                    きれいな水さえあれば助かる命がある。<br/>
+                                    ならば、一人でも多くの人に『安心安全な飲料水』を届けたい。<br/>
+                                    その想いを実現する為に、私たちは様々な分野の事業に取り組み、<? echo (( $sp != '' )? '' : '<br/>') ?>
+                                    一歩づつその活動を広げていきたいと考えております。
+                                </p>
+							</li>
+						</ul>
+					</div>
+                    <div class="p3-sp">
+                        <ul class="">
+                            <li style="float: left;"><img src="img/top/sec5_1.png" alt="MISSION 伝えたいこと 下画像1" /></li>
+                            <li style="float: left;"><img src="img/top/sec5_2.png" alt="MISSION 伝えたいこと 下画像2" /></li>
+                            <li style="float: left;"><img src="img/top/sec5_3.png" alt="MISSION 伝えたいこと 下画像3" /></li>
+                        </ul>
+                    </div>
+				</div>
+			</section>

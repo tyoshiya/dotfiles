@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'class', 'MY_Session', 'extends', 'CI_Session', 'function', '__construct', 'parent::__construct', 'unset_userdata', 'session_destroy', 'userdata', '$dat', 'MOBILE', 'empty', '$_SESSION', 'return', 'else', 'false', 'parent::userdata', 'set_userdata', '$dat2', 'parent::set_userdata'}

@@ -1,0 +1,596 @@
+//common
+@font-face {
+    font-family: 'KTE';
+    src: url(/fonts/KTEGAKI.ttf);
+}
+
+body{
+    font-family: KTE;
+    //    font-family:'Lato, "Noto Sans JP", "游ゴシック Medium", "游ゴシック体", "Yu Gothic Medium", YuGothic, "ヒラギノ角ゴ ProN", "Hiragino Kaku Gothic ProN", "メイリオ", Meiryo, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif';
+    background-color: #fafafa;
+    font-size: 14px;
+    color: #283c50;
+    letter-spacing: 0.3px;
+}
+
+i
+
+.wrapper{
+    margin: 0 auto;
+
+    @include mq(wide){
+        max-width:$wide-min-width;
+    }
+}
+
+input[type='text'],
+input[type='password'],
+input[type='number'],
+input[type='url'],
+input[type='tel'],
+textarea,
+input[type='email']{
+    border: solid 0.4px #e6e6e6;
+    border-radius: 4px;
+    outline: none;
+    padding: 3px 10px 3px 10px;
+    height:48px;        
+}
+textarea{
+    height:auto;
+}
+
+select{
+    display: block;
+    width: 100%;
+    height: 34px;
+    padding: 6px 12px;
+    font-size: 14px;
+    line-height: 1.42857143;
+    color: #555;
+    background-color: #fff;
+    background-image: none;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
+    -webkit-transition: border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;
+    -o-transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
+    transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
+}
+
+.btn-lightblue{
+    font-size:inherit;
+    width:100%;
+    color:#fff;
+    background-color: #28c8e0;
+    display: block;
+    overflow: visible;
+    margin: 0;
+    padding: 12px 0;
+    cursor: pointer;
+    -webkit-transition: background 0.2s;
+    transition: background 0.2s;
+    text-align: center;
+    vertical-align: middle;
+    text-decoration: none;
+    border: 0;
+    outline: 0;
+    @include PropertySetPrefix(border-radius, 4px);
+}
+
+%btn{
+    @include PropertySetPrefix(border-radius, 4px);
+    font-size:inherit;
+    display: block;
+    margin: 0;
+    padding: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    min-width:120px;
+}
+.btn-gray{
+    @extend %btn;
+    border: solid 1px #c8d2dc;
+    background-color: #fafafa;
+    color: #283c50;
+}
+.btn-blue{
+    @extend %btn;
+    border: solid 1px #28c8e0;
+    background-color: #28c8e0;
+    color:#fff;
+}
+.validation-error {
+    background-color: #F2DEDE;
+    border: 1px solid #D73925;
+    border-radius: 3px;
+    color: #A94442;
+    font-size: 10px;
+    margin-top: 3px;
+    padding: 3px;
+}
+
+img.icon-circle{
+    width:40px;
+    height:40pxd;
+    @include PropertySetPrefix(border-radius, 50%);
+}
+img.icon-circle-lg{
+    width:160px;
+    height:160px;
+    @include PropertySetPrefix(border-radius, 50%);
+}
+
+
+header{
+    background-color:#fff;
+    @include mq(pc){
+        padding:18px;
+    }
+
+    #logo img{
+        @include mq(pc){
+            display:inline-block;
+        }
+        @include mq(sp){
+            height:60px;
+        }
+    }
+
+    & > div{
+        @extend .wrapper;
+        @include ValueSetPrefix(display, flex);
+        @include PropertySetPrefix(justify-content, space-between);
+        @include PropertySetPrefix(align-items, center);
+
+    }
+
+    & input{
+        height:28px !important;
+        @include mq(pc){
+            width:320px; 
+        }
+        @include mq(sp){
+            width:100%; 
+            max-width:320px; 
+        }
+    }
+
+    .search-sp{
+        text-align:center; 
+        padding-bottom:18px;
+    }
+}
+
+.remodal{
+    @include PropertySetPrefix(border-radius, 8px);
+    @include mq(pc){
+        width:480px !important; 
+    }
+    @include mq(sp){
+        width:80% !important; 
+        max-width:480px !important; 
+    }
+}
+
+.remodal-wrapper {
+    & h1{
+        font-size:$font-size-lg;
+        text-align:center;
+    }
+    & .remodal-body{
+        margin-top:30px;
+
+        & > div{
+            margin-top:20px;
+        }
+    }
+}
+
+.remodal-login{
+    input{
+        width:100%; 
+    }
+
+    .btn-lightblue{
+        margin-top:20px; 
+    }
+
+    a{
+        color:$link-blue;
+    }
+
+    h2{
+        margin-top:15px; 
+        font-size:$font-size-sm;
+    }
+}
+
+.mypage{
+    .profile{
+        @include mq(pc){
+            @include ValueSetPrefix(display, flex);
+        }
+
+        margin-top:22px;
+
+        .icon{
+            padding:0 40px;
+            @include mq(sp){
+                text-align:center;
+            }
+        }
+        .info{
+            @include mq(pc){
+                padding-left:40px;
+                padding-top:10px;
+            }
+            @include mq(sp){
+                padding:10px 20px 0px 20px;
+            }
+
+            .name{
+                @include ValueSetPrefix(display, flex);
+                @include PropertySetPrefix(align-items, center);
+
+                @include mq(sp){
+                    @include PropertySetPrefix(justify-content, space-around);
+                }
+
+                h2{
+                    font-size:$font-size-xl; 
+                    font-weight:normal;
+                }
+                .btn-edit{
+                    padding-left:20px;
+                    a{
+                        font-size:$font-size-base; 
+                        padding:8px;
+                    }
+                }
+
+            }
+
+            .count{
+                & > span{
+                    display:inline-block;
+                    margin-right:20px;
+                    margin-top:20px;
+                }
+            }
+
+            .description{
+                margin-top:20px;
+            }
+        }
+    }
+
+    .posts{
+        margin-top:40px;  
+
+        & > div{
+            @include mq(pc){
+                @include ValueSetPrefix(display, flex);
+                @include PropertySetPrefix(justify-content, space-between);
+                margin-bottom:20px;
+                & > div{
+                    overflow: hidden;
+                    width: 300px;
+                    height: 300px;
+                    position: relative;
+
+                    & > a > img{
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        -webkit-transform: translate(-50%, -50%);
+                        -ms-transform: translate(-50%, -50%);
+                        transform: translate(-50%, -50%);
+
+                    }
+                }
+            }
+
+            @include mq(sp){
+                & > div{
+                    width: 100%;
+                    height: auto;
+                    margin-bottom:5px;
+
+                    & > a >img{
+                        width: 100%;
+
+                    }
+                }
+            }
+        }
+    }
+}
+
+.profile-edit{
+    border-radius: 4px;
+    background-color: #ffffff;
+    margin:40px 0;
+
+    @include ValueSetPrefix(display, flex);
+    @include mq(sp){
+        display:block;
+    }
+
+    & > div{
+        border: solid 1px #e6e8ea;
+    }
+
+    & > div:first-child{
+        @include mq(sp){
+            @include ValueSetPrefix(display, flex);
+        }
+        & > div{
+            padding:21px 24px; 
+            @include mq(sp){
+                @include PropertySetPrefix(flex-grow, 1);
+                text-align:center;
+            }
+
+            &.active{
+                border-left:4px solid #28c8e0;
+                @include mq(sp){
+                    border-left:none;
+                    border-bottom:4px solid #28c8e0;
+                }
+            }
+
+            a{
+                text-decoration:none; 
+                color:inherit;
+            }
+        }
+    }
+
+    & > div:last-child{
+        @include PropertySetPrefix(flex-grow, 1);
+        padding:32px;
+
+        & input{
+            width:100%;  
+        }
+        & textarea{
+            width:100%;  
+        }
+
+        .icon-row{
+            @include ValueSetPrefix(display, flex);
+            @include ValueSetPrefix(justify-content, space-between);
+            @include ValueSetPrefix(align-items, center);
+             
+        }
+
+        .row{
+            @include ValueSetPrefix(display, flex);
+            @include ValueSetPrefix(align-items, center);
+            @include mq(sp){
+                display:block;
+            }
+            padding-top:41px;
+
+            .label{
+                text-align:right;
+                width:20%;
+                @include mq(sp){
+                    width:100%;
+                    text-align:left;
+                }
+                padding:10px;
+            }
+            .form{
+                width:80%;
+                @include mq(sp){
+                    width:100%;
+                }
+                padding:10px;
+            }
+        
+        }
+    
+    }
+}
+
+.remodal-add-post{
+    .remodal-body{
+        @include ValueSetPrefix(display, flex);
+        & > button{
+            @include PropertySetPrefix(border-radius, 4px 0 0 4px);
+        
+        }
+
+        & > div{
+            @include PropertySetPrefix(flex-grow, 1);
+            @include PropertySetPrefix(border-radius, 0 4px 4px 0);
+            padding:12px;
+            margin:0;
+            background-color:#f0f2f4;
+        
+        }
+    
+    }
+    input{
+        width:100%; 
+    }
+
+    .btn-lightblue{
+        margin-top:20px; 
+    }
+
+    a{
+        color:$link-blue;
+    }
+
+    h2{
+        margin-top:15px; 
+        font-size:$font-size-sm;
+    }
+}
+
+.index-wrapper{
+    padding-bottom:80px;
+
+    .index{
+        width:600px;
+        @include mq(sp){
+            width:100%;  
+        }
+        margin:40px auto 0 auto;
+        background-color:#fff;
+        border: solid 1.2px #f0f2f4;
+        padding:12px 0;
+        @include PropertySetPrefix(border-radius, 4px);
+
+        .index-header{
+            @include ValueSetPrefix(display, flex);
+            @include ValueSetPrefix(align-items, center);
+
+            & > div:first-child{
+                padding-left:16px;
+            }
+            
+
+            & > div:last-child{
+                @include PropertySetPrefix(flex-grow, 1);
+                @include ValueSetPrefix(display, flex);
+                @include ValueSetPrefix(justify-content, space-between);
+                @include ValueSetPrefix(align-items, center);
+                padding:0 16px 0 12px;
+
+                & .name{
+                    font-size:14px;
+                }
+            }
+         
+        }
+
+        .index-content{
+            margin-top:21px;
+            img{
+                width:100%; 
+            }
+        }
+
+        .index-btn-group{
+            @include ValueSetPrefix(display, flex);
+            @include ValueSetPrefix(align-items, center);
+            margin-top:10px;
+
+            & > div:first-child{
+                @include PropertySetPrefix(flex-grow, 1);
+                @include ValueSetPrefix(display, flex);
+                @include ValueSetPrefix(align-items, center);
+                padding-left:16px;
+
+                & img{
+                    @include mq(sp){
+                        width:80%; 
+                    }
+                }
+            }
+        
+            & > div:last-child{
+                padding-right:16px;
+            }
+        }
+
+        .index-count-group{
+            margin-top:10px;
+            padding:0 16px;
+
+            span{
+                font-size:small; 
+
+                img{
+                    position:relative;
+                    top:3px;
+                }
+            }
+        }
+
+        .index-hashtag-group{
+            margin-top:10px;
+            padding:0 16px;
+
+            a{
+                color:#658AC8; 
+            }
+        }
+    }
+
+}
+
+
+
+
+footer{
+    background-color: #283c50;
+    color:#fff;
+    padding:40px;
+    @include mq(sp){
+        font-size:$font-size-sm;
+    }
+}
+footer > .container{
+    max-width:1170px;
+    margin :0 auto;
+}
+.footer-logo{
+    text-align:center;
+    margin-bottom:20px;
+}
+.footer-nav{
+    display:flex;
+    justify-content:center;
+    margin-bottom:20px;
+}
+.footer-nav > li{
+    list-style-type:none;
+    margin:0 20px;
+}
+.copyright{
+    text-align:center;
+}
+
+
+.count2{
+    & > span{
+        display:inline-block;
+        margin-right:20px;
+        margin-top:10px;
+    }
+}
+
+
+
+
+.muted{
+    color:#96a0aa;
+}
+
+@include mq(tb){
+    .posts-wrapper{
+        width:600px; 
+    }
+}
+@include mq(sp){
+    .posts-wrapper{
+        width:80%; 
+        margin:0 auto;
+    }
+}
+.posts{
+    margin:40px 0;
+
+    & .icon{
+        padding:5px;
+    }
+    & .profile{
+        padding:5px;
+    }
+}

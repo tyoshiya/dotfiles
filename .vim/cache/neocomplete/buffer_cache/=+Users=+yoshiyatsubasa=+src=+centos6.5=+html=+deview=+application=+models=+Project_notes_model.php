@@ -1,0 +1,1 @@
+{'Ospinto\\dBug', 'dbug', 'class', 'Project_details_model', 'extends', 'MY_Model', 'public', '$table', 'project_details', '$status', 'array', 'function', '__construct', 'parent::__construct', '$validate_add', 'title', 'label', 'rules', 'required', 'max_length', 'date', 'isDate', 'yyyy', 'body', '$validate_edit'}

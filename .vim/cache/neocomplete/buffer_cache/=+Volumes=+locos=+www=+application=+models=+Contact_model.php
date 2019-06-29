@@ -1,0 +1,1 @@
+{'Ospinto', 'dBug', 'dbug', 'class', 'Contact_model', 'extends', 'MY_Model', 'public', '$table', 'false', 'function', '__construct', 'parent', '$validate', 'array', 'field', 'name', 'label', 'rules', 'required', 'mail', 'valid_email', 'mail2', 'matches', 'otoiawase'}

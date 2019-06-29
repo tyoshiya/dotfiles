@@ -1,0 +1,86 @@
+<form name="frm" action="/parks/confirm" method="post">
+<div class="content-block-title"><?=$park->name?></div>
+<table class="table table-bordered table-striped" style="margin-top:10px;">
+	<tr>
+		<th class="left">車室名</th>
+	</tr>
+	<tr>
+		<td><?=$place->name?></td>
+	</tr>
+	<tr>
+		<th class="left">現在時刻</th>
+	</tr>
+	<tr>
+		<td><?=date("H:i")?></td>
+	</tr>
+</table>
+
+<div class="content-block-title">駐車時間</div>
+<div class="wrap"><?=form_error("price_id")?></div>
+<ul class="list-group" style="margin-top:10px;padding:0 10px;">
+	<?foreach($prices as $val){?>
+	 	 <?if($_POST["price_id"] == $val->id){?>
+		 	 <li class="list-group-item"><input type="radio" name="price_id" value="<?=$val->id?>" checked> <?=$val->name?></li>
+		<?}else{?>
+		 	 <li class="list-group-item"><input type="radio" name="price_id" value="<?=$val->id?>" > <?=$val->name?></li>
+		<?}?>
+	<?}?>
+</ul>
+
+
+<div class="content-block-title">出庫時間メール・延長申請メールお知らせ設定</div>
+<div class="wrap">
+	<p>入庫時間の10分前及び延長時に必要なURLを出庫時刻に送らせていただきます。<br>
+※メールの受信拒否が設定されている場合届きません。ドメイン拒否解除もしくは別アドレスをお使いいください。</p>
+</div>
+
+<div class="wrap">
+	<div class="form-group">
+		<input name="email" class="form-control"  value="<?=$this->input->post("email")?>" type="email" placeholder="[必須] Eメールアドレスを入力して下さい">
+		<?=form_error("email")?>
+	</div>
+</div>
+
+<?if(empty($_SESSION["user"]->user_type)){?>
+<div class="content-block-title">領収書</div>
+<div class="wrap">
+	<p>領収書が必要な方は下記にメールアドレスを入力して下さい。</p>
+</div>
+
+<div class="wrap">
+	<div class="form-group">
+		<input name="receipt_mail" class="form-control"  value="<?=$this->input->post("receipt_mail")?>" type="receipt_mail" placeholder="[任意] Eメールアドレスを入力して下さい">
+		<?=form_error("receipt_mail")?>
+	</div>
+</div>
+<?}?>
+
+<div class="content-block-title">自動車ナンバー</div>
+<div class="wrap">
+	<p></p>
+</div>
+<div class="wrap">
+	<div class="form-group">
+		<input name="car_number" class="form-control"  value="<?=$this->input->post("car_number")?>" type="text" placeholder="">
+		<?=form_error("car_number")?>
+	</div>
+</div>
+
+
+<div class="button-area" >
+	<p><button class="btn btn-lg btn-warning submit">確認する</button></p>
+	<input type="hidden" name="execute" value="on">
+	<input type="hidden" name="park_id" value="<?=$park->id?>">
+	<input type="hidden" name="place_id" value="<?=$place->id?>">
+</div>
+</form>
+<?=$this->element("footer")?>
+							
+
+
+<script>
+$("input[type='radio']").iCheck({
+	radioClass: 'iradio_square-red'
+});
+
+</script>

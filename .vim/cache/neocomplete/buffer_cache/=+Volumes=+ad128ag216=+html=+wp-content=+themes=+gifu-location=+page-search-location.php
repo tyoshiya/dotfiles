@@ -1,0 +1,1 @@
+{'get_header', '<style>', 'label', 'input', 'type', 'checkbox', 'cursor', 'pointer', '</style>', '<div ', 'class', '<h2 ', 'maintitle', '<img ', 'echo', 'get_template_directory_uri', 'images', 'search', 'title', 'srcset', '</h2>', 'box_in', '</p>', '</div>', 'get_template_part', 'film_commision', 'get_footer'}

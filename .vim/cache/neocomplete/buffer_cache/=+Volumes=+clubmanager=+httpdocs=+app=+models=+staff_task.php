@@ -1,0 +1,1 @@
+{'class', 'StaffTask', 'extends', 'AppModel', '$name', '$belongsTo', 'array', 'User', 'className', 'conditions', 'order', 'foreignKey', 'create_user_id', '$validate', 'body', 'required', 'method', 'isNotNull', 'message', 'attention'}

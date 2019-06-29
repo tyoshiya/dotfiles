@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto\\dBug', 'dbug', 'class', 'Taxes', 'extends', 'MY_Controller', 'public', 'function', '__construct', 'parent::__construct', '$this', 'check', 'isLogin', 'get_tax_rate', '$date', '$tax_rate', 'model', 'taxes', 'getRate', 'echo'}

@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'class', 'Error', 'extends', 'MY_Controller', 'function', '__construct', 'parent', 'error_404', '$this', 'output', 'set_status_header', 'view', 'error', 'siteframe'}

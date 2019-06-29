@@ -1,0 +1,505 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+//名前区間のエイリアス
+use \Ospinto\dBug as dbug;
+
+class Users extends MY_Controller {
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->set("genders",$this->model("Users")->genders);
+    }
+
+    public function login()
+    {
+        $complete = false;
+        if(isset($_COOKIE["id"])){
+            $this->redirect("/users/index");
+        }
+
+        if($this->isExe()){
+            $valid = true;
+            $this->model("Users")->validate = $this->model("Users")->validate_login;
+            if($this->model("Users")->validates($_POST) === false){
+                $valid = false;
+            }
+
+            if($valid){
+                $user = $this->model("Users")->find("single",array(
+                    "where" => array("email" => $_POST["email"],"password" => $_POST["password"])
+                ));
+                foreach ($user as $col => $val) {
+                    set_cookie($col,$val,time()+3600*24*365);
+                }
+        $complete = true;
+
+                //ログイン状態にしてリダイレクト
+            }
+        }
+
+
+        $this->set("complete",$complete);
+        $this->set("validate",$this->model("Users")->{"validate_".$this->router->method});
+        $this->pageTitle("ログイン");
+        $this->setLayout("plane");
+        $this->render();
+    }
+
+    //サインアップ
+    public function signup()
+    {
+        $complete = false;
+
+        if(isset($_COOKIE["id"])){
+            $this->redirect("/users/index");
+        }
+
+        if($this->isExe()){
+            $valid = true;
+            $this->model("Users")->validate = $this->model("Users")->validate_signup;
+            if($this->model("Users")->validates($_POST) === false){
+                $valid = false;
+            }
+
+            if($valid){
+                $saves = $_POST;
+                //パスワードを自動生成する
+                $chars = array_merge(range('a', 'z'), range('0', '9'), range('A', 'Z'));
+                $saves["password"] = "";
+                for ($i = 0; $i < 12; $i++) {
+                    $saves["password"] .= $chars[rand(0, count($chars) - 1)];
+                }
+
+                //会員登録
+                $id = $this->model("Users")->save($saves);
+                $user = $this->model("Users")->find("single",array(
+                    "where" => array("id" => $id)
+                ));
+
+                $this->load->library('email');
+
+//                $this->email->initialize(array(
+//                'protocol' => 'smtp',
+//                'smtp_host' => 'smtp.sendgrid.net',
+//                'smtp_user' => 'sgd4yygw@sakura.kke.com',
+//                'smtp_pass' => 'exnet0624',
+//                'smtp_port' => 587,
+//                'crlf' => "\r\n",
+//                'newline' => "\r\n"
+//                ));
+                // テンプレートに渡す値の設定
+                $data = array();
+                $data['name'] = $user->name;
+                $data['email'] = $user->email;
+                $this->load->library('parser');
+                $message = $this->parser->parse('mail_templates/signup', $data, TRUE);
+
+                $this->email->from("sgd4yygw@sakura.kke.com", 'わんにゃん');
+                $this->email->to($user->email);
+                $this->email->subject('【わんにゃん】ユーザー登録完了のお知らせ');
+                $this->email->message($message);
+                $this->email->send();
+
+                //ログイン
+                foreach ($user as $col => $val) {
+                    set_cookie($col,$val,time()+3600*24*365);
+                }
+                $complete = true;
+            }
+        }
+
+
+        $this->set("validate",$this->model("Users")->{"validate_".$this->router->method});
+        $this->pageTitle("登録");
+        $this->setLayout("plane");
+        $this->set("complete",$complete);
+        $this->render();
+    }
+
+    public function index()
+    {
+        $posts = $this->model("posts")->getindex($_post);
+
+        if(!empty($posts)){
+            foreach ($posts as &$foo) {
+                foreach ($foo as &$row) {
+                    $row->created = $this->date->strpassed($row->created);
+                }
+            }
+        }
+        $this->set("posts",$posts);
+
+        $this->render();
+    }
+
+    //ログアウト
+    public function logout(){
+        foreach ($_COOKIE as $col => $val) {
+            delete_cookie($col);  
+        }
+        $this->redirect("users/index");
+    }
+
+    //プロフィール編集
+    public function edit($mode){
+        $this->isLogin();
+
+        if($this->isExe()){
+            $valid = true;
+            $this->model("Users")->validate = $this->model("Users")->{"validate_".$this->router->method."_".$mode};
+            if($this->model("Users")->validates($_POST) === false){
+                $valid = false;
+            }
+
+            if($valid){
+                $current_email = $_COOKIE["email"];
+
+                //保存
+                $_POST["id"] = $_COOKIE["id"];
+                if($mode == "password"){
+                    $_POST["password"] = $_POST["new_password"];
+                }
+                $this->model("Users")->save($_POST);
+
+                if($mode == "profile"){
+                    if($_POST["email"] != $current_email){
+                        $data = array();
+                        $data['email'] = $_POST["email"];
+                        $this->load->library('parser');
+                        $message = $this->parser->parse('mail_templates/change_email', $data, TRUE);
+
+                        $this->load->library('email');
+                        $this->email->initialize($this->config->config["email"]);
+                        $this->email->from("sgd4yygw@sakura.kke.com", 'わんにゃん');
+                        $this->email->to($data["email"]);
+                        $this->email->subject('【わんにゃん】メールアドレス変更のお知らせ');
+                        $this->email->message($message);
+                        $this->email->send();
+                    }
+                }
+                if($mode == "password"){
+                    //メールアドレス変更を通知
+                        $data = array();
+                        $data['password'] = $_POST["new_password"];
+                        $this->load->library('parser');
+                        $message = $this->parser->parse('mail_templates/edit_password', $data, TRUE);
+
+                        $this->load->library('email');
+                        $this->email->initialize($this->config->config["email"]);
+                        $this->email->from("sgd4yygw@sakura.kke.com", 'わんにゃん');
+                        $this->email->to($data["email"]);
+                        $this->email->subject('【わんにゃん】パスワード変更のお知らせ');
+                        $this->email->message($message);
+                        $this->email->send();
+                }
+
+                //セッションを書き換え
+                $user = $this->model("Users")->find("single",array(
+                    "where" => array("id" => $_COOKIE["id"])
+                ));
+                foreach ($user as $col => $val) {
+                    set_cookie($col,$val,time()+3600*24*365);
+                }
+
+                $this->redirect("users/edit/".$mode);
+            }
+        }else{
+            $_POST = $_COOKIE;
+        }
+
+        $this->set("validate",$this->model("Users")->{"validate_".$this->router->method."_".$mode});
+        $this->set("mode",$mode);
+        $this->pageTitle("プロフィール編集");
+        $this->render();
+    }
+
+    public function mypage($id = null)
+    {
+        $id = $this->encrypt->decode(str_replace("_","/",$id));
+        $_POST["s"] = "";
+
+        $user = $this->model("Users")->find("single",array(
+            "where" => array("id" => $id)
+        ));
+        $this->set("user",$user);
+
+        //ユーザーの投稿件数を取得
+        $post_count = $this->model("Posts")->getPostCount($id);
+        $this->set("post_count",$post_count);
+
+        //ゆーざーのフォロワー件数を取得
+        $follower_count = $this->model("Follows")->getFollowerCount($id);
+        $this->set("follower_count",$follower_count);
+
+        //ユーザーのフォロー件数を取得
+        $follow_count = $this->model("Follows")->getFollowCount($id);
+        $this->set("follow_count",$follow_count);
+
+        //ユーザーの投稿を取得
+        $res = $this->model("posts")->getMypage($id);
+        $posts = array();
+        if(!empty($res)){
+            $i = 0;
+            $j = 0;
+            foreach ($res as $unix_created => $foo) {
+                foreach ($foo as $row) {
+                    $posts[$i][] = $row;
+                    $j++;
+                    if($j % 3 == 0){
+                        $i++; 
+                        $j = 0;
+                    }
+                }
+            }
+        }
+        $this->set("posts",$posts);
+
+        $this->render();
+    }
+
+    public function search_follow_users(){
+        $users = $this->model("Users")->getFollowerCondidates($_COOKIE["id"]);
+        $this->set("users",$users);
+        $this->pageTitle("フォロー検索");
+        $this->render();
+    }
+
+    public function icon($mode = null)
+    {
+        $error = "";
+        $success = "";
+        if($mode == "delete"){
+            $success = "プロフィール画像を削除しました。";
+            $path = dirname(__FILE__)."/../../images/users/".$_COOKIE["id"].".".$_COOKIE["extension"];
+            if(file_exists($path)){
+                unlink($path);  
+
+                $saves = array();
+                $saves["id"] = $_COOKIE["id"];
+                $saves["extension"] = null;
+                $this->model("users")->save($saves);
+            }
+        }elseif($mode == "upload"){
+            //ファイルエラー
+            if($_FILES["icon"]["error"] == 1){
+                $error = "不正なファイルです";
+            }else{
+                //拡張子チェック
+                $ext = strtolower(substr($_FILES["icon"]["name"], strrpos($_FILES["icon"]["name"], '.') + 1));
+                $allow_exts = array("jpg","png","gif","jpeg");
+                if(!in_array($ext,$allow_exts)){
+                    $error = "不正なファイルです";
+                }
+            }
+
+            if($error == ""){
+                //画像保存 
+                $imagine = new Imagine\Gd\Imagine();
+                $size = new Imagine\Image\Box(160, 160);
+
+                $path = dirname(__FILE__)."/../../images/users/".$_COOKIE["id"].".".$ext;
+                $imagine->open($_FILES["icon"]["tmp_name"])
+                    ->thumbnail($size)
+                    ->save($path);
+
+                //ユーザー情報保存
+                $saves = array();
+                $saves["id"] = $_COOKIE["id"];
+                $saves["extension"] = $ext;
+                $this->model("users")->save($saves);
+
+                //セッション更新
+                $user = $this->model("Users")->find("single",array(
+                    "where" => array("id" => $_COOKIE["id"])
+                ));
+                foreach ($user as $col => $val) {
+                    set_cookie($col,$val,time()+3600*24*365);
+                }
+
+                $success = "プロフィール画像を変更しました。";
+            }
+        }
+
+        $this->set("error",$error);
+        $this->set("success",$success);
+        $this->pageTitle("アイコン変更");
+        $this->setLayout("plane");
+        $this->render();
+    }
+    //
+    //パスワードを忘れた方
+    public function forget_password()
+    {
+        if(isset($_COOKIE["id"])){
+            $this->redirect("/users/index");
+        }
+
+        if($this->isExe()){
+            $valid = true;
+            $this->model("Users")->validate = $this->model("Users")->validate_forget_password;
+            if($this->model("Users")->validates($_POST) === false){
+                $valid = false;
+            }
+
+            if($valid){
+                $this->db->where("email",$_POST["email"]);
+                $this->db->where("del_flg",0);
+                $this->db->limit(1);
+                $res = $this->db->get("users")->result();
+
+                $saves = array();
+                $saves["id"] = $res[0]->id;
+                $saves["password"] = $_POST["new_password"];
+                $this->model("Users")->save($saves);
+
+                        $data = array();
+                        $data['password'] = $_POST["new_password"];
+                        $this->load->library('parser');
+                        $message = $this->parser->parse('mail_templates/forget_password', $data, TRUE);
+
+                        $this->load->library('email');
+                        $this->email->initialize($this->config->config["email"]);
+                        $this->email->from("sgd4yygw@sakura.kke.com", 'わんにゃん');
+                        $this->email->to($data["email"]);
+                        $this->email->subject('【わんにゃん】パスワードリセットが完了しました。');
+                        $this->email->message($message);
+                        $this->email->send();
+                
+
+                $this->redirect("users/complete_forget_password");
+            }
+        }
+
+
+        $this->set("validate",$this->model("Users")->{"validate_".$this->router->method});
+        $this->pageTitle("パスワードを忘れた方");
+        $this->setLayout("plane");
+        $this->render();
+    }
+
+    public function complete_forget_password()
+    {
+        $this->pageTitle("パスワードを忘れた方");
+        $this->setLayout("plane");
+        $this->render();
+    }
+
+    function opinion(){
+        $complete = false;
+        if($this->input->post()){
+            $valid = true;
+            $this->model("Users")->validate = $this->model("Users")->validate_opinion;
+            if($this->model("Users")->validates($_POST) === false){
+                $valid = false;
+            }
+
+            if($valid){
+                //会員登録メールを送る　
+                $mail_data = array(
+                    "body" => $_POST["body"]
+                );
+                $this->sendMail(
+                    "opinion",
+                    "info@exnet.biz",
+                    $mail_data
+                );
+
+                $complete = true;
+            }else{
+            }
+        }
+        $this->set("complete",$complete);
+        $this->pageTitle("ご意見");
+        $this->setLayout("plane");
+        $this->render();
+    
+    }
+
+    function test(){
+                // テンプレートに渡す値の設定
+                $data = array();
+                $data['name'] = "test";
+                $data['email'] = "tyoshiya.xeno.works@gmail.com";
+                $this->load->library('parser');
+                $message = $this->parser->parse('mail_templates/signup', $data, TRUE);
+
+                $this->load->library('email');
+                $this->email->initialize($this->config->config["email"]);
+                $this->email->from("sgd4yygw@sakura.kke.com", 'わんにゃん');
+                $this->email->to($data["email"]);
+                $this->email->subject('【わんにゃん】ユーザー登録完了のお知らせ');
+                $this->email->message($message);
+                $this->email->send();
+
+    
+    }
+
+	public function ($id = null,$mode = null)
+	{
+        $this->isLogin();
+        $error = "";
+        $post = array();
+        if($id !== null){
+            $post = $this->model("posts")->findById($id); 
+        }
+        if($this->isExe()){
+            //ファイルエラー
+            if($mode === null){
+                if($_FILES["content"]["error"] == 1){
+                    $error = "不正なファイルです";
+                }else{
+                    //拡張子チェック
+                    $ext = strtolower(substr($_FILES["content"]["name"], strrpos($_FILES["content"]["name"], '.') + 1));
+                    $allow_exts = array("jpg","png","gif","jpeg");
+                    if(!in_array($ext,$allow_exts)){
+                        $error = "不正なファイルです";
+                    }
+                }
+            }
+
+            if($error == ""){
+                if($mode === null){
+                    //tmpにファイル移動
+                    $tmp_path = dirname(__FILE__)."/../../images/tmp_posts/";
+                    $tmp_path2 = $tmp_path;
+                    $tmp_name = md5(uniqid(rand(),1)).".".$ext;
+                    $tmp_path.= $tmp_name;
+                    if($ext == "mp4"){
+                        $command = "/usr/local/bin/ffmpeg -i ".$_FILES["content"]["tmp_name"]." -t 10 ".$tmp_path;
+                        exec($command);
+                    }else{
+                        move_uploaded_file($_FILES["content"]["tmp_name"],$tmp_path); 
+                    }
+                }
+
+                $url = "/posts/add_confirm";
+                if($mode === null){
+                    $url.= "/".$tmp_name; 
+                }
+                $foo = array();
+                if($id !== null){
+                    $foo[] = "id=".$id; 
+                }
+                if($mode !== null){
+                    $foo[] = "mode=".$mode; 
+                }
+                if(!empty($foo)){
+                    $url.= "?".implode("&",$foo); 
+                }
+
+                $this->redirect($url);
+            }
+
+        }
+
+        $this->set("error",$error);
+        $this->set("id",$id);
+        $this->set("post",$post);
+        $this->pageTitle("投稿");
+        $this->setLayout("plane");
+        $this->render();
+	}
+}

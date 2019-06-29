@@ -1,0 +1,1 @@
+{'Ospinto\\dBug', 'dbug', 'class', 'Comments_model', 'extends', 'MY_Model', 'public', '$table', 'comments', 'function', '__construct', 'parent::__construct', 'getCommentsByPostId', '$post_id', '$sql', 'array', 'select', '$this', 'model', 'users', 'selectAlias', 'from', 'inner', 'join', 'user_id', 'where', 'post_id', 'del_flg', 'order', 'implode', '$res', 'query', 'return'}

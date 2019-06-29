@@ -1,0 +1,1 @@
+{'$foo', 'array', '$header', '$attribute', 'foreach', '$attr', 'mb_convert_encoding', 'SJIS', '$word', 'str_replace', '$image', 'trim', '$argv', '$bar', 'elseif', 'rand', '$img', '$str', 'count', 'else', 'fopen', 'result', 'ftruncate', '$line', 'fputcsv', 'fclose'}

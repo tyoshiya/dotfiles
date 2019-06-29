@@ -1,0 +1,1 @@
+{'red_o', 'rgba', 'blue_o', 'yellow_o', 'green_o', 'purple_o', 'orange_o', 'gray_o', 'blue', 'yellow', 'green', 'purple', 'orange', 'cars', 'TOYOTA', 'Hilax', 'SUZUKI', 'Sienta', 'Vios', 'Yaris', 'map_data', 'compare_categories', 'car_compare_rate'}

@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto\\dBug', 'dbug', 'class', 'Functions', 'function', '__construct', '$this', 'get_instance', 'public', 'calcProgress', '$sum_hour', '$sum_complete_hour', '$ret', 'ceil', 'return'}

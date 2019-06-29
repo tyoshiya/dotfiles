@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'class', 'extends', 'TCPDF', 'public', 'function', '__construct', '$orientation', '$unit', '$format', '$unicode', 'true', '$encoding', '$diskcache', 'false', 'isset', '$params', 'orientation', 'unit', 'format', 'encoding', 'diskcache', 'initialize', 'parent::__construct'}

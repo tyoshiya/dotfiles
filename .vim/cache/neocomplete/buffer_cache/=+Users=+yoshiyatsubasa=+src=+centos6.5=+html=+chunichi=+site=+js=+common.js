@@ -1,0 +1,1 @@
+{'function', 'linkbox', 'each', 'index', 'element', 'this', 'click', 'target', 'find', 'attr', 'href', 'window', 'open', '_blank', 'return', 'false', 'else', 'location', 'document', 'close', 'removeClass', 'addClass', 'show', 'hide'}

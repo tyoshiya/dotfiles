@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'class', 'MY_Loader', 'extends', 'CI_Loader', 'function', '__construct', 'parent', 'element', '$file', '$param', 'array', '$param2', 'false', 'return', '$this', 'load', 'view', 'language', '_device', 'elements'}

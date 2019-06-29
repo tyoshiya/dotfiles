@@ -1,0 +1,1 @@
+{'Ospinto\\dBug', 'dbug', 'class', 'Post_nices_model', 'extends', 'MY_Model', 'public', '$table', 'post_nices', 'function', '__construct', 'parent::__construct', 'getTotalPostCnt', '$post_id', '$sql', 'array', 'select', 'count', 'total_nice_cnt', 'from', 'where', 'post_id', 'del_flg', 'implode', '$res', '$this', 'query', '$total_nice_cnt', 'empty', 'return'}

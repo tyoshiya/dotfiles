@@ -1,0 +1,1 @@
+{'function', 'get_param', '$str', 'mb_convert_kana', 'return', 'null_check', '$check_str', '$print_str', 'global', '$err', '$err_msg', 'strval', 'print_Err', '$ErrStr', 'print', '<div ', 'class', 'errorTxt', '<ul>', '<count', '<li>', '</li>', '</ul>', '</div>'}

@@ -1,0 +1,19 @@
+    <table width="100%">
+        <tr>
+            <td class="head" colspan="3"></td>
+        </tr>
+<?php if(!empty($material_revisions)){ ?>
+        <?foreach($material_revisions as $key => $material_revision){?>
+            <tr>
+                <td class="head" style="width:80px;"><?php echo $key; ?>蝗槫燕</td>
+                <td class="plane_body w100"><?php echo number_format($material_revision["MaterialRevision"]["price"]); ?></td>
+                <td class="plane_body"><?php echo $material_revision["MaterialRevision"]["created"]; ?></td>
+            </tr>
+        <?}?>
+<?php }else{ ?>
+    <tr>
+        <td class="plane_body" colspan="3">蜊倅ｾ｡螻･豁ｴ縺ｯ縺ゅｊ縺ｾ縺帙ｓ</td>
+    </tr>
+<?php } ?>
+    </table>
+

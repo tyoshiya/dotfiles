@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto', 'dBug', 'dbug', 'class', 'Users_model', 'extends', 'MY_Model', 'public', 'function', '__construct', 'parent', '$validate_login', 'array', 'field', '_user', 'input', 'name', 'label', 'rules', 'required', 'check_user', 'errors', '_pass', 'check_pass'}

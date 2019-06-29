@@ -1,0 +1,1160 @@
+<?php
+class Work extends AppModel {
+	var $name = 'Work';
+
+	var $belongsTo = array('Cast' =>
+                           array('className' => 'Cast',
+                                 'conditions' => '',
+                                 'order' => '',
+                                 'foreignKey' => 'cast_id'
+                           )
+                     );
+	var $with_code = array("1"=>"食事","2"=>"同伴","3"=>"遅同","4"=>'遅刻');
+	var $start_code = array("1"=>"20","2"=>"20.5","3"=>"21","4"=>"21.5","5"=>"22","6"=>"22.5","7"=>"23","8"=>"23.5","9"=>"0");
+	var $end_code = array("1"=>"0","2"=>"0.5","3"=>"1","4"=>"2","5"=>"");
+
+	var $time_code = array("24"=>"19","25"=>"19.5","1"=>"20","2"=>"20.5","3"=>"21","4"=>"21.5","5"=>"22","6"=>"22.5","7"=>"23","8"=>"23.5","9"=>"0","16"=>"0.5","10"=>"1","11"=>"1.5","12"=>"2","13"=>"2.5","14"=>"3","15"=>"3.5","97"=>"当日欠勤","98"=>"無断欠勤","99"=>"連絡取れず","23"=>"4","17"=>"4.5","18"=>"5","19"=>"5.5","20"=>"6","21"=>"6.5","22"=>"7");
+	var $end_time_code = array("1"=>"20","2"=>"20.5","3"=>"21","4"=>"21.5","5"=>"22","6"=>"22.5","7"=>"23","8"=>"23.5","9"=>"0","16"=>"0.5","10"=>"1","11"=>"1.5","12"=>"2","13"=>"2.5","14"=>"3","15"=>"3.5","23"=>"4","17"=>"4.5","18"=>"5","19"=>"5.5","20"=>"6","21"=>"6.5","22"=>"7");
+	var $nomination_code = array("1"=>"F","2"=>"指名");
+	function getTodayWorkTime($day,$shop_id=null ){
+		$sql = " select start_work,end_work from works ";
+		$sql.= " where 1=1 ";
+		$sql.= " and end_flg = 1 ";
+		$sql.= " and work_day = '".$day."'";
+		$data = $this->query($sql);
+		$total_time =0;
+		foreach($data as $val){
+			$time = ($this->end_code[$val["works"]["end_work"]]+24)-$this->start_code[$val["works"]["start_work"]];
+			$total_time+= $time;
+		}
+		return $total_time;
+	
+	}
+
+	function getTodayWorkPayment($day,$shop_id=null ){
+		$sql = " select start_work,end_work from works ";
+		$sql.= " where 1=1 ";
+		$sql.= " and end_flg = 1 ";
+		$sql.= " and work_day = '".$day."'";
+		$data = $this->query($sql);
+		$total_time =0;
+		foreach($data as $val){
+			$time = ($this->end_code[$val["works"]["end_work"]]+24)-$this->start_code[$val["works"]["start_work"]];
+			$total_time+= $time;
+		}
+		return $total_time;
+	
+	}
+
+	//時給取得関数
+	function PaymentDetail($day,$cast_id = null,$shop_id=null){
+		
+		
+		//現在までで確定しているデータから時給を算出
+		$sql = " select * ";
+		$sql.= " ,sum(CASE WHEN with_flg = '2' THEN 1 ELSE 0 END) as DOUHAN,count(Work.id) as SHUKKIN , ";
+		$sql.= " sum(work_hour) as ZIKAN, ";//出勤時間
+		$sql.= " sum(point) as POINT ,";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(loan) as MAEBARAI, ";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(bottle) as BBACK, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(hair) as HAIR, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(penalty) as BAKKIN ";//罰金（指導金）
+		$sql.= " from works as Work ";
+		$sql.= " left outer join casts as Cast on Cast.id = Work.cast_id";
+		$sql.= " where ";
+		$sql.= "  1=1 ";
+		$sql.= " and Work.end_flg = 1 ";//確定出勤データ
+		$sql.= " group by Work.cast_id ";
+		$dat = $this->query($sql);
+
+		foreach($dat as $key=> $val){
+			$dat[$key][0]["HEIKIN"] = $val[0]["POINT"]/$val[0]["SHUKKIN"];//平均
+			$dat[$key][0]["DBACK"] = $val[0]["DOUHAN"]*$session->read("site.shop.douhan_price");//同伴バック
+			if($val[0]["SHUKKIN"] >6){
+				//6日以上出勤の場合
+				$av_point = $this->query("select money from av_points where point >='".$dat[$key][0]["HEIKIN"]."'  limit 1");
+				$dat[$key][0]["HEIKIN_ZIKYU"] = @$av_point[0]["av_points"]["money"];//平均時給
+			}else{
+				//6日以下出勤の場合
+				$point = $this->query("select money from points where point >='".$dat[$key][0]["POINT"]."'  limit 1");
+				$dat[$key][0]["HEIKIN_ZIKYU"] = @$point[0]["points"]["money"];//平均時給
+			}
+			$dat[$key][0]["SOSIKYU1"] = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];	//総支給1(生データ)	とりあえずマイナス分は無視※データがないため
+			$tax = floor($dat[$key][0]["SOSIKYU1"]*($session->read("site.shop.tax")/100));
+			$keihi = $val[0]["MAEBARAI"]+$val[0]["BAKKIN"]+1500;
+			$dat[$key][0]["SOSIKYU2"] = $dat[$key][0]["SOSIKYU1"]+$dat[$key][0]["DBACK"]+$tax+$val[0]["BBACK"]-$keihi-$val[0]["HAIR"];	//税込そう支給＋同伴バック＋消費税＋ドリンクバック-経費-ヘアーメイク
+			$dat[$key][0]["SOUSIKYU3"] = (floor($dat[$key][0]["SOSIKYU2"]/100)*100);
+			$dat[$key][0]["SUM1"] = $dat[$key][0]["SOUSIKYU3"]+$dat[$key][0]["MAEBARAI"];
+			$dat[$key][0]["NOWZIKYU"] = round($dat[$key][0]["SUM1"]/$dat[$key][0]["ZIKAN"]);
+		}
+
+		return $this->query($dat);
+
+	}
+
+	//時給取得
+	function getTimeMoney($day,$cast_id = null,$session){
+		
+		//現在までで確定しているデータから時給を算出
+		$sql = " select * ";
+		$sql.= " ,sum(CASE WHEN with_flg = '2' THEN 1 ELSE 0 END) as DOUHAN,";
+		$sql.= " sum(CASE WHEN work_hour > '0' THEN 1 ELSE 0 END)  as SHUKKIN , ";
+		$sql.= " sum(work_hour) as ZIKAN, ";//出勤時間
+		$sql.= " sum(point) as POINT ,";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(loan) as MAEBARAI, ";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(bottle) as BBACK, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(hair) as HAIR, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(penalty) as BAKKIN ";//罰金（指導金）
+		$sql.= " from works as Work ";
+		$sql.= " left outer join casts as Cast on Cast.id = Work.cast_id";
+		$sql.= " where ";
+		$sql.= "  1=1 ";
+		
+		if(date("d",strtotime($day)) <= 15){
+			$sdate = date("Y-m-01",strtotime($day));
+			$edate = date("Y-m-15",strtotime($day));
+			//前期分
+			$sql.= " and Work.work_day >='".$sdate."' and Work.work_day <= '".$edate."' ";
+		}else{
+			$sdate = date("Y-m-16",strtotime($day));
+			$edate = date("Y-m-t",strtotime($day));
+			//前期分
+			$sql.= " and Work.work_day >='".$sdate."' and Work.work_day <= '".$edate."' ";
+		}
+		
+		$sql.= " and Cast.id ={$cast_id}";//キャストID
+		$sql.= " and Work.end_flg = 1";//確定出勤データ
+		$sql.= " group by Work.cast_id ";
+		$dat = $this->query($sql);
+
+		foreach($dat as $key=> $val){
+			$dat[$key][0]["HEIKIN"] = @round($val[0]["POINT"]/$val[0]["SHUKKIN"],1);//平均
+			$dat[$key][0]["DBACK"] = $val[0]["DOUHAN"]*$session->read("site.shop.douhan_price");//同伴バック
+
+			if($val[0]["SHUKKIN"] > 6){
+				//スライドを使用する設定の場合
+				if($session->read("site.shop.slide_use_code") == 1){
+					//6日以上出勤の場合
+					if(($val["Cast"]["term_end_day"] < $edate) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+						//ﾎﾟｲﾝﾄから時給を取得
+						$dat[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code2"),@$dat[$key][0]["HEIKIN"]);//平均時給
+					}else{
+						$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+			}else{
+				//スライドを使用する設定の場合
+				if($session->read("site.shop.slide_use_code") == 1){
+					//6日以上出勤の場合
+					if(($val["Cast"]["term_end_day"] < $edate) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+						//ﾎﾟｲﾝﾄから時給を取得
+						$dat[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code1"),@$dat[$key][0]["POINT"]);//平均時給
+					}else{
+						$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+
+			}
+	
+			$dat[$key][0]["SOSIKYU1"] = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];	//総支給1(生データ)	とりあえずマイナス分は無視※データがないため
+			$tax = floor($dat[$key][0]["SOSIKYU1"]*($session->read("site.shop.tax")/100));
+			$keihi = $val[0]["MAEBARAI"]+$val[0]["BAKKIN"]+1500;
+			$dat[$key][0]["SOSIKYU2"] = $dat[$key][0]["SOSIKYU1"]+$dat[$key][0]["DBACK"]+$tax+$val[0]["BBACK"]-$keihi-$val[0]["HAIR"];	//税込そう支給＋同伴バック＋消費税＋ドリンクバック-経費-ヘアーメイク
+			$dat[$key][0]["SOUSIKYU3"] = (floor($dat[$key][0]["SOSIKYU2"]/100)*100);
+			$dat[$key][0]["SUM1"] = $dat[$key][0]["SOUSIKYU3"]+$dat[$key][0]["MAEBARAI"];
+			$dat[$key][0]["NOWZIKYU"] = @round($dat[$key][0]["SUM1"]/$dat[$key][0]["ZIKAN"]);
+				
+			$dat[$key]["Cast"]["edate"] = $edate;
+			$dat[$key]["Cast"]["sdate"] = $sdate;
+			
+		}
+		$result = $dat;
+		return $result;
+
+	}
+	//時給取得
+	function getTimeMoneys($day,$cast_id = null,$session){
+		
+		//現在までで確定しているデータから時給を算出
+		$sql = " select * ";
+		$sql.= " ,sum(CASE WHEN with_flg = '2' THEN 1 ELSE 0 END) as DOUHAN,";
+		$sql.= " sum(CASE WHEN work_hour > '0' THEN 1 ELSE 0 END)  as SHUKKIN , ";
+		$sql.= " sum(work_hour) as ZIKAN, ";//出勤時間
+		$sql.= " sum(point) as POINT ,";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(deduction) as TENBIKI ,";//天引
+		$sql.= " sum(loan) as MAEBARAI, ";//前借
+		$sql.= " sum(bottle) as BBACK, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(hair) as HAIR, ";//ﾍｱｾｯﾄ
+		$sql.= " sum(penalty) as BAKKIN, ";//罰金（指導金）
+		$sql.= " Cast.contract_term_code, ";
+		$sql.= " Cast.term_end_day, ";
+		$sql.= " Cast.time_money ";
+		$sql.= " from works as Work ";
+		$sql.= " left outer join casts as Cast on Cast.id = Work.cast_id";
+		$sql.= " where ";
+		$sql.= "  1=1 ";
+		
+		if(date("d",strtotime($day)) <= 15){
+			$sdate = date("Y-m-01",strtotime($day));
+			$edate = date("Y-m-15",strtotime($day));
+			//前期分
+			$sql.= " and Work.work_day >='".$sdate."' and Work.work_day <= '".$edate."' ";
+		}else{
+			$sdate = date("Y-m-16",strtotime($day));
+			$edate = date("Y-m-t",strtotime($day));
+			//前期分
+			$sql.= " and Work.work_day >='".$sdate."' and Work.work_day <= '".$edate."' ";
+		}
+		
+		$sql.= " and Cast.id ={$cast_id}";//キャストID
+		$sql.= " and Work.end_flg = 1";//確定出勤データ
+		$sql.= " group by Work.cast_id ";
+		$dat = $this->query($sql);
+
+		foreach($dat as $key=> $val){
+			$dat[$key][0]["HEIKIN"] = @round($val[0]["POINT"]/$val[0]["SHUKKIN"],1);//平均
+			$dat[$key][0]["DBACK"] = $val[0]["DOUHAN"]*$session->read("site.shop.douhan_price");//同伴バック
+
+
+			if($val[0]["SHUKKIN"] > 6){
+				//スライドを使用する設定の場合
+				if($session->read("site.shop.slide_use_code") == 1){
+					//6日以上出勤の場合
+					if(($val["Cast"]["term_end_day"] < $edate) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+						//ﾎﾟｲﾝﾄから時給を取得
+						$dat[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code1"),@$dat[$key][0]["POINT"]);//平均時給
+					}else{
+						$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+			}else{
+				//スライドを使用する設定の場合
+				if($session->read("site.shop.slide_use_code") == 1){
+					//6日以上出勤の場合
+					if(($val["Cast"]["term_end_day"] < $edate) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+						//ﾎﾟｲﾝﾄから時給を取得
+						$dat[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code2"),@$dat[$key][0]["HEIKIN"]);//平均時給
+					}else{
+						$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+
+			}
+
+			$dat[$key][0]["SOSIKYU1"] = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];	//総支給1(生データ)	とりあえずマイナス分は無視※データがないため
+			$tax = floor($dat[$key][0]["SOSIKYU1"]* ($session->read("site.shop.tax")/100) );
+			$keihi = $val[0]["MAEBARAI"]+$val[0]["BAKKIN"]+1500;
+			$dat[$key][0]["SOSIKYU2"] = $dat[$key][0]["SOSIKYU1"]+$dat[$key][0]["DBACK"]+$tax+$val[0]["BBACK"]-$keihi-$val[0]["HAIR"];	//税込そう支給＋同伴バック＋消費税＋ドリンクバック-経費-ヘアーメイク
+			$dat[$key][0]["SOUSIKYU3"] = (floor($dat[$key][0]["SOSIKYU2"]/100)*100);
+			$dat[$key][0]["SUM1"] = $dat[$key][0]["SOUSIKYU3"]+$dat[$key][0]["MAEBARAI"];
+			$dat[$key][0]["NOWZIKYU"] = @round($dat[$key][0]["SUM1"]/$dat[$key][0]["ZIKAN"]);
+				
+			$dat[$key]["Cast"]["edate"] = $edate;
+			$dat[$key]["Cast"]["sdate"] = $sdate;
+			
+			
+			//応援取得
+			$sql = " select sum(price) as Price from help_casts as Help ";
+			$sql.= " where 1=1 ";
+			$sql.= " and Help.target_ym ='".date("Y-m",strtotime($day))."'";
+			if(date("d",strtotime($day)) <= 15){
+				$sql.= " and Help.section = 1 ";
+			}else{
+				$sql.= " and Help.section = 2 ";
+			}
+			$sql.= " and Help.cast_id = {$cast_id} ";
+			$sql.= " group by Help.target_ym";
+			$helps = $this->query($sql);
+
+			if(!empty($helps)){
+				$help = $helps[0][0]["Price"];
+			}else{
+				$help = 0;
+			}
+
+			/*-------------------------------------------------------------------------
+			請負キャストの計算式
+
+			スライド時給×労働時間=A
+
+			A+(Aの消費税5%)＋（同伴×5000）+（ボトルバック）ー前借・ヘアメイク等の天引
+			=（10円以下切捨てし・支給総額）- 多店舗応援＝B給料明細の支給額
+
+			B給料明細の支給額 - 75000円×１０％がホステス源泉
+
+			B給料明細の支給額＋前借＋他店舗応援÷労働時間 = 黒服管理側の時給
+			----------------------------------------------------------------------------*/
+			$a = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];//A	
+			$sikyusougaku = ($a*_def_tax) + ($dat[$key][0]["DOUHAN"]*$session->read("site.shop.douhan_price")) + ($val[0]["BBACK"]) - ($val[0]["MAEBARAI"]+$val[0]["TENBIKI"]+$val[0]["BAKKIN"]+$val[0]["HAIR"]+1500);//支給総額
+			$b = (floor($sikyusougaku/100)*100) - $help ;//B給料明細の支給額
+
+			$gensen = ($b -75000)*0.1;//給料明細の支給額 - 75000円×１０％
+			
+			if($val[0]["ZIKAN"] !=0){
+				$manage_zikyu = ($b +  $val[0]["MAEBARAI"] + $help) / $val[0]["ZIKAN"];
+			}else{
+				$manage_zikyu = 0;
+			}
+							
+			$dat[$key]["Cast"]["SOUSIKYU_ZIKYU"] = $manage_zikyu;
+
+
+			/*-------------------------------------------------------------------------
+			雇用キャストの計算式
+
+			保証時給×労働時間=D
+			D＋ボトルバック -(（D+ボトルバック）×10%) = 給料明細1 
+			明細1 - 前借・ヘアメイク等の天引 
+			=（10円以下切捨てし・支給総額）- 多店舗応援 = E給料明細の支給額
+
+			E給料明細の支給額-75000円×１０％がホステス源泉
+
+			E給料明細の支給額の５％が消費税だが、足さずに内税扱い
+
+			E給料明細の支給額＋前借＋他店舗応援÷労働時間 = 黒服管理側の時給
+			----------------------------------------------------------------------------*/
+			$d = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];//D
+			$kouseihi = ($d + $val[0]["BBACK"])*0.1;
+			$meisai1 = ($d + $val[0]["BBACK"])-$kouseihi;
+			$koyou_sikyusougaku = $meisai1 - ($val[0]["MAEBARAI"]+$val[0]["TENBIKI"]+$val[0]["BAKKIN"]+$val[0]["HAIR"]+1500);//支給総額
+			$e = (floor($koyou_sikyusougaku/100)*100)-$help;//E給料明細の支給額
+			$koyou_gensen = ($e - 75000)*0.1;
+			if($val[0]["ZIKAN"] != 0){
+				$manage_zikyu_k = ($e +  $val[0]["MAEBARAI"] + $help) / $val[0]["ZIKAN"];
+			}else{
+				$manage_zikyu_k = 0;
+			}
+			$dat[$key]["Cast"]["KOYOU_SOUSIKYU_ZIKYU"] = $manage_zikyu_k;
+
+
+
+		}
+		$result = $dat;
+		return $result;
+
+	}
+
+	function getWorkData($user_id,$session,$section){//担当ID,年,月,前半・後半
+		$ym = $session->read("site.target_year")."-".$session->read("site.target_month");
+		$sql = " select Cast.nickname_mei,Cast.contract_term_code,Cast.id ";
+		$sql.= " ,sum(CASE WHEN with_flg = '2' THEN 1 ELSE 0 END) as DOUHAN,";
+		$sql.= " sum(CASE WHEN work_hour >'0' THEN 1 ELSE 0 END) as SHUKKIN , ";
+		$sql.= " sum(work_hour) as ZIKAN, ";//出勤時間
+		$sql.= " sum(point) as POINT ,";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(loan) as MAEBARAI, ";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(bottle) as BBACK, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(hair) as HAIR, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(penalty) as BAKKIN, ";//罰金（指導金）
+		$sql.= " sum(hair_flg) as HAIRFLAG, ";//H
+		$sql.= " sum(blog_flg) as BLOGFLAG, ";//B
+		$sql.= " sum(interview_flg) as MENDAN ,";//面談
+		$sql.= " Cast.term_end_day, ";
+		$sql.= " Cast.time_money ";
+		$sql.= " from works as Work ";
+		$sql.= " left outer join casts as Cast on Cast.id = Work.cast_id";
+		$sql.= " where 1=1 ";
+		if($section == 'first'){
+			$sql.= " and Work.work_day >='".$ym."-01' and Work.work_day <='".$ym."-15' ";//前半
+			$cool_end = $ym."-15";
+		}else{
+			$end_day = date("t",strtotime($ym."-01"));//月末
+			$sql.= " and Work.work_day >='".$ym."-16' and Work.work_day <='".$ym."-".$end_day."' ";//後半
+			$cool_end = $ym."-".$end_day;
+		}
+		$sql.= " and Cast.user_id = {$user_id}";
+		$sql.= " and Cast.del_flg = 0";
+		$sql.= " and Work.end_flg = 1";
+		$sql.= " group by Work.cast_id";
+
+		$dat = $this->query($sql);
+
+		foreach($dat as $key=> $val){
+			$dat[$key][0]["HEIKIN"] = @round($val[0]["POINT"]/$val[0]["SHUKKIN"],1);//平均
+			$dat[$key][0]["DBACK"] = $val[0]["DOUHAN"]*$session->read("site.shop.douhan_price");//同伴バック
+
+
+			if($val[0]["SHUKKIN"] > 6){
+				//スライドを使用する設定の場合
+				if($session->read("site.shop.slide_use_code") == 1){
+					//6日以上出勤の場合
+					if(($val["Cast"]["term_end_day"] < $edate) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+						//ﾎﾟｲﾝﾄから時給を取得
+						$dat[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code1"),@$dat[$key][0]["POINT"]);//平均時給
+					}else{
+						$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+			}else{
+				//スライドを使用する設定の場合
+				if($session->read("site.shop.slide_use_code") == 1){
+					//6日以上出勤の場合
+					if(($val["Cast"]["term_end_day"] < $edate) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+						//ﾎﾟｲﾝﾄから時給を取得
+						$dat[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code2"),@$dat[$key][0]["HEIKIN"]);//平均時給
+					}else{
+						$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+
+			}
+
+
+			$dat[$key][0]["SOSIKYU1"] = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];	//総支給1(生データ)	とりあえずマイナス分は無視※データがないため
+			$tax = floor($dat[$key][0]["SOSIKYU1"]*($session->read("site.shop.tax")/100));
+			$keihi = $val[0]["MAEBARAI"]+$val[0]["BAKKIN"]+1500;
+			$dat[$key][0]["SOSIKYU2"] = $dat[$key][0]["SOSIKYU1"]+$dat[$key][0]["DBACK"]+$tax+$val[0]["BBACK"]-$keihi-$val[0]["HAIR"];	//税込そう支給＋同伴バック＋消費税＋ドリンクバック-経費-ヘアーメイク
+			$dat[$key][0]["SOUSIKYU3"] = (floor($dat[$key][0]["SOSIKYU2"]/100)*100);
+			$dat[$key][0]["SUM1"] = $dat[$key][0]["SOUSIKYU3"]+$dat[$key][0]["MAEBARAI"];
+			$dat[$key][0]["NOWZIKYU"] = @round($dat[$key][0]["SUM1"]/$dat[$key][0]["ZIKAN"]);
+			$dat[$key][0]["HITSUYOUDO"] = round(($val[0]["POINT"]*($session->read("site.shop.set_price")+2000))/$dat[$key][0]["SUM1"]*100);//（ﾎﾟｲﾝﾄ×セット料金）÷SUM1
+			$dat[$key][0]["SEIKA"] = round($dat[$key][0]["SUM1"]/10000,1);
+
+			$dat[$key]["Cast"]["target_cool_end_day"] = $cool_end;//クール最終日
+		}
+
+
+		$result = $dat;
+		return $result;
+	}
+	
+	function getWorkDatas($user_id,$session,$section){//担当ID,年,月,前半・後半
+		$ym = $session->read("site.target_year")."-".$session->read("site.target_month");
+		$sql = " select Cast.nickname_mei,Cast.contract_term_code,Cast.id,Cast.login_flg,Cast.first_goal,Cast.back_goal ";
+		$sql.= " ,sum(CASE WHEN with_flg = '2' THEN 1 ELSE 0 END) as DOUHAN,";
+		$sql.= " sum(CASE WHEN work_hour >'0' THEN 1 ELSE 0 END) as SHUKKIN , ";
+		$sql.= " sum(work_hour) as ZIKAN, ";//出勤時間
+		$sql.= " sum(point) as POINT ,";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(deduction) as TENBIKI ,";//天引
+		$sql.= " sum(loan) as MAEBARAI, ";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(bottle) as BBACK, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(hair) as HAIR, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(penalty) as BAKKIN, ";//罰金（指導金）
+		$sql.= " sum(hair_flg) as HAIRFLAG, ";//H
+		$sql.= " sum(blog_flg) as BLOGFLAG, ";//B
+		$sql.= " sum(interview_flg) as MENDAN ,";//面談
+		$sql.= " Cast.contract_term_code, ";
+		$sql.= " Cast.term_end_day, ";
+		$sql.= " Cast.time_money ";
+		$sql.= " from works as Work ";
+		$sql.= " left outer join casts as Cast on Cast.id = Work.cast_id";
+		$sql.= " where 1=1 ";
+		if($section == 'first'){
+			$sql.= " and Work.work_day >='".$ym."-01' and Work.work_day <='".$ym."-15' ";//前半
+			$cool_end = $ym."-15";
+		}else{
+			$end_day = date("t",strtotime($ym."-01"));//月末
+			$sql.= " and Work.work_day >='".$ym."-16' and Work.work_day <='".$ym."-".$end_day."' ";//後半
+			$cool_end = $ym."-".$end_day;
+		}
+		$sql.= " and Cast.user_id = {$user_id}";
+		$sql.= " and Cast.del_flg = 0";
+		$sql.= " and Work.end_flg = 1";
+		$sql.= " group by Work.cast_id";
+
+		$dat = $this->query($sql);
+
+		foreach($dat as $key=> $val){
+			$dat[$key][0]["HEIKIN"] = @round($val[0]["POINT"]/$val[0]["SHUKKIN"],1);//平均
+			$dat[$key][0]["DBACK"] = $val[0]["DOUHAN"]*$session->read("site.shop.douhan_price");//同伴バック
+
+			if($val[0]["SHUKKIN"] > 6){
+				//スライドを使用する設定の場合
+				if($session->read("site.shop.slide_use_code") == 1){
+					//6日以上出勤の場合
+					if(($val["Cast"]["term_end_day"] < $cool_end) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+						//ﾎﾟｲﾝﾄから時給を取得
+						$dat[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code1"),@$dat[$key][0]["POINT"]);//平均時給
+					}else{
+						$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+			}else{
+				//スライドを使用する設定の場合
+				if($session->read("site.shop.slide_use_code") == 1){
+					//6日以上出勤の場合
+					if(($val["Cast"]["term_end_day"] < $cool_end) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+						//ﾎﾟｲﾝﾄから時給を取得
+						$dat[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code2"),@$dat[$key][0]["HEIKIN"]);//平均時給
+					}else{
+						$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+
+			}
+
+			$dat[$key][0]["SOSIKYU1"] = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];	//総支給1(生データ)	とりあえずマイナス分は無視※データがないため
+			$tax = floor($dat[$key][0]["SOSIKYU1"]*($session->read("site.shop.tax")/100));
+			$keihi = $val[0]["MAEBARAI"]+$val[0]["BAKKIN"]+1500;
+			$dat[$key][0]["SOSIKYU2"] = $dat[$key][0]["SOSIKYU1"]+$dat[$key][0]["DBACK"]+$tax+$val[0]["BBACK"]-$keihi-$val[0]["HAIR"];	//税込そう支給＋同伴バック＋消費税＋ドリンクバック-経費-ヘアーメイク
+			$dat[$key][0]["SOUSIKYU3"] = (floor($dat[$key][0]["SOSIKYU2"]/100)*100);
+			$dat[$key][0]["SUM1"] = $dat[$key][0]["SOUSIKYU3"]+$dat[$key][0]["MAEBARAI"];
+			$dat[$key][0]["NOWZIKYU"] = @round($dat[$key][0]["SUM1"]/$dat[$key][0]["ZIKAN"]);
+			$dat[$key][0]["HITSUYOUDO"] = round(($val[0]["POINT"]*($session->read("site.shop.set_price")+2000))/$dat[$key][0]["SUM1"]*100);//（ﾎﾟｲﾝﾄ×セット料金）÷SUM1
+			$dat[$key][0]["SEIKA"] = round($dat[$key][0]["SUM1"]/10000,1);
+
+			$dat[$key]["Cast"]["target_cool_end_day"] = $cool_end;//クール最終日
+			//応援取得
+//new dBug($dat);exit;
+			$sql = " select sum(price) as Price from help_casts as Help ";
+			$sql.= " where 1=1 ";
+			$sql.= " and Help.target_ym ='".$ym."'";
+			if($section = "first"){
+				$sql.= " and Help.section = 1 ";
+			}else{
+				$sql.= " and Help.section = 2 ";
+			}
+			$sql.= " and Help.cast_id = ".$val["Cast"]["id"];
+			$sql.= " group by Help.target_ym";
+			$helps = $this->query($sql);
+
+			if(!empty($helps)){
+				$help = $helps[0][0]["Price"];
+			}else{
+				$help = 0;
+			}
+			
+			//場内指名数と連絡先交換数を取得
+			$sql = " select  ";
+			$sql.= " sum(CASE WHEN (coming_code = '2' )  THEN 1 ELSE 0 END) as Field, ";
+			$sql.= " sum(CASE WHEN (coming_code = '3')  THEN 1 ELSE 0 END) as Tel ";
+			$sql.= "  from plans as Plan ";
+			$sql.= " where 1=1 ";
+			$sql.= " and Plan.cast_id =".$val["Cast"]["id"];
+			if(date("d",strtotime($cool_end)) <=15){
+				$sql.= " and Plan.work_day >='".$ym."-01' and Plan.work_day <='".$ym."-15' ";//前半
+			}else{
+				$sql.= " and Plan.work_day >='".$ym."-16' and Plan.work_day <='".$cool_end."' ";//後半
+			}
+			$sql.= " group by Plan.cast_id ";
+			$plan = $this->query($sql);
+			$dat[$key][0]["Field"] = 0;
+			$dat[$key][0]["Tel"] = 0;
+			if(!empty($plan)){
+				$dat[$key][0]["Field"] = $plan[0][0]["Field"];
+				$dat[$key][0]["Tel"] = $plan[0][0]["Tel"];
+			}
+			/*-------------------------------------------------------------------------
+			請負キャストの計算式
+
+			スライド時給×労働時間=A
+
+			A+(Aの消費税5%)＋（同伴×5000）+（ボトルバック）ー前借・ヘアメイク等の天引
+			=（10円以下切捨てし・支給総額）- 多店舗応援＝B給料明細の支給額
+
+			B給料明細の支給額 - 75000円×１０％がホステス源泉
+
+			B給料明細の支給額＋前借＋他店舗応援÷労働時間 = 黒服管理側の時給
+			----------------------------------------------------------------------------*/
+			$a = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];//A	
+			$sikyusougaku = ($a*_def_tax) + ($dat[$key][0]["DOUHAN"]*$session->read("site.shop.douhan_price")) + ($val[0]["BBACK"]) - ($val[0]["MAEBARAI"]+$val[0]["TENBIKI"]+$val[0]["BAKKIN"]+$val[0]["HAIR"]+1500);//支給総額
+			$b = (floor($sikyusougaku/100)*100) - $help ;//B給料明細の支給額
+
+			$gensen = ($b -75000)*0.1;//給料明細の支給額 - 75000円×１０％
+			if($val[0]["ZIKAN"] !=0){
+				$manage_zikyu = ($b +  $val[0]["MAEBARAI"] + $help) / $val[0]["ZIKAN"];
+			}else{
+				$manage_zikyu = 0;
+			}
+							
+							
+	//		$dat[$key][0]["SOUSIKYU_ZIKYU"] = $manage_zikyu;
+
+
+			/*-------------------------------------------------------------------------
+			雇用キャストの計算式
+
+			保証時給×労働時間=D
+			D＋ボトルバック -（D+ボトルバック）×10% = 給料明細の厚生費 - 前借・ヘアメイク等の天引 
+			=（10円以下切捨てし・支給総額）- 多店舗応援 = E給料明細の支給額
+
+			E給料明細の支給額-75000円×１０％がホステス源泉
+
+			E給料明細の支給額の５％が消費税だが、足さずに内税扱い
+
+			E給料明細の支給額＋前借＋他店舗応援÷労働時間 = 黒服管理側の時給
+			----------------------------------------------------------------------------*/
+			$d = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];//D
+			$kouseihi = ($d + $val[0]["BBACK"])*0.1;
+			$meisai1 = ($d + $val[0]["BBACK"])-$kouseihi;
+			$koyou_sikyusougaku = $meisai1 - ($val[0]["MAEBARAI"]+$val[0]["TENBIKI"]+$val[0]["BAKKIN"]+$val[0]["HAIR"]+1500);//支給総額
+			$e = (floor($koyou_sikyusougaku/100)*100)-$help;//E給料明細の支給額
+			$koyou_gensen = ($e - 75000)*0.1;
+			if($val[0]["ZIKAN"] !=0){
+				$manage_zikyu_k = ($e +  $val[0]["MAEBARAI"] + $help) / $val[0]["ZIKAN"];
+			}else{
+				$manage_zikyu_k = 0;
+			}
+
+
+
+		//	$dat[$key][0]["KOYOU_SOUSIKYU_ZIKYU"] = $manage_zikyu_k;
+
+			if( ($val["Cast"]["term_end_day"] < $cool_end) && ($val["Cast"]["contract_term_code"] !=9 ) ){//保証期間外の場合
+				$dat[$key][0]["SOUSIKYU_ZIKYU"] = $manage_zikyu;
+			}else{
+				$dat[$key][0]["SOUSIKYU_ZIKYU"] = $manage_zikyu_k;
+			}
+
+		}
+		$result = $dat;
+		return $result;
+	}
+
+	//3期連続必要度チェック
+	function getCheckH($session,$cast_data = null,$now = null){
+		$ymd = $cast_data["target_cool_end_day"];
+		$prev_ym1 = date("Y-m",strtotime($ymd." -1 month"));
+		for($i =1; $i <= 2; $i++){
+			$sql = " select Cast.nickname_mei,Cast.contract_term_code,Cast.contract_code,Cast.id ";
+			$sql.= " ,sum(CASE WHEN with_flg = '2' THEN 1 ELSE 0 END) as DOUHAN,";
+			$sql.= " sum(CASE WHEN work_hour >'0' THEN 1 ELSE 0 END) as SHUKKIN , ";
+			$sql.= " sum(work_hour) as ZIKAN, ";//出勤時間
+			$sql.= " sum(point) as POINT ,";//ﾎﾟｲﾝﾄ
+			$sql.= " sum(loan) as MAEBARAI, ";//ﾎﾟｲﾝﾄ
+			$sql.= " sum(bottle) as BBACK, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+			$sql.= " sum(hair) as HAIR, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+			$sql.= " sum(penalty) as BAKKIN, ";//罰金（指導金）
+			$sql.= " sum(hair_flg) as HAIRFLAG, ";//H
+			$sql.= " sum(blog_flg) as BLOGFLAG, ";//B
+			$sql.= " sum(interview_flg) as MENDAN ,";//面談
+			$sql.= " Cast.term_end_day, ";
+			$sql.= " Cast.time_money ";
+			$sql.= " from works as Work ";
+			$sql.= " left outer join casts as Cast on Cast.id = Work.cast_id";
+			$sql.= " where 1=1 ";
+			if($i==1){
+				if(date("d",strtotime($ymd)) < 16){
+					$sql.= " and Work.work_day >='".$prev_ym1."-16' and Work.work_day <='".date("Y-m-t",strtotime($prev_ym1."-16"))."' ";//前半
+				}else{
+					$sql.= " and Work.work_day >='".date("Y-m-01",strtotime($ymd))."' and Work.work_day <='".date("Y-m-15",strtotime($ymd))."' ";//前半
+				}
+			}else{
+				if(date("d",strtotime($ymd)) < 16){
+					$sql.= " and Work.work_day >='".$prev_ym1."-01' and Work.work_day <='".date("Y-m-t",strtotime($prev_ym1."-15"))."' ";//前半
+				}else{
+					$sql.= " and Work.work_day >='".date("Y-m-16",strtotime($prev_ym1."-16"))."' and Work.work_day <='".date("Y-m-t",strtotime($prev_ym1."-16"))."' ";//前半
+				}
+			}
+			$sql.= " and Cast.id = ".$cast_data["id"];
+			$sql.= " and Cast.del_flg = 0";
+			$sql.= " and Work.end_flg = 1";
+			$sql.= " group by Work.cast_id";
+
+			$prev = $this->query($sql);
+			$prev_flg = true;
+			//$prev = $tmp_prev[0];
+			foreach($prev as $key=> $val){
+				$prev[$key][0]["HEIKIN"] = @round($val[0]["POINT"]/$val[0]["SHUKKIN"],1);//平均
+				$prev[$key][0]["DBACK"] = $val[0]["DOUHAN"]*$session->read("site.shop.douhan_price");//同伴バック
+
+				if($val[0]["SHUKKIN"] > 6){
+					//スライドを使用する設定の場合
+					if($session->read("site.shop.slide_use_code") == 1){
+						//6日以上出勤の場合
+						if(($val["Cast"]["term_end_day"] < date("Y-m-d") ) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+							//ﾎﾟｲﾝﾄから時給を取得
+							$prev[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code2"),@$prev[$key][0]["HEIKIN"]);//平均時給
+						}else{
+							$prev[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+						}
+					}else{
+						$prev[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					//スライドを使用する設定の場合
+					if($session->read("site.shop.slide_use_code") == 1){
+						//6日以上出勤の場合
+						if(($val["Cast"]["term_end_day"] < date("Y-m-d")) && ($val["Cast"]["contract_term_code"] !=9 )){//保証期間外の場合
+							//ﾎﾟｲﾝﾄから時給を取得
+							$prev[$key][0]["HEIKIN_ZIKYU"] = @$this->getSlideMoney($session->read("site.shop.slide_code1"),@$prev[$key][0]["POINT"]);//平均時給
+						}else{
+							$prev[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+						}
+					}else{
+						$prev[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+
+				}
+
+/*
+				if($val[0]["SHUKKIN"] >6){
+					if($val["Cast"]["term_end_day"] < date("Y-m-d")){//保証期間外の場合
+						//6日以上出勤の場合
+						$av_point = $this->query("select money from ".$session->read("site.shop.av_point_tb")." where point >='".$prev[$key][0]["HEIKIN"]."'  limit 1");
+						$prev[$key][0]["HEIKIN_ZIKYU"] = @$av_point[0][$session->read("site.shop.av_point_tb")]["money"];//平均時給
+						//6日以上出勤の場合
+					}else{
+						$prev[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}else{
+					if($val["Cast"]["term_end_day"] < date("Y-m-d")){//保証期間外の場合
+						//6日以下出勤の場合
+						$point = $this->query("select money from ".$session->read("site.shop.point_tb")." where point >='".$prev[$key][0]["POINT"]."'  limit 1");
+						$prev[$key][0]["HEIKIN_ZIKYU"] = @$point[0][$session->read("site.shop.point_tb")]["money"];//平均時給
+					}else{
+						$prev[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+					}
+				}
+*/
+				$prev[$key][0]["SOSIKYU1"] = $val[0]["ZIKAN"]*$prev[$key][0]["HEIKIN_ZIKYU"];	//総支給1(生データ)	とりあえずマイナス分は無視※データがないため
+				$tax = floor($prev[$key][0]["SOSIKYU1"]*($session->read("site.shop.tax")/100));
+				$keihi = $val[0]["MAEBARAI"]+$val[0]["BAKKIN"]+1500;
+				$prev[$key][0]["SOSIKYU2"] = $prev[$key][0]["SOSIKYU1"]+$prev[$key][0]["DBACK"]+$tax+$val[0]["BBACK"]-$keihi-$val[0]["HAIR"];	//税込そう支給＋同伴バック＋消費税＋ドリンクバック-経費-ヘアーメイク
+				$prev[$key][0]["SOUSIKYU3"] = (floor($prev[$key][0]["SOSIKYU2"]/100)*100);
+				$prev[$key][0]["SUM1"] = $prev[$key][0]["SOUSIKYU3"]+$prev[$key][0]["MAEBARAI"];
+				$prev[$key][0]["NOWZIKYU"] = @round($prev[$key][0]["SUM1"]/$prev[$key][0]["ZIKAN"]);
+				$prev[$key][0]["HITSUYOUDO"] = round(($val[0]["POINT"]*($session->read("site.shop.set_price")+2000))/$prev[$key][0]["SUM1"]*100);//（ﾎﾟｲﾝﾄ×セット料金）÷SUM1
+				$prev[$key][0]["SEIKA"] = round($prev[$key][0]["SUM1"]/10000,1);
+
+				if($prev[$key][0]["HITSUYOUDO"] < 100){
+					$prev_flg = false;
+				}
+			}
+		}
+		
+		if(($now) >= 100 || $prev_flg){
+			return true;
+		}else{
+			return false;
+		}
+		
+		return true;
+	}
+
+	function getShiftData($session){
+		$sql = " select * from works as Work ";
+		$sql.= " inner join casts as Cast on Cast.id = Work.cast_id ";
+//		$sql.= " inner join plans as Plan on Work.work_day = Plan.work_day and Work.cast_id = ";
+		$sql.= " where 1 = 1 ";
+		$sql.= " and Work.work_day >='".$session->read("site.target_year")."-".$session->read("site.target_month")."-01'";
+		$sql.= " and Work.work_day <='".$session->read("site.target_year")."-".$session->read("site.target_month")."-31'";
+		$sql.= " and Cast.shop_id = ".$session->read("site.shop.id");
+		$sql.= " and Cast.del_flg = 0";
+//		$sql.= " group by Cast.id";
+		$result = $this->query($sql);
+
+		return $result;
+	}
+
+	//本部が設定した人数を取得
+	function getSetShift($session){
+		//本部が無い為、平日は8人・週末は12人で仮設定
+		
+	
+	}
+
+/*---------------勘違いの為削除----------------------------------------*/
+/*内容は前クールの成果レベルと比較しようとしていた
+	function getPrevWorkData($user_id,$session,$section){//担当ID,年,月,前半・後半
+		$ym = $session->read("site.target_year")."-".$session->read("site.target_month");
+		$sql = " select Cast.nickname_mei,Cast.contract_code,Cast.id ";
+		$sql.= " ,sum(CASE WHEN with_flg = '2' THEN 1 ELSE 0 END) as DOUHAN,";
+		$sql.= " sum(CASE WHEN work_hour >'0' THEN 1 ELSE 0 END) as SHUKKIN , ";
+		$sql.= " sum(work_hour) as ZIKAN, ";//出勤時間
+		$sql.= " sum(point) as POINT ,";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(loan) as MAEBARAI, ";//ﾎﾟｲﾝﾄ
+		$sql.= " sum(bottle) as BBACK, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(hair) as HAIR, ";//ﾎﾞﾄﾙﾊﾞｯｸ
+		$sql.= " sum(penalty) as BAKKIN, ";//罰金（指導金）
+		$sql.= " sum(hair_flg) as HAIRFLAG, ";//H
+		$sql.= " sum(blog_flg) as BLOGFLAG, ";//B
+		$sql.= " sum(interview_flg) as MENDAN ,";//面談
+		$sql.= " Cast.term_end_day, ";
+		$sql.= " Cast.time_money ";
+		$sql.= " from works as Work ";
+		$sql.= " left outer join casts as Cast on Cast.id = Work.cast_id";
+		$sql.= " where 1=1 ";
+		if($section == 'first'){
+			$prev_ym = date("Y-m",strtotime($ym."-01 -1 month"));
+			$sql.= " and Work.work_day >='".$prev_ym."-16' and Work.work_day <='".date("Y-m-t",strtotime($prev_ym."-01"))."' ";//前半
+			$cool_end = date("Y-m-t",strtotime($prev_ym."-01")); 
+		}else{
+			$end_day = date("t",strtotime($ym."-01"));//月末
+			$sql.= " and Work.work_day >='".$ym."-01' and Work.work_day <='".date("Y-m-15",strtotime($ym."-01") )."' ";//後半
+			$cool_end = date("Y-m-15",strtotime($ym."-01") );
+		}
+		$sql.= " and Cast.user_id = {$user_id}";
+		$sql.= " and Cast.del_flg = 0";
+		$sql.= " and Work.end_flg = 1";
+		$sql.= " group by Work.cast_id";
+
+		$dat = $this->query($sql);
+
+		foreach($dat as $key=> $val){
+			$dat[$key][0]["HEIKIN"] = @round($val[0]["POINT"]/$val[0]["SHUKKIN"],1);//平均
+			$dat[$key][0]["DBACK"] = $val[0]["DOUHAN"]*$session->read("site.shop.douhan_price");//同伴バック
+			if($val[0]["SHUKKIN"] >6){
+				if($val["Cast"]["term_end_day"] < $cool_end){//保証期間外の場合
+					//6日以上出勤の場合
+					$av_point = $this->query("select money from ".$session->read("site.shop.av_point_tb")." where point >='".$dat[$key][0]["HEIKIN"]."'  limit 1");
+					$dat[$key][0]["HEIKIN_ZIKYU"] = @$av_point[0][$session->read("site.shop.av_point_tb")]["money"];//平均時給
+					//6日以上出勤の場合
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+			}else{
+				if($val["Cast"]["term_end_day"] < $cool_end){//保証期間外の場合
+					//6日以下出勤の場合
+					$point = $this->query("select money from ".$session->read("site.shop.point_tb")." where point >='".$dat[$key][0]["POINT"]."'  limit 1");
+					$dat[$key][0]["HEIKIN_ZIKYU"] = @$point[0][$session->read("site.shop.point_tb")]["money"];//平均時給
+				}else{
+					$dat[$key][0]["HEIKIN_ZIKYU"] = $val["Cast"]["time_money"];//時給
+				}
+			}
+
+			$dat[$key][0]["SOSIKYU1"] = $val[0]["ZIKAN"]*$dat[$key][0]["HEIKIN_ZIKYU"];	//総支給1(生データ)	とりあえずマイナス分は無視※データがないため
+			$tax = floor($dat[$key][0]["SOSIKYU1"]*(($session->read("site.shop.tax")/100)+1));
+			$keihi = $val[0]["MAEBARAI"]+$val[0]["BAKKIN"]+1500;
+			$dat[$key][0]["SOSIKYU2"] = $dat[$key][0]["SOSIKYU1"]+$dat[$key][0]["DBACK"]+$tax+$val[0]["BBACK"]-$keihi-$val[0]["HAIR"];	//税込そう支給＋同伴バック＋消費税＋ドリンクバック-経費-ヘアーメイク
+			$dat[$key][0]["SOUSIKYU3"] = (floor($dat[$key][0]["SOSIKYU2"]/100)*100);
+			$dat[$key][0]["SUM1"] = $dat[$key][0]["SOUSIKYU3"]+$dat[$key][0]["MAEBARAI"];
+			$dat[$key][0]["NOWZIKYU"] = @round($dat[$key][0]["SUM1"]/$dat[$key][0]["ZIKAN"]);
+			$dat[$key][0]["HITSUYOUDO"] = round(($val[0]["POINT"]*($session->read("site.shop.set_price")+2000))/$dat[$key][0]["SUM1"]*100);//（ﾎﾟｲﾝﾄ×セット料金）÷SUM1
+			$dat[$key][0]["SEIKA"] = round($dat[$key][0]["SUM1"]/10000,1);
+		}
+
+
+		$result = $dat;
+		return $result;
+	}
+*/
+
+
+	function getProfitLine($session,$day){
+		//一日固定費平均を求める(一日固定費 = 男子社員給+バイト給+成績対象 ÷ 営業日数)
+		//男子社員給を取得
+		$target_ym = $session->read("site.target_year")."-".$session->read("site.target_month");
+		$sql = " select sum(payment_money) as Money from salaries as Salary ";
+		$sql.= " left outer join users as User on User.id = Salary.user_id ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Salary.target_ym ='".$target_ym."'";
+		$sql.= " and User.shop_id = ".$session->read("site.shop.id");
+		$sql.= " group by User.shop_id";
+		$dat = $this->query($sql);
+
+		$men_money = @$dat[0][0]["Money"];//社員給
+
+		//対象成績
+		$sql = " select sum(price) as Target from monies as Money ";
+		$sql.= " where 1=1 ";
+		$sql.= " and year(Money.target_ymd) ='".$session->read("site.target_year")."'";
+		$sql.= " and month(Money.target_ymd) ='".$session->read("site.target_month")."'";
+		$sql.= " and Money.shop_id = ".$session->read("site.shop.id");
+		$sql.= " and Money.sum_target_code = 1";
+		$sql.= " group by Money.shop_id";
+		$dat = $this->query($sql);
+		$keihi = @$dat[0][0]["Target"];//成績対象の経費+成績対象ノルマ
+//$keihi=0;
+		//バイト給
+		$sql = " select * from mens as Men ";
+		$sql.= " left outer join users as User on User.id = Men.user_id ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Men.work_day ='".$day."'";
+		$sql.= " and User.shop_id = ".$session->read("site.shop.id");
+		$sql.= " and User.type = 2";
+		$dat = $this->query($sql);
+		$baito_money=0;
+		foreach($dat as $val){
+			$baito_money+= $val["User"]["time_money"]* $val["Men"]["work_hour"];
+		}
+		
+			
+	
+		$sum = ($men_money + $keihi + $baito_money+$session->read("site.shop.norm_money")) / 24; //仮で営業日数
+
+		return $sum;
+	}	
+
+
+	function sendTodayShift($session,$shop_id){
+		//-----------------本日のｼﾌﾄ情報を取得(Cast)--------------------------------//
+		$sql = " select * from works as Work ";
+		$sql.= " left outer join casts as Cast on Cast.id = Work.cast_id ";
+		$sql.= " left outer join users as User on User.id = Cast.user_id ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Work.work_day ='".date("Y-m-d")."'";
+		$sql.= " and Cast.shop_id ='".$shop_id."'";
+		$sql.= " order by Cast.user_id ";
+		$work = $this->query($sql);
+
+		$sale_plan=0;//予想売上
+		$tmp_work_money=0;//女子給
+
+		foreach($work as $key=>$dat){
+			$res = $this->getTimeMoneys(date("Y-m-d"),$dat["Cast"]["id"],$session);
+			//時給取得
+			$work[$key]["Cast"]["NOWZIKYU"]  = @$res[0][0]["NOWZIKYU"];
+			//総支給時給
+			$work[$key]["Cast"]["SOUSIKYU_ZIKYU"]  = @round($res[0]["Cast"]["SOUSIKYU_ZIKYU"]);
+			$work[$key]["Cast"]["KOYOU_SOUSIKYU_ZIKYU"]  = @round($res[0]["Cast"]["KOYOU_SOUSIKYU_ZIKYU"]);
+
+			//平均
+			$work[$key]["Cast"]["HEIKIN"]  = @$res[0][0]["HEIKIN"];
+			//対象範囲
+			$work[$key]["Cast"]["edate"]  = @$res[0]["Cast"]["edate"];
+			$work[$key]["Cast"]["sdate"]  = @$res[0]["Cast"]["sdate"];
+
+			$tmp_work_money+= $work[$key]["Cast"]["NOWZIKYU"]*5;//予想用
+			//予想売上
+			$sale_plan+= round($work[$key]["Cast"]["HEIKIN"])*10000;
+		}
+
+
+
+		//送信内容を作成
+		$text["ShopName"] = $session->read("site.shop.name");//店名
+		$text["SalePrice"] = $sale_plan;//予想売上
+		
+		$cnt =1;
+		$text["Cast"]="";
+		foreach($work as $val){//出勤情報
+			$text["Cast"].= sprintf("%02d",$cnt)." ".$this->time_code[$val["Work"]["start_work"]];//入時間
+			$text["Cast"].= mb_substr($val["User"]["name"],0,1,"UTF8");//担当頭文字
+			$text["Cast"].= $val["Cast"]["nickname_mei"];//キャスト
+			if(!empty($val["Work"]["with_plan"])){
+				$text["Cast"].= mb_substr($this->with_code[$val["Work"]["with_plan"]],0,1,"UTF8");//同伴
+			}
+
+			$sql = " select count(plans.id) as Cnt from plans ";
+			$sql.= " where 1=1 ";
+			$sql.= " and plans.cast_id =".$val["Cast"]["id"];
+			$sql.= " and plans.work_day ='".$val["Work"]["work_day"]."'";
+			$sql.= " and (plans.sche_code = 2 or plans.sche_code = 4 )";
+			$sql.= " group by plans.work_day ";
+			$plan = $this->query($sql);
+
+			$plan_num = @$plan[0][0]["Cnt"];
+
+			
+			if(!empty($plan_num)){
+				$text["Cast"].= '予'.$plan_num;
+			}
+			
+			
+			$text["Cast"].= "\r\n";
+		$cnt++;
+
+		}
+		//-----------------本日のｼﾌﾄ情報を取得(体験・派遣)--------------------------------//
+		$sql = " select * from experiences as Ex ";
+		$sql.= " left outer join users as User on User.id = Ex.user_id ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Ex.work_day ='".date("Y-m-d")."'";
+		$sql.= " and Ex.shop_id ='".$shop_id."'";
+		$sql.= " order by Ex.id ";
+		$ex = $this->query($sql);
+
+		foreach($ex as $v){
+			$text["Cast"].= sprintf("%02d",$cnt)." ".$this->time_code[$v["Ex"]["start_work"]];//入時間
+			$text["Cast"].= mb_substr($v["User"]["name"],0,1,"UTF8");//担当頭文字
+			$text["Cast"].= $v["Ex"]["name"];//キャスト
+			if($v["Ex"]["type_code"] ==1){
+				$text["Cast"].= "体験";//同伴
+			}else{
+				$text["Cast"].= "派遣";//同伴
+			}
+			$text["Cast"].= '?';
+			$text["Cast"].= "\r\n";
+		$cnt++;
+		}
+
+
+		$text["CastNum"] = $cnt-1;//予想売上
+
+		//-----------------本日のｼﾌﾄ情報を取得(男子)--------------------------------//
+		$sql = " select * from mens as Men ";
+		$sql.= " left outer join users as User on User.id = Men.user_id ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Men.work_day ='".date("Y-m-d")."'";
+		$sql.= " and User.shop_id ='".$shop_id."'";
+		$sql.= " order by Men.id ";
+		$men = $this->query($sql);
+//new dbug($men);
+
+		$cnt =1;
+		$text["Men"] ="";
+		foreach($men as $value){
+			$text["Men"].= sprintf("%02d",$cnt)." ".$value["Men"]["start_work"];//入時間
+			$text["Men"].= " ".$value["User"]["name"];//名前
+			$text["Men"].= "\r\n";
+			
+			//TODOを取得する
+//			$todo = $this->query("select  body from staff_task_lists left outer join staff_tasks on staff_tasks.id = staff_task_lists.staff_task_id where 1=1 and staff_task_lists.user_id =".$value["User"]["id"]."  and (staff_tasks.close_date >= '".date("Y-m-d")."'   or staff_tasks.close_date is null ) and staff_tasks.resign_flg !=1 and (staff_tasks.todo_section =1 or staff_tasks.todo_section =2)");
+/			$todo = $this->query("select  body from staff_task_lists left outer join staff_tasks on staff_tasks.id = staff_task_lists.staff_task_id where 1=1 and staff_task_lists.user_id =".$value["User"]["id"]."  and staff_tasks.resign_flg !=1 and (staff_tasks.todo_section =1 or staff_tasks.todo_section =2)");
+			foreach($todo as $do){
+				$text["Men"].= "・".$do["staff_tasks"]["body"]."\r\n";
+			}
+			$text["Men"].= "\r\n";
+
+		$cnt++;
+		}
+
+		$text["Day"] = date("m/d");
+
+		//-----------------本日のイベントを取得--------------------------------//
+		$sql = " select * from events as Event ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Event.shop_id =".$shop_id;
+		$sql.= " and Event.work_day ='".date("Y-m-d")."'";
+		$event = $this->query($sql);
+
+		if(!empty($event)){
+			$text["EventName"] = $event[0]["Event"]["name"];
+		}else{
+			$text["EventName"] = "";
+		}
+		return $text;
+
+	}
+
+
+
+	//--------------------------------------------過去の平均ﾎﾟｲﾝﾄを取得------------------------------------------------------------//
+	function getOldAvg($cast_id,$day){
+		$sql = " select ";
+		$sql.= " sum(CASE WHEN work_hour >'0' THEN 1 ELSE 0 END) as SHUKKIN , ";
+		$sql.= " sum(point) as POINT ";//ﾎﾟｲﾝﾄ
+		$sql.= " from works as Work ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Work.cast_id =".$cast_id;
+		$sql.= " and Work.work_day < '".$day."'";
+		$sql.= " and Work.end_flg =1 ";
+		$sql.= " group by Work.cast_id ";
+		$data = $this->query($sql);
+
+		if(!empty($data)){
+			if($data[0][0]["SHUKKIN"] !=0){
+				$result = $data[0][0]["POINT"]/$data[0][0]["SHUKKIN"];
+			}else{
+				$result = $data[0][0]["POINT"]/1;
+			}
+		}else{
+			$result =0;
+		}
+		
+		return $result;
+	}
+
+
+	//--------------------------------------------女子画面------------------------------------------------------------//
+	function getWorkPlan($sday,$eday,$cast_id){
+		$sql = " select ";
+		$sql.= " Work.id,Work.work_day ";
+		$sql.= " from works as Work ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Work.cast_id =".$cast_id;
+		$sql.= " and Work.work_day >='".$sday."'";
+		$sql.= " and Work.work_day <= '".$eday."'";
+		$sql.= " group by Work.work_day ";
+		$data = $this->query($sql);
+		return $data;	
+	}
+
+	
+	//--------------------------------------------ｼﾌﾄ------------------------------------------------------------//
+	function getPlanData($data){
+		$sql = " select ";
+		$sql.= " sum(CASE WHEN sche_code = '4' THEN 1 ELSE 0 END) as ComPlan , ";
+		$sql.= " sum(CASE WHEN sche_code = '3' THEN 1 ELSE 0 END) as EatPlan  ";
+		$sql.= " from plans as Plan ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Plan.cast_id =".$data["Work"]["cast_id"];
+		$sql.= " and Plan.work_day ='".$data["Work"]["work_day"]."'";
+		$sql.= " group by Plan.work_day ";
+		
+//		$sql = "select sum(CASE WHEN sche_code = '4' THEN 1 ELSE 0 END) as ComPlan , sum(CASE WHEN sche_code = '3' THEN 1 ELSE 0 END) as EatPlan from plans as Plan where 1=1 and Plan.cast_id =26 and Plan.work_day ='2014-03-21' group by Plan.work_day ";
+		$dat = $this->query($sql);
+		return @$dat[0];	
+	}
+
+
+	function getPlanDateArray($session){
+		$sdate = $session->read("site.target_year")."-".$session->read("site.target_month")."-01";
+		$edate = date("Y-m-t",strtotime($sdate));
+		$sql = " select ";
+		$sql.= " Plan.work_day ,  ";
+		$sql.= " sum(CASE WHEN (sche_code = '1' or sche_code = '2' or sche_code = '3' or sche_code = '4') THEN 1 ELSE 0 END) as PlanNum  ";
+		$sql.= " from plans as Plan ";
+		$sql.= " left outer join casts on casts.id = Plan.cast_id ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Plan.work_day >='".$sdate."'";
+		$sql.= " and Plan.work_day <='".$edate."'";
+		$sql.= " and casts.shop_id =".$session->read("site.shop.id");
+		$sql.= " group by Plan.work_day";
+		$result = $this->query($sql);
+
+		$data_code = array();
+		foreach($result as $val){
+			$data_code[$val["Plan"]["work_day"]] = $val[0]["PlanNum"];
+		}
+
+
+		return $data_code;
+	
+	
+	}
+	function getReportDateArray($session){
+		$sdate = $session->read("site.target_year")."-".$session->read("site.target_month")."-01";
+		$edate = date("Y-m-t",strtotime($sdate));
+		$sql = " select ";
+		$sql.= " Report.work_day , table_price ,call_name,shops.apo_price ";
+		$sql.= " from reports as Report ";
+		$sql.= " left outer join shops on shops.id = Report.shop_id ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Report.work_day >='".$sdate."'";
+		$sql.= " and Report.work_day <='".$edate."'";
+		$sql.= " and Report.shop_id =".$session->read("site.shop.id");
+		$sql.= " group by Report.work_day";
+		$result = $this->query($sql);
+
+		$data_code = array();
+		foreach($result as $val){
+			$data_code[$val["Report"]["work_day"]] = round($val["Report"]["table_price"]/$session->read("site.shop.set_price")) - round($val["Report"]["call_name"] / $val["shops"]["apo_price"]);
+//			$data_code[$val["Report"]["work_day"]] = round($val["Report"]["table_price"]/$session->read("site.shop.set_price"));
+//			$data_code[$val["Report"]["work_day"]] = round($val["Report"]["table_price"]/$session->read("site.shop.set_price")).":".(($val["Report"]["field_call_name"]+$val["Report"]["call_name"]) / 2000);	
+		}
+
+		return $data_code;
+	
+	
+	}
+
+	function getAdminPlanNum($target_date,$shop_id){
+		$sql = " select ";
+		$sql.= " sum(CASE WHEN (coming_code = 2 ) THEN 1 ELSE 0 END) as FieldNum ,  ";
+		$sql.= " sum(CASE WHEN (sche_code = '1' or sche_code = '2' or sche_code = '3' or sche_code = '4') THEN 1 ELSE 0 END) as PlanNum  ";
+		$sql.= " from plans as Plan ";
+		$sql.= " left outer join casts on casts.id = Plan.cast_id ";
+		$sql.= " where 1=1 ";
+		$sql.= " and Plan.work_day ='".$target_date."'";
+		$sql.= " and casts.shop_id =".$shop_id;
+		$sql.= " group by Plan.work_day";
+		$result = $this->query($sql);
+
+		if(!empty($result)){
+			return $result[0][0];
+		}else{
+			return 0;
+		}
+
+	
+	
+	}
+}
+?>

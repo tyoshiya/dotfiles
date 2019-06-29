@@ -1,0 +1,1 @@
+{'import', 'Component', 'from', 'angular', 'core', 'Page1Component', 'page1', 'component', 'selector', 'root', 'templateUrl', 'html', 'styleUrls', 'scss', 'export', 'class', 'AppComponent', 'title', 'rootPage'}

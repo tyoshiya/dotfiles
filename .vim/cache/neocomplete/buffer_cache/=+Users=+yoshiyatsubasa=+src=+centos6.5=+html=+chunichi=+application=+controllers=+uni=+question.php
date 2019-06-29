@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'class', 'Question', 'extends', 'MY_Controller', 'function', '__construct', 'parent', '$this', 'load', 'helper', 'C_Form', 'index', 'view', 'question', 'siteframe'}

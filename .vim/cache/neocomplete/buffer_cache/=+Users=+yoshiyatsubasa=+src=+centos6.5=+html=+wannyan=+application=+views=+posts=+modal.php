@@ -1,0 +1,1 @@
+{'$complete', '<script>', 'parent', 'location', 'href', 'users', 'index', '</script>', '<div ', 'class', 'remodal', 'wrapper', 'icon', 'body', 'style', 'margin', '<div>', 'posts', 'modal', 'echo', 'delete', '</a>', '</div>', 'cancel', 'function', 'click', 'close', 'document'}

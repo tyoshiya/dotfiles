@@ -1,0 +1,1 @@
+{'Ospinto', 'dBug', 'dbug', 'class', 'Management_model', 'extends', 'MY_Model', 'public', '$table', 'false', 'function', '__construct', 'parent', '$validate_login', 'array', 'field', '_user', 'label', 'rules', 'required', 'alpha_numeric', '_pass', 'login_check'}

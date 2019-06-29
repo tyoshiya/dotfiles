@@ -1,0 +1,1 @@
+{'using', 'System', 'Xamarin', 'Forms', 'namespace', 'LoginNavigation', 'public', 'partial', 'class', 'MainPage', 'ContentPage', 'InitializeComponent', 'async', 'void', 'OnLogoutButtonClicked', 'object', 'sender', 'EventArgs', 'IsUserLoggedIn', 'false', 'Navigation', 'InsertPageBefore', 'LoginPage', 'this', 'await', 'PopAsync'}

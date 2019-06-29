@@ -1,0 +1,1 @@
+{'<div ', 'headerBox', 'header', 'class', 'clearfix', 'logoBox', '<h1>', 'href', 'index', '<img ', 'images', 'logo_mini', 'width', 'height', '</a>', '</h1>', '<dl>', '<dt ', 'komaki', '</dt>', 'owariasahi', '<dd>', 'manege_t', '</dd>', '</dl>', '</div>', 'bt_logout', 'logout', '</p>', 'contents'}

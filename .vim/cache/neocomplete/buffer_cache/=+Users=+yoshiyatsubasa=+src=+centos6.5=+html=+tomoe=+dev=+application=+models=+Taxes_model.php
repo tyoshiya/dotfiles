@@ -1,0 +1,1 @@
+{'Ospinto\\dBug', 'dbug', 'class', 'Taxes_model', 'extends', 'MY_Model', 'public', '$table', 'taxes', 'function', '__construct', 'parent::__construct', 'getRate', '$date', 'date', '$sql', 'array', 'select', 'rate', 'from', 'where', 'date_to', 'del_flg', 'order', 'limit', 'implode', '$taxes', '$this', 'query', '$rate', 'empty', 'else', 'null', 'return'}

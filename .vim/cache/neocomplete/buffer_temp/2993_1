@@ -1,0 +1,252 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+//名前区間のエイリアス
+use \Ospinto\dBug as dbug;
+
+class Estimates extends MY_Controller {
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->check->isLogin();
+        $this->page_title = "見積";
+    }
+
+    //詳細
+    public function detail($id = null){
+        $this->check->isVal($id);
+        $this->data["id"] = $id;
+
+        //見積取得
+        $estimate = $this->model("estimates")->findById($id);
+        $this->check->isVal($estimate);
+        $this->data["estimate"] = $estimate;
+
+        //見積明細取得
+        $estimate_details = $this->model("estimate_details")->findAll(array(
+            "where" => array("estimate_id" => $id),
+            "order" => array("id asc")
+        ));
+        $this->data["estimate_details"] = $estimate_details;
+
+		$this->layout->render();
+    }
+
+    public function add($project_detail_id = null){
+        $this->check->isVal($project_detail_id);
+        $project_detail = $this->model("project_details")->findById($project_detail_id,array(
+            "select" => array("project_details.*",$this->model("projects")->selectAlias()),
+            "join" => array(
+                array("projects","project_details.project_id = projects.id","left outer")
+            )
+        ));
+        $this->check->isVal($project_detail);
+
+        if($this->check->isExe()){
+            $this->form_validation->set_rules($this->model("estimates")->{"validate_".$this->router->method});
+            for($i = 0; $i < $this->input->post("estimate_details_cnt"); $i++){
+                $validate = $this->model("estimate_details")->{"validate_".$this->router->method};
+
+                foreach ($validate as &$row) {
+                    $row["field"] = $row["field"]."_".$i;
+                }
+                $this->form_validation->set_rules($validate);
+            }
+            if($this->form_validation->run()){
+                $id = $this->model("estimates")->save($this->input->post());
+                for($i = 0; $i < $this->input->post("estimate_details_cnt"); $i++){
+                    $saves = array();
+                    $saves["estimate_id"] = $id;
+                    $saves["title"] = $this->input->post("estimate_details_title_".$i);
+                    $saves["price"] = $this->input->post("estimate_details_price_".$i);
+                    $saves["quantity"] = $this->input->post("estimate_details_quantity_".$i);
+                    $saves["subtotal"] = $this->input->post("estimate_details_subtotal_".$i);
+                    $saves["note"] = $this->input->post("estimate_details_note_".$i);
+                    $estimate_detail_id = $this->model("estimate_details")->save($saves);
+                }
+
+                //案件のステータスを更新する
+                $saves = array();
+                $saves["id"] = $this->input->post("project_detail_id");
+                $saves["status"] = 11; 
+                $project_detail_id = $this->model("project_details")->save($saves);
+
+                redirect("/estimates/detail/".$id);
+            }
+        }else{
+            $_POST["project_detail_id"] = $project_detail_id; 
+            $_POST["name"] = $project_detail->projects_name." ".$project_detail->name; 
+            $_POST["date"] = date("Y/m/d"); 
+            $_POST["tax_rate"] = 8;
+            $_POST["tax"] = 0;
+            $_POST["subtotal"] = 0;
+            $_POST["total"] = 0;
+            $_POST["estimate_details_cnt"] = 1;
+            $_POST["decision_flg"] = 1;
+        }
+
+        $this->data["project_detail_id"] = $project_detail_id;
+        $this->data["validate"] = $this->model("estimates")->{"validate_".$this->router->method};
+        $this->data["validate_detail"] = $this->model("estimate_details")->{"validate_".$this->router->method};
+		$this->layout->render();
+    }
+
+    public function edit($id = null){
+        $this->check->isVal($id);
+        $estimate = $this->model("estimates")->findById($id);
+        $this->check->isVal($estimate);
+
+        if($this->check->isExe()){
+            $this->form_validation->set_rules($this->model("estimates")->{"validate_".$this->router->method});
+            for($i = 0; $i < $this->input->post("estimate_details_cnt"); $i++){
+                $validate = $this->model("estimate_details")->{"validate_".$this->router->method};
+
+                foreach ($validate as &$row) {
+                    $row["field"] = $row["field"]."_".$i;
+                }
+                $this->form_validation->set_rules($validate);
+            }
+            if($this->form_validation->run()){
+                $id = $this->model("estimates")->save($this->input->post());
+                //明細の保存
+                $this->model("estimate_details")->findDestroy(array("estimate_id" => $id),array("message" => false));
+                for($i = 0; $i < $this->input->post("estimate_details_cnt"); $i++){
+                    $saves = array();
+                    $saves["estimate_id"] = $id;
+                    $saves["title"] = $this->input->post("estimate_details_title_".$i);
+                    $saves["price"] = $this->input->post("estimate_details_price_".$i);
+                    $saves["quantity"] = $this->input->post("estimate_details_quantity_".$i);
+                    $saves["subtotal"] = $this->input->post("estimate_details_subtotal_".$i);
+                    $saves["note"] = $this->input->post("estimate_details_note_".$i);
+                    $estimate_detail_id = $this->model("estimate_details")->save($saves);
+                }
+
+                redirect("/estimates/detail/".$id);
+            }
+        }else{
+            $_POST = (array)$estimate;
+
+            //見積明細取得
+            $estimate_details = $this->model("estimate_details")->findAll(array(
+                "where" => array("estimate_id" => $id),
+                "order" => array("id asc")
+            ));
+            $this->check->isVal($estimate_details);
+            foreach ($estimate_details as $key => $estimate_detail) {
+                foreach ($estimate_detail as $field => $val) {
+                    $_POST["estimate_details_".$field."_".$key] = $val;
+                }
+            }
+            $_POST["estimate_details_cnt"] = count($estimate_details);
+        }
+
+        $this->data["id"] = $id;
+        $this->data["validate"] = $this->model("estimates")->{"validate_".$this->router->method};
+        $this->data["validate_detail"] = $this->model("estimate_details")->{"validate_".$this->router->method};
+		$this->layout->render();
+    }
+
+    //削除
+    public function del($id = null){
+        $this->check->isVal($id);
+        $estimate = $this->model("estimates")->findById($id);
+        $this->check->isVal($estimate);
+
+        $this->model("estimates")->del($id);
+
+        $this->redirect("/project_details/detail/".$estimate->project_detail_id);
+    }
+
+    //見積書出力
+    public function pdf($id = null){
+        $this->check->isVal($id);
+        $estimate = $this->model("estimates")->findById($id,array(
+            "select" => array(
+                "estimates.*",
+                $this->model("clients")->selectAlias(),
+                $this->model("project_details")->selectAlias(),
+            ),
+            "join" => array(
+                array("project_details","estimates.project_detail_id = project_details.id","inner"),
+                array("clients","project_details.client_id = clients.id","inner"),
+            )
+        ));
+        $this->check->isVal($estimate);
+
+        $estimate->estimate_details = $this->model("estimate_details")->findAll(array(
+            "where" => array("estimate_id" => $id)
+        ));
+
+        $pdf = new FPDI();
+        $font = new TCPDF_FONTS();
+        $fontJP = $font->addTTFfont(dirname(__FILE__).'/../../fonts/ipagp.ttf');
+        $addPage = function() use ($pdf,$fontJP,$estimate){
+            $pdf->setMargins(0,0,0);
+            $pdf->setAutoPageBreak(false);
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            $pdf->AddPage();
+            $pdf->setSourceFile(dirname(__FILE__).'/../../pdf_template/estimate.pdf');
+            $page = $pdf->importPage(1);
+            $pdf->useTemplate($page);
+        
+            //見積名
+            $pdf->SetFont($fontJP,"",13);
+            $pdf->SetTextColor(41,97,133);
+            $pdf->Text(24,23,$estimate->name);
+
+            //見積先
+            $pdf->SetFont($fontJP,"",11);
+            $pdf->SetTextColor(0,0,0);
+            $pdf->Text(24,32,$estimate->clients_name." 様");
+            $pdf->SetFont($fontJP,"",10);
+            $pdf->Text(24,40,"〒".$estimate->clients_zip1."-".$estimate->clients_zip2);
+            $pref = $this->model("clients")->pref;
+            $pdf->Text(24,45,$pref[$estimate->clients_pref].$estimate->clients_addr1);
+            $pdf->Text(24,50,$estimate->clients_addr2);
+
+            p
+            $pdf->Text(37,59.8,date("Y/m/d",strtotime($estimate->date)));
+            $pdf->Text(37,66.4,date("Y/m/d",strtotime($estimate->project_details_delivery_date)));
+            $pdf->Text(37,73.0,date("Y/m/d",strtotime($estimate->date." +1 week")));
+        };
+        $addPage($pdf,$fontJP,$estimate);
+
+        $pdf->SetFont($fontJP,"",16);
+        $pdf->SetTextColor(41,97,133);
+        $pdf->Text(105,83.5,"￥".number_format($estimate->total));
+
+        $pdf->SetFont($fontJP,"",10);
+        $pdf->SetTextColor(0,0,0);
+        $pdf->Text(110,202.7,"￥".number_format($estimate->subtotal));
+
+        $pdf->Text(94,209.2,"(".number_format($estimate->tax_rate)."%)");
+        $pdf->Text(110,209.7,"￥".number_format($estimate->tax));
+        $pdf->Text(110,217.2,"￥".number_format($estimate->total));
+
+
+        $i = 0;
+        $add_y = 0;
+        foreach ($estimate->estimate_details as $estimate_detail) {
+            $pdf->SetFont($fontJP,"",10);
+            $pdf->SetTextColor(0,0,0);
+            $pdf->Text(22.7,101+$add_y,$estimate_detail->title);
+            $pdf->Text(76.7,101.3+$add_y,number_format($estimate_detail->quantity));
+            $pdf->Text(86.7,101.3+$add_y,"￥".number_format($estimate_detail->price));
+            $pdf->Text(110.7,101.3+$add_y,"￥".number_format($estimate_detail->subtotal));
+            $pdf->Text(134.7,101.3+$add_y,$estimate_detail->note);
+
+            $i++;
+            $add_y+=6;
+            if($i == 14){
+                $addPage($pdf,$fontJP,$estimate);  
+                $i = 0;
+                $add_y = 0;
+            }
+        }
+
+        $pdf->Output('estimate.pdf','I');
+        exit;
+    }
+}

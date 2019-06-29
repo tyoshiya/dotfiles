@@ -1,0 +1,1 @@
+{'global', '$place', '$days', 'uasort', 'function', 'return', 'strcmp', '$left', 'array_slice', '$center', '$right', '<div ', 'class', 'collectionday', '<ul>', '<li>', '<table ', 'border', 'cellspacing', 'cellpadding', '<tbody>', 'foreach', '<tr>', '<th>', 'echo', '</th>', '<td ', 'align', 'center', '</td>', '</tr>', '</tbody>', '</table>', '</li>', '</ul>', '</div>'}

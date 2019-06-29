@@ -1,0 +1,1 @@
+{'<div ', 'pagetop', 'href', '<img ', 'images', 'common', 'width', 'height', '</a>', '</p>', '</div>', 'footer', 'footerFrame', 'class', 'clearfix', '<ul ', '<li>', 'http', 'localoc', 'target', '_blank', 'company', '</li>', 'privacy', 'sitemap', '</ul>', '<address>', 'Copyright', 'copy', 'LOCOS', 'Futsal', 'Park', 'KOMAKI', 'rights', 'reserved', '</address>'}

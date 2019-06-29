@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto', 'dBug', 'dbug', 'author', 'class', 'MY_Form_validation', 'extends', 'CI_Form_validation', 'public', 'function', '__construct', '$rules', 'array', 'parent'}

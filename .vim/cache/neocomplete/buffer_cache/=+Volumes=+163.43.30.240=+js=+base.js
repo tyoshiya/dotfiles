@@ -1,0 +1,1 @@
+{'function', 'submit', 'click', 'stopPropagation', 'this', 'data', 'confirm', 'form', 'closest', 'true', 'typeof', 'undefined', 'false', 'action', 'undifined', 'attr', 'method', 'href', 'target', 'null', 'window', 'location', 'else', 'open', 'search', 'toggle'}

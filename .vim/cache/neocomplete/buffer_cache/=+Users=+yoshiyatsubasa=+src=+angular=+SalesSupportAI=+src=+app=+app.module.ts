@@ -1,0 +1,1 @@
+{'import', 'BrowserModule', 'from', 'angular', 'platform', 'browser', 'NgModule', 'CUSTOM_ELEMENTS_SCHEMA', 'core', 'OnsenModule', 'onsenui', 'AppComponent', 'component', 'Page1Component', 'page1', 'declarations', 'entryComponents', 'imports', 'providers', 'bootstrap', 'schemas', 'export', 'class', 'AppModule'}

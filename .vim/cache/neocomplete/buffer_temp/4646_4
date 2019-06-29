@@ -1,0 +1,337 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+//名前区間のエイリアス
+use \Ospinto\dBug as dbug;
+
+class Posts extends MY_Controller {
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        $this->set("species",$this->model("Posts")->species);
+        $this->set("kinds",$this->model("Posts")->kinds);
+        $this->set("allows",$this->model("Posts")->allows);
+    }
+
+	public function add($id = null,$mode = null)
+	{
+        $this->isLogin();
+        $error = "";
+        $post = array();
+        if($id !== null){
+            $post = $this->model("posts")->findById($id); 
+        }
+        if($this->isExe()){
+            //ファイルエラー
+            if($mode === null){
+                if($_FILES["content"]["error"] == 1){
+                    $error = "不正なファイルです";
+                }else{
+                    //拡張子チェック
+                    $ext = strtolower(substr($_FILES["content"]["name"], strrpos($_FILES["content"]["name"], '.') + 1));
+                    $allow_exts = array("jpg","png","gif","jpeg");
+                    if(!in_array($ext,$allow_exts)){
+                        $error = "不正なファイルです";
+                    }
+                }
+            }
+
+            if($error == ""){
+                if($mode === null){
+                    //tmpにファイル移動
+                    $tmp_path = dirname(__FILE__)."/../../images/tmp_posts/";
+                    $tmp_path2 = $tmp_path;
+                    $tmp_name = md5(uniqid(rand(),1)).".".$ext;
+                    $tmp_path.= $tmp_name;
+                    if($ext == "mp4"){
+                        $command = "/usr/local/bin/ffmpeg -i ".$_FILES["content"]["tmp_name"]." -t 10 ".$tmp_path;
+                        exec($command);
+                    }else{
+                        move_uploaded_file($_FILES["content"]["tmp_name"],$tmp_path); 
+                    }
+                }
+
+                $url = "/posts/add_confirm";
+                if($mode === null){
+                    $url.= "/".$tmp_name; 
+                }
+                $foo = array();
+                if($id !== null){
+                    $foo[] = "id=".$id; 
+                }
+                if($mode !== null){
+                    $foo[] = "mode=".$mode; 
+                }
+                if(!empty($foo)){
+                    $url.= "?".implode("&",$foo); 
+                }
+
+                $this->redirect($url);
+            }
+
+        }
+
+        $this->set("error",$error);
+        $this->set("id",$id);
+        $this->set("post",$post);
+        $this->pageTitle("投稿");
+        $this->setLayout("plane");
+        $this->render();
+	}
+
+	public function add_confirm($tmp_name = null){
+        $this->isLogin();
+        $complete = false;
+
+        $post = array();
+
+        if($this->isExe()){
+            $valid = true;
+            $this->model("Posts")->validate = $this->model("Posts")->validate_add_confirm;
+            if($this->model("Posts")->validates($_POST) === false){
+                $valid = false;
+            }
+
+            if($valid){
+                //投稿保存
+                if($tmp_name !== null){
+                    $foo = explode(".",$tmp_name);
+                    $foo = array_reverse($foo);
+                    $extension = $foo[0];
+                    $_POST["extension"] = $extension;
+                }
+                $_POST["user_id"] = $_COOKIE["id"];
+                if(isset($_GET["id"])){
+                    $_POST["id"] = $_GET["id"]; 
+                }
+                $id = $this->model("Posts")->save($_POST);
+
+                //タグを保存
+                if($_POST["post_tags_name"] != ""){
+                    if(isset($_GET["id"])){
+                        $this->model("post_tags")->destroy(array("post_id" => $_GET["id"]));
+                    }
+                    $foo = array();
+                    $foo = explode("\n", $_POST["post_tags_name"]);
+                    $foo = array_map('trim', $foo);
+                    $foo = array_filter($foo, 'strlen');
+                    $foo = array_values($foo);
+
+                    foreach ($foo as $val) {
+                        $saves = array();
+                        $saves["post_id"] = $id;
+                        $saves["name"] = $val;
+                        $this->model("Post_tags")->save($saves);
+                    }
+                }
+
+                if($tmp_name !== null){
+                    if(isset($_GET["id"])){
+                        $post = $this->model("posts")->findById($_GET["id"]); 
+                        unlink(dirname(__FILE__)."/../../images/posts/".$_GET["id"].".".$post->extension);
+                    }
+                    if($extension == "mp4"){
+                        $tmp_path = dirname(__FILE__)."/../../images/tmp_posts/".$tmp_name;
+                        $post_path = dirname(__FILE__)."/../../images/posts/".$id.".".$extension;
+                        rename($tmp_path,$post_path); 
+                    }else{
+                        $imagine = new Imagine\Gd\Imagine();
+                        $size = new Imagine\Image\Box(768, 768);
+
+                        $tmp_path = dirname(__FILE__)."/../../images/tmp_posts/".$tmp_name;
+                        $post_path = dirname(__FILE__)."/../../images/posts/".$id.".".$extension;
+                        $exif = exif_read_data($tmp_path);
+                        $orientation = isset($exif['Orientation']) ? $exif['Orientation'] : 0;
+                        switch ($orientation) {
+                            // EXIF情報なし
+                            case 0:
+                                $imagine->open($tmp_path)->thumbnail($size)->save($post_path);
+                                break;
+                            // そのままでOK
+                            case 1:
+                                break;
+                                $imagine->open($tmp_path)->thumbnail($size)->save($post_path);
+                            // 上下反転
+                            case 2:
+                                $imagine->open($tmp_path)->flipVertically()->thumbnail($size)->save($post_path);
+                                break;
+                            // 180度反転
+                            case 3:
+                                $imagine->open($tmp_path)->rotate(180)->thumbnail($size)->save($post_path);
+                                break;
+                            // 左右反転
+                            case 4:
+                                $imagine->open($tmp_path)->flipHorizontally()->thumbnail($size)->save($post_path);
+                                break;
+                            // 270度回転&上下反転
+                            case 5:
+                                $imagine->open($tmp_path)->rotate(270)->flipVertically()->thumbnail($size)->save($post_path);
+                                break;
+                            // 90度回転
+                            case 6:
+                                $imagine->open($tmp_path)->rotate(90)->thumbnail($size)->save($post_path);
+                                break;
+                            // 90度回転&上下反転
+                            case 7:
+                                $imagine->open($tmp_path)->rotate(90)->flipVertically()->thumbnail($size)->save($post_path);
+                                break;
+                            // -90度回転
+                            case 8:
+                                $imagine->open($tmp_path)->rotate(-90)->thumbnail($size)->save($post_path);
+                                break;
+                        }
+                    
+                    }
+                }
+
+                $complete = true;
+            }
+        }else{
+            if(isset($_GET["id"])){
+                i
+                $post = $this->model("posts")->findById($_GET["id"]); 
+                $_POST = (array)$post;
+                $tags = $this->model("post_tags")->getPostTagsByPostId($_GET["id"]);
+                if(!empty($tags)){
+                    $foo = array();
+                    foreach ($tags as $tag) {
+                        $foo[] = $tag->name;
+                    } 
+                    $_POST["post_tags_name"] = implode("\n",$foo);
+                }
+            }
+        }
+
+        $this->set("validate",$this->model("Posts")->validate_add_confirm);
+        $this->set("complete",$complete);
+        $this->set("tmp_name",$tmp_name);
+        $foo = explode(".",$tmp_name);
+        $this->set("ext",$foo[1]);
+        $id = isset($_GET["id"]) ? $_GET["id"] : null;
+        $this->set("id",$id);
+        $this->set("post",$post);
+        $mode = isset($_GET["mode"]) ? $_GET["mode"] : null;
+        $this->set("mode",$mode);
+        $this->pageTitle("投稿");
+        $this->setLayout("plane");
+        $this->render();
+	}
+
+
+    public function detail($id)
+    {
+        $id = $this->encrypt->decode(str_replace("_","/",$id));
+        $this->set("id",$id);
+        $post = $this->model("posts")->findById($id);
+        $post->user = $this->model("users")->findById($post->user_id);
+        $post->total_cute_cnt = $this->model("post_cutes")->getTotalPostCnt($id);
+        $post->total_nice_cnt = $this->model("post_nices")->getTotalPostCnt($id);
+        $post->created = $this->date->strPassed($post->created);
+        $post->post_tags = $this->model("post_tags")->getPostTagsByPostId($id);
+        $post->comments = $this->model("comments")->getCommentsByPostId($id);
+        $this->set("post",$post);
+        $followed = true;
+        if(isset($_COOKIE["id"])){
+            $follows = $this->model("follows")->find("single",array(
+                "where" => array("user_id" => $_COOKIE["id"],"follow_user_id" => $post->user_id,"del_flg" => 0)
+            ));
+            if(empty($follows)){
+           $followed = false; 
+            }
+        }
+        if($post->kind > 0){
+            $kinds = $this->model("posts")->kinds;
+            $this->subtitle = $kinds[$post->kind];
+        }
+
+        $this->description = "いいね".$post->total_nice_cnt."件 かわいいね".$post->total_cute_cnt."件 ".$post->user->name." ".$post->caption;
+
+        $this->set("followed",$followed);
+        $this->render();
+    }
+
+    public function modal($id,$mode = null)
+    {
+        $this->isLogin();
+        $this->set("id",$id);
+        $complete = false;
+        if($mode == "delete"){
+            $complete = true;
+            $this->model("posts")->del($id);
+        }elseif($mode == "upload"){
+            //ファイルエラー
+            if($_FILES["icon"]["error"] == 1){
+                $error = "不正なファイルです";
+            }else{
+                //拡張子チェック
+                $ext = strtolower(substr($_FILES["icon"]["name"], strrpos($_FILES["icon"]["name"], '.') + 1));
+                $allow_exts = array("jpg","png","gif","jpeg");
+                if(!in_array($ext,$allow_exts)){
+                    $error = "不正なファイルです";
+                }
+            }
+
+            if($error == ""){
+                //画像保存 
+                $imagine = new Imagine\Gd\Imagine();
+                $size = new Imagine\Image\Box(160, 160);
+
+                $path = dirname(__FILE__)."/../../images/users/".$_COOKIE["id"].".".$ext;
+                $imagine->open($_FILES["icon"]["tmp_name"])
+                    ->thumbnail($size)
+                    ->save($path);
+
+                //ユーザー情報保存
+                $saves = array();
+                $saves["id"] = $_COOKIE["id"];
+                $saves["extension"] = $ext;
+                $this->model("users")->save($saves);
+
+                //セッション更新
+                $user = $this->model("Users")->find("single",array(
+                    "where" => array("id" => $_COOKIE["id"])
+                ));
+                foreach ($user as $col => $val) {
+                    set_cookie($col,$val,time()+3600*24*365);
+                }
+
+                $success = "プロフィール画像を変更しました。";
+            }
+        }
+
+        $this->set("complete",$complete);
+        $this->setLayout("plane");
+        $this->render();
+    }
+
+    function test(){
+        if($this->input->post()){
+
+        }
+
+        $this->setLayout("plane");
+        $this->render();
+        
+    }
+
+    public function infinite($page)
+    {
+        $posts = $this->model("posts")->getIndex(array("page" => $page));
+
+        if(!empty($posts)){
+            foreach ($posts as &$foo) {
+                foreach ($foo as &$row) {
+                    $row->created = $this->date->strpassed($row->created);
+                }
+            }
+        }else{
+            exit;  
+        }
+        $this->set("posts",$posts);
+
+        $this->setLayout("blank");
+        $this->render();
+    }
+}

@@ -1,0 +1,137 @@
+<?php 
+use \Ospinto\dBug as dbug;
+$CI =& get_instance(); 
+$CI->load->library("custom_validation_rule");
+$config = array(
+  'common/park_select' => array(
+    array(
+      'field' => 'park_id[]',
+      'label' => '駐車場',
+      'rules' => 'required',
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+  ),
+  'reports/index' => array(
+    array(
+      'field' => 'display_type',
+      'label' => '表示区分',
+      'rules' => 'required',
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+    array(
+      'field' => 'date_daily_index',
+      'label' => '日付',
+      'rules' => array(
+        "required",
+        array(
+          "check_date_format_daily_index",
+          array($CI->custom_validation_rule,"check_date_format_daily_index"),
+        )
+      ),
+      "errors" => array(
+        "check_date_format_daily_index" => "{field}欄はyyyy/mm/dd hh:ss - yyyy/mm/dd hh:ssの書式で入力してください"  
+      ),
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+    array(
+      'field' => 'date_weekly_index',
+      'label' => '日付',
+      'rules' => array(
+        "required",
+        array(
+          "check_date_format_weekly_index",
+          array($CI->custom_validation_rule,"check_date_format_weekly_index"),
+        )
+      ),
+      "errors" => array(
+        "check_date_format_weekly_index" => "{field}欄はyyyy/mm/dd - yyyy/mm/ddの書式で入力してください"  
+      ),
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+    array(
+      'field' => 'date_monthly_index',
+      'label' => '日付',
+      'rules' => array(
+        "required",
+        array(
+          "check_date_format_monthly_index",
+          array($CI->custom_validation_rule,"check_date_format_monthly_index"),
+        )
+      ),
+      "errors" => array(
+        "check_date_format_monthly_index" => "{field}欄はyyyy/mmの書式で入力してください"  
+      ),
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+    array(
+      'field' => 'date_yearly_index',
+      'label' => '日付',
+      'rules' => array(
+        "required",
+        array(
+          "check_date_format_yearly_index",
+          array($CI->custom_validation_rule,"check_date_format_yearly_index"),
+        )
+      ),
+      "errors" => array(
+        "check_date_format_yearly_index" => "{field}欄はyyyy/mmの書式で入力してください"  
+      ),
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+    array(
+      'field' => 'graph',
+      'label' => 'グラフ',
+      'rules' => 'required',
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+  ),
+  'data_refers/index' => array(
+    array(
+      'field' => 'display_type',
+      'label' => '表示区分',
+      'rules' => 'required',
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+    array(
+      'field' => 'date',
+      'label' => '日付',
+      'rules' => array(
+        "required",
+        array(
+          "check_datetime_between",
+          array($CI->custom_validation_rule,"check_datetime_between"),
+        )
+      ),
+      "errors" => array(
+        "check_datetime_between" => "{field}欄はyyyy/mm/dd hh:ss - yyyy/mm/dd hh:ssの書式で入力してください"  
+      ),
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+    array(
+      'field' => 'order',
+      'label' => '並び替え',
+      'rules' => 'required',
+      'attentions' => array(
+        'required' => '必須' 
+      )
+    ),
+  ),
+);

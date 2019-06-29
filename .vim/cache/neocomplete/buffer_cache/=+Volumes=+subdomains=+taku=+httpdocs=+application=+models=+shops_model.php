@@ -1,0 +1,1 @@
+{'class', 'Shops_model', 'extends', 'MY_Model', '$table', 'shops', 'function', '__construct', 'parent::__construct', '$validate_add', 'array', 'field', 'name', 'label', 'rules', 'required', 'max_length', 'users_name', 'users_login_code', 'users_password'}

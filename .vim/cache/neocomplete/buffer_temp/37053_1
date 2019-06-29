@@ -1,0 +1,79 @@
+<?php get_header(); ?>
+
+  <!--コンテンツ-->
+  <div class="box">
+        <h2 class="maintitle"><img src="images/extra/title.png" srcset="images/extra/title@2x.png 2x" alt="エキストラ募集"/></h2>
+        <div class="box_in">
+        	<p>
+            岐阜フィルムコミッションでは、ボランティアでのエキストラ出演やロケ地情報の提供等を通じて、<br />フィルムコミッションの活動にご協力いただける方「岐阜フィルムコミッションサポーター」を募集しています。<br />ご協力いただける方は下記をご覧の上、登録フォームによりお申込みをお願いします。
+            </p>
+            
+          <dl class="extra_dl">
+            	<dt>登録できる方</dt>
+                <dd>・電子メールでの連絡が可能な方<br /><br />
+                ※制作者からの協力依頼の期限が短いので、サポーターの皆さんとのやりとりは全てEメールで行います。<br />
+                ※携帯メールでは、全ての内容が見られないこともありますので、パソコンのご利用をおすすめします。</dd>
+                
+                <dt>サポートの内容</dt>
+                <dd>・ボランティアでのエキストラの出演<br />
+                ・制作者から依頼のあった条件に当てはまるロケ地の情報提供<br />
+                ・その他県内でのロケの協力（自宅、店舗を撮影場所として提供するなど私有地での撮影協力等）</dd>
+                
+                <dt>エキストラ参加までの流れ</dt>
+                <dd>・制作者からの支援依頼<br />
+                　　↓<br />
+                ・サポーターの皆さんへＥメールでお知らせ<br />
+                　　↓<br />
+                ・参加できる方は、岐阜フィルムコミッションへＥメールで応募<br />
+                　　↓<br />
+                ・制作者へ頂いた情報を提供<br />
+                　　↓<br />
+                ・エキストラ出演依頼（参加人数を調整することもあります）</dd>
+                
+                <dt>ロケ地情報提供の流れ</dt>
+                <dd>・制作者から支援依頼<br />
+                　　↓<br />
+                ・サポーターの皆さんへＥメールで情報提供依頼<br />
+                　　↓<br />
+                ・該当する情報があればＥメールで提供<br />
+                　　↓<br />
+                ・フィルムコミッションから詳細をお聞きします<br />
+                　　↓<br />
+                ・制作者に情報提供</dd>
+                
+                <dt>承諾事項</dt>
+                <dd>・原則としてロケ地の情報提供、エキストラ出演等、サポーター活動に伴う謝礼や交通費の支給等はありません。<br />
+                ・未成年の方がエキストラに参加する場合は、保護者の承諾が必要です。<br />
+                ・配信後、何らかの理由でメールが送信されないことがあっても原則として再送信はしません。<br />
+                ・メールアドレスの変更や登録の削除を希望する場合は、名前、住所、電話番号、変更又は削除の内容を明記の上、<br /><a href="mailto:c11122@pref.gifu.lg.jp">c11122@pref.gifu.lg.jp</a>までご連絡ください。
+                
+            <dt>個人情報の取扱いについて</dt>
+                <dd>・登録された情報は、フィルムコミッション業務以外に使用しません。<br />
+                ・エキストラの参加など、映像制作者へ個人情報を提供する場合は、必ず事前に連絡し、同意していただいた方のみの情報を提供します。<br />
+                ・詳細は、「登録フォーム」の画面から「個人情報保護の考え方」をご覧ください。</dd>
+            </dl>
+            
+            <p class="imgHover" id="bt_registration"><a href="http://www.pref.gifu.lg.jp/kurashi/npo-tiiki/film-commission/c11122/support-form.html" target="_blank"><img src="images/extra/bt_registration.png" srcset="images/extra/bt_registration@2x.png 2x" alt="登録はこちら"/></a></p>
+        	
+            
+            
+           <div class="othercity">
+           <p>岐阜県下の各フィルムコミッションでも受け付けております。<br />
+                各フィルムコミッションについて内容・条件が異なります。詳細については各フィルムコミッションまでお問い合わせください。
+          	</p>
+            
+            <ul>
+            	<li><a href="http://www.ogaki-fc.jp/" target="_blank">大垣フィルムコミッション</a></li>
+                <li><a href="http://www.city.kakamigahara.lg.jp/6954/" target="_blank">かかみがはらフィルムコミッション</a></li>
+                <li><a href="http://gujo-fc.com/" target="_blank">郡上フィルムコミッション</a></li>
+                <li><a href="http://www.hida-fc.jp/" target="_blank">飛騨フィルムコミッション</a></li>
+                <li><a href="https://www.tajimi-filmengine.com/" target="_blank">多治見フィルムエンジン</a></li>
+            </ul>
+            </div>
+   		 
+         </div>
+       </div>
+
+        <?php echo get_
+
+<?php get_footer(); ?>

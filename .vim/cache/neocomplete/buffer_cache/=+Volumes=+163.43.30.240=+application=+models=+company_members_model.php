@@ -1,0 +1,1 @@
+{'class', 'Company_members_model', 'extends', 'MY_Model', '$table', 'company_members', 'function', '__construct', 'parent', 'public', '$table_column_hash', 'array', 'member_name', 'member_section', 'member_position', 'member_tel', 'Email', 'member_email'}

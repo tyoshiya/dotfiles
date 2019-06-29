@@ -1,0 +1,29 @@
+<div class="remodal-wrapper remodal-add-post">
+    <h1>写真をアップロードしてください</h1>
+    <div class="remodal-body">
+            <button class="btn-blue" type="button">写真を選択</button>
+            <?php ifile("content",array("style" => "display:none;")); ?>
+            <div>&nbsp;</div>
+    </div>
+    <?php if($error != ""){ ?>
+    <div class="validation-error" style="margin-top:5px;"><span><?php echo $error; ?></span></div>            
+    <?php } ?>
+    <button class="submit hide" type="button" data-action="/posts/add<?php if($id !== null) echo "/".$id; ?>"></button>
+    <?php if($id !== null){ ?>
+    <p class="margin-top-10">
+    <a class="submit" data-action="/posts/add/<?php echo $id; ?>/no_image"> 写真を変更せずに編集する </a>
+    </p>
+    <?php } ?>
+</div>
+
+<script>
+$(function(){
+    $(".btn-blue").on("click",function(e){
+        $("#content").click(); 
+    });
+    $("#content").on("change",function(e){
+        a
+        $(".submit.hide").click();
+    });
+});
+</script>

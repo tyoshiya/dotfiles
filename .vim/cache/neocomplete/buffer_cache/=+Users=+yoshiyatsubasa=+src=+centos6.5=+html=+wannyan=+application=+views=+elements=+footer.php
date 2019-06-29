@@ -1,0 +1,1 @@
+{'<div ', 'class', 'clearfix', '</div>', '<footer>', 'container', 'footer', 'logo', '<img ', 'images', 'ic_footer_logo_01', '<ul ', '<li>', 'href', 'statics', 'terms', '</a>', '</li>', 'anchor_policy', '<span ', 'hide', '</span>', 'company', '</ul>', 'copyright', 'copy', 'EXNET', '</footer>'}

@@ -1,0 +1,377 @@
+<?php
+class SaleordersController extends AppController {
+    var $name = 'Saleorders';
+
+    function beforeFilter() {
+        parent::beforeFilter();
+
+        $customers = $this->model("Customer")->generateList("","cast(Customer.code as signed) asc","","{n}.Customer.id","{n}.Customer.name");
+        $this->set("customers",$customers);
+    }
+
+    //受注一覧
+    function index(){
+        //セッションチェック
+        $this->Checker->hasAdminSession($this->Session);
+
+        $page = $this->Paging->getPage();
+        $all = $this->Saleorder->getIndex($this->params["url"],$page);
+        $saleorders = $this->Paging->getPageData($all , _def_listnum, $page);
+
+        $this->set("total",count($saleorders));
+        $this->set("page",$page);
+        $this->set("subtitle","受注一覧");
+        $this->set("saleorders",$saleorders);
+    }
+
+    function edit($id = null){
+        //セッションチェック
+        $this->Checker->hasAdminSession($this->Session);
+//        $this->checkPermission();
+
+        if(!empty($this->data['Saleorder']['execute'])){
+            //-- バリデートチェック --//
+            $flg = true;
+            if($this->Saleorder->validates($this->data) === false){
+                $flg = false;
+            }
+            if($this->SaleorderDetail->validates($this->data) === false){
+                $flg = false;
+            }
+
+            if($flg){
+                $this->model("Saleorder")->save($this->data);
+                $id = $this->model("Saleorder")->getLastInsertId();
+
+                $this->model("SaleorderDetail")->findAllDell("saleorder_id = ".$id);
+                for($i = 0; $i < $this->data["SaleorderDetail"]["row_cnt"]; $i++){
+                    $saves = array(); 
+                    $saves["SaleorderDetail"] = $this->data["SaleorderDetail"]["subtotal"];
+                    $this->model("Saleorder")->create();
+                    $this->model("Saleorder")->save($this->data);
+                }
+
+                $str = '伝票番号 '.$id.' の受注の保存が完了しました。';
+                $this->Session->setFlash('<span>'.$str.'</span>');
+
+                $this->redirect('/saleorders/edit');
+            } else {
+                //NGの場合、入力画面へ
+                $this->Session->setFlash('<span>'._DEF_VALIDATION_ERROR.'</span>','default',array('class'=>'error-message'));
+            }
+        }else{
+            if($id !== null){
+                $this->data = $this->Saleorder->findById($id);
+            }else{
+                $this->data['Saleorder']['order_date'] = date('Y/m/d');
+            }
+
+            $this->data["SaleorderDetail"]["row_cnt"] = 20;
+        }
+
+        $this->set("id",$id);
+        $this->set("validate",$this->model("Saleorder")->validate);
+        $this->set("validate_saleorder_detail",$this->model("SaleorderDetail")->validate);
+        if($id !== null){
+            $this->set("subtitle","受注編集");
+        }else{
+            $this->set("subtitle","受注登録");
+        }
+    }
+
+    function (){
+        //セッションチェック
+        $this->Checker->hasAdminSession($this->Session);
+
+        if(!empty($this->data["Saleorder"]["execute"])){
+
+            //バリデートチェック
+
+            $this->Saleorder->validate['id']['rule2'] = array(
+                'method' => 'isNotNull',
+                'message' => '必須入力項目です',
+            );
+            $valid['Saleorder']['id'] = $this->data['Saleorder']['id'];
+            if($this->Saleorder->validates($valid)){
+                $this->Saleorder->delData($this->data);
+            } else {
+                //NGの場合、入力画面へ
+                $this->Session->setFlash('<span>'._DEF_VALIDATION_ERROR.'</span>','default',array('class'=>'error-message'));
+                $this->edit();
+                $this->render("edit");
+            }
+        }else{
+            $this->redirect("/static/error");
+        }
+    }
+//
+//    function del_end(){
+//        //セッションチェック
+//        $this->Checker->hasAdminSession($this->Session);
+//
+//        if(!empty($this->data["Saleorder"]["execute"])){
+//
+//            //バリデートチェック
+//
+//            $this->Saleorder->validate['id']['rule2'] = array(
+//                'method' => 'isNotNull',
+//                'message' => '必須入力項目です',
+//            );
+//            $valid['Saleorder']['id'] = $this->data['Saleorder']['id'];
+//            if($this->Saleorder->validates($valid)){
+//                $this->Saleorder->delData($this->data);
+//            } else {
+//                //NGの場合、入力画面へ
+//                $this->Session->setFlash('<span>'._DEF_VALIDATION_ERROR.'</span>','default',array('class'=>'error-message'));
+//                $this->edit();
+//                $this->render("edit");
+//            }
+//        }else{
+//            $this->redirect("/static/error");
+//        }
+//    }
+//    //--------------------------------------------------------------
+//
+//
+//    //--受注残照会------------------------------------------------------------------
+//    function backlog_index(){
+//        //セッションチェック
+//        $this->Checker->hasAdminSession($this->Session);
+//		$this->checkPermission();
+//
+//        //初期値
+//        $saleorders = array();
+//
+//        if(!empty($this->data['Saleorder']['execute'])){
+//            $this->Saleorder->validate = $this->Saleorder->validate_backlog_index;
+//            if($this->Saleorder->validates($this->data)){
+//                // データ取得
+//                $saleorders = $this->Saleorder->getBacklogIndex($this->data);
+//
+//                //CSV出力
+//                if(@$this->params["url"]["mode"] == "csv"){
+//                    $this->csv($this->viewPath,$this->action,$saleorders);
+//                }
+//            }else{
+//                $this->Session->setFlash('<span>'._DEF_VALIDATION_ERROR.'</span>','default',array('class'=>'error-message'));
+//            }
+//        }else{
+//            parent::setDefault(array('Factory'),'Saleorder');
+//        }
+//
+//        //Viewに必要なデータをセット
+//        $this->set("saleorders",$saleorders);
+//        $this->set("validate",$this->Saleorder->validate_backlog_index);
+//    }
+//    //--------------------------------------------------------------------
+//
+//    //--受注実績表------------------------------------------------------------------
+//    function sum_project(){
+//        //セッションチェック
+//        $this->Checker->hasAdminSession($this->Session);
+//		$this->checkPermission();
+//
+//        //初期値
+//        $saleorders = array();
+//        $arr_ym = array();
+//
+//        if(!empty($this->data['Saleorder']['execute'])){
+//
+//            $this->Saleorder->validate = $this->Saleorder->validate_sum_project;
+//
+//            if($this->Saleorder->validates($this->data)){
+//                //データ取得
+//                list($saleorders,$arr_ym) = $this->Saleorder->getSumProject($this->data);
+//
+//                //CSV出力
+//                if(@$this->params["url"]["mode"] == "csv"){
+//                    $this->csv($this->viewPath,$this->action,$saleorders,array("arr_ym" => $arr_ym));
+//                }
+//            }else{
+//                $this->Session->setFlash('<span>'._DEF_VALIDATION_ERROR.'</span>','default',array('class'=>'error-message'));
+//            }
+//        }else{
+//            parent::setDefault(array('Factory'),'Saleorder');
+//            $this->data['Saleorder']['order_date'] = date('Y/m');
+//        }
+//        //データセット
+//        $this->set('saleorders',$saleorders);
+//        $this->set('arr_ym',$arr_ym);
+//        $this->set("validate",$this->Saleorder->validate_sum_project);
+//    }
+//    //--------------------------------------------------------------------
+//
+//    //--受注日報------------------------------------------------------------------
+//    //--------------------------------------------------------------------
+//
+//    function pdf_index(){
+//        $this->Checker->hasAdminSession($this->Session);
+//
+//        if(!empty($this->data["Saleorder"]["execute"])){
+//
+//            if(empty($this->data['Saleorder']['order_date'])) $this->data['Saleorder']['order_date'] = date('Y/m/d');
+//
+//            $saleorders = $this->Saleorder->getIndexData($this->data,'index');
+//
+//            $this->Saleorder->pdfIndex($saleorders);
+//            exit();
+//
+//        }else{
+//            $this->redirect("/static/error");
+//        }
+//    }
+//
+//    /* モーダル */
+//    function modal_search($status=null){
+//        //セッションチェック
+//        $this->Checker->hasAdminSession($this->Session);
+//        $this->layout = 'modal';
+//        //データ取得
+//        $saleorders = array();
+//        $saleorders_all = array();
+//        $page = null;
+//        $url = '/saleorders/modal_search';
+//        if($status !== null)
+//            $url .= '/'.$status;
+//
+//        if($this->data){
+//            $this->Saleorder->validate = $this->Saleorder->validate_modal_search;
+//            if($this->Saleorder->validates($this->data)){
+//                //現在のページを取得
+//                $page = $this->Paging->getPage();
+//                //全データを取得
+//                $saleorders_all = $this->Saleorder->getSearchIndex($this->data,$status);
+//                //本ページで必要なデータを抽出
+//                $saleorders = $this->Paging->getPageData($saleorders_all , _def_listnum, $page);
+//            }else{
+//                $this->Session->setFlash('<span>'._DEF_VALIDATION_ERROR.'</span>','default',array('class'=>'error-message'));
+//            }
+//        }
+//        //Viewに必要なデータをセット
+//        $this->set("total",count($saleorders_all));
+//        $this->set("page",$page);
+//        $this->set("url",$url);
+//        $this->set("saleorders",$saleorders);
+//        $this->set("validate",$this->Saleorder->validate_modal_search);
+//    }
+//
+//    function modal_search_sales_edit($exclude_id=null){
+//        //セッションチェック
+//        $this->Checker->hasAdminSession($this->Session);
+//        $this->layout = 'modal';
+//        //データ取得
+//        $saleorders = array();
+//        $saleorders_all = array();
+//        $page = null;
+//        $url = '/saleorders/modal_search_sales_edit';
+//        if($exclude_id !== null)
+//            $url .= '/'.$exclude_id;
+//
+//        if($this->data){
+//            $this->Saleorder->validate = $this->Saleorder->validate_modal_search;
+//            if($this->Saleorder->validates($this->data)){
+//                //現在のページを取得
+//                $page = $this->Paging->getPage();
+//                //全データを取得
+//                $saleorders_all = $this->Saleorder->getModalSearchSalesEdit($this->data,$exclude_id);
+//                //本ページで必要なデータを抽出
+//                $saleorders = $this->Paging->getPageData($saleorders_all , _def_listnum, $page);
+//            }else{
+//                $this->Session->setFlash('<span>'._DEF_VALIDATION_ERROR.'</span>','default',array('class'=>'error-message'));
+//            }
+//        }
+//        //Viewに必要なデータをセット
+//        $this->set("total",count($saleorders_all));
+//        $this->set("page",$page);
+//        $this->set("url",$url);
+//        $this->set("saleorders",$saleorders);
+//        $this->set("validate",$this->Saleorder->validate_modal_search);
+//    }
+//
+//    /* ajax */
+//    function ajax_get_by_id(){
+//        $this->layout = "ajax";
+//        $this->autoRender = false;
+//
+//        $res = $this->Saleorder->getAjaxGetByIdData($this->params['form']['id']);
+//
+//        if(!empty($res)){
+//            require_once APP."controllers".DS."components".DS."json.php";
+//            $json = new Services_JSON();
+//            echo $json->encode($res);
+//        }
+//    }
+//
+//    function ajax_get_in_sales_edit(){
+//        $this->layout = "ajax";
+//        $this->autoRender = false;
+//
+//        $res = $this->Saleorder->getAjaxGetInSalesEditData($this->params['form']['id']);
+//        require_once APP."controllers".DS."components".DS."json.php";
+//        $json = new Services_JSON();
+//        echo $json->encode($res);
+//        exit;
+//    }
+//
+//    function ajax_get_in_manufactures_edit(){
+//        $this->layout = "ajax";
+//        $this->autoRender = false;
+//
+//        $res = $this->Saleorder->getAjaxGetInManufacturesEdit($this->params['form']['id']);
+//
+//        require_once APP."controllers".DS."components".DS."json.php";
+//        $json = new Services_JSON();
+//        echo $json->encode($res);
+//    }
+//
+//    /**
+//     *	入力された伝票番号が存在するかどうかチェック
+//     */
+//    function ajax_judge_exist_id(){
+//        $this->layout = "ajax";
+//        $this->autoRender = false;
+//
+//        $ret = $this->Saleorder->ajaxJudgeExistId($this->params['form']['id']);
+//
+//        echo $ret;
+//    }
+//
+//    function auto_save($date_from,$date_to,$factory_id,$cnt){
+//        $this->model("Saleorder")->autoSave($date_from,$date_to,$factory_id,$cnt);
+//        exit;
+//    }
+//
+//    function test(){
+//        $res = $this->Saleorder->getAjaxGetInSalesEditData(589);
+//
+//    }
+//
+//    public function dev_delete_before_created(){
+//        ini_set('memory_limit', '512M');
+//        ini_set("max_execution_time",0);
+//
+//        $backup_path = dirname(__FILE__)."/../backups/dev/";
+//        $file_name = "saleorders.dev_delete_before_created.".date("YmdHis").".sql";
+//        $this->dbBackup($backup_path,$file_name);
+//
+//        $created = "2016-08-31 23:59:59";
+//        $saleorders = $this->model("Saleorder")->findAll("created <= '".$created."'");
+//        if(!empty($saleorders)){
+//            foreach ($saleorders as $saleorder) {
+//                $this->del($saleorder["Saleorder"]["id"]);
+//            }
+//        }
+//        exit;
+//    }
+//
+//    protected function del($id){
+//        $saleorder = $this->model("Saleorder")->findById($id);
+//        $this->model("Saleorder")->del($id);
+//        $this->model("SaleorderDetail")->findAllDell("saleorder_id = ".$id);
+//        $product_id = $saleorder["Saleorder"]["product_id"];
+//        $factory_id = $saleorder["Saleorder"]["factory_id"];
+//        $type = 1;
+//        $this->model("ProductHistory")->deleteHistory($product_id,$factory_id,$type,$id);
+//    }
+}
+?>

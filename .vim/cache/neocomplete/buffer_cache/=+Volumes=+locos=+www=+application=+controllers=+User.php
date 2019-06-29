@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto', 'dBug', 'dbug', 'class', 'User', 'extends', 'MY_Controller', 'public', 'function', '__construct', 'parent', 'index', '$this', 'layout', 'render'}

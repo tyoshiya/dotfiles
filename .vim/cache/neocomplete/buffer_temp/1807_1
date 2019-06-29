@@ -1,0 +1,3093 @@
+<!-- #include File = "qlftcom.inc" -->
+<%
+
+'response.write "AAID:"&Request("AAID")&"<br />"
+'response.write "HUKU:"&Request("HUKU")&"<br />"
+'response.write "OYAQID:"&Request("OYAQID")&"<br />"
+'response.write "OYAQQID:"&Request("OYAQQID")&"<br />"
+'response.write "OYAAAID:"&Request("OYAAAID")&"<br />"
+'response.write "QQID:"&Request("QQID")&"<br />"
+'response.write "KoAAID:"&Request("KoAAID")&"<br />"
+'response.write "KoQID:"&Request("KoQID")&"<br />"
+'response.write "QID:"&Request("QID")&"<br />"
+'response.write "dlrcode:"&Request("dlrcode")&"<br />"
+'response.write "mode:"&Request("mode")&"<br />"
+'response.write "save:"&Request("save")&"<br />"
+'response.write "status:"&Request("status")&"<br />"
+'response.write "<br />"
+'response.write "--post values--<br />"
+'For Each Key In Request.QueryString
+'response.write Key&" is "&Request.QueryString(Key)&"<br />"
+'Next
+'response.write "test"
+'response.end
+
+
+
+
+
+     Dim Isdebug        '開発環境か本番環境かDB接続先を制御
+
+'■------テスト環境モードか本番環境かの判断(仮想ディレクトリ内debug.txtファイルの有の場合テスト環境)------
+     Isdebug = false
+     Isdebug = Isdebugmode()
+
+'----- スーパーユーザーかどうかチェックする 20170327
+Function chkSuperUser()
+
+	'On Error Resume Next
+	'Response.Write Err.Description
+
+	retVal = False
+	strSQL = ""
+
+	if Isdebug = false then
+		'-- 本番環境
+		Set admdb=Server.CreateObject("ADODB.Connection")
+		admdb.ConnectionString = "DSN=adminchk;"
+		admdb.Open
+	Else
+		'-- テスト環境
+		Dim dbname_adm
+		Set admdb=Server.CreateObject("ADODB.Connection")
+		dbname_adm = "Driver={Microsoft Access Driver (*.mdb)}; DBQ=" & Server.MapPath("./") & "\" & "\admin.mdb;" _
+					& "ReadOnly=00;FIL=MS Access;"
+		admdb.Open dbname_adm
+	End if
+	
+	strLogonUser = Request.ServerVariables("LOGON_USER")
+	name = Split(strLogonUser,"\")
+'redim name(1)
+'name(0) = ""
+'name(1) = "ncn001"
+	Set admRS = Server.CreateObject("ADODB.Recordset")
+	strSQL = strSQL & "SELECT * FROM SuperUser Where USERID = " & "'" & CSTR(name(UBound(name))) & "';"
+	admRS.Open strSQL,admdb,3,3
+
+	If admRS.RecordCount > 0 Then
+		retVal = True
+	End If
+	
+	'プレビュー画面ならスーパーユーザー扱いにする
+	if Request("p") = "true" then
+		retVal = True
+	end if
+
+	admRs.Close
+	admdb.Close
+
+	'If retVal Then
+	'	Response.Write "SuperUser!!<br/>"
+	'Else
+	'	Response.Write "Not SuperUser<br/>"
+	'End If
+
+	chkSuperUser = retVal
+
+End Function
+'■=======大前提の共通変数==========================
+
+	Dim varDat
+	Dim strDlrCode
+	Dim gbldlrcode
+	Dim blnAnsctrl
+	Dim str_Ad_Busho   'ADに登録されている部署名
+	Dim str_Ad_dspNm   'ADに登録されているログインユーザー名
+	Dim str_Ad_email   'ADに登録されているe-Mailアドレス
+	Dim bln_Is_Ad      'AD情報取得可否判断
+
+
+'■------自分自身のスクリプト名(selfPname)------
+	selfPname="dealer.asp"
+	reqFilter = Request("Filter")
+
+'■------ODBCの「システムDSN」に設定した"questionDat"へ接続---------
+
+	if Isdebug = false then
+		'-- 本番環境
+		Set db=Server.CreateObject("ADODB.Connection")
+		db.ConnectionString = "DSN=questionDat;" 
+		db.Open
+	Else
+		'-- テスト環境
+		Dim dbname
+
+		Set db=Server.CreateObject("ADODB.Connection")
+		dbname = "Driver={Microsoft Access Driver (*.mdb)}; DBQ=" & Server.MapPath("./") & "\" & "\tcomqa.mdb;" _
+					& "ReadOnly=00;FIL=MS Access;"
+		db.Open dbname
+	End if
+
+'■-------スーパーユーザー権限(blnSPuser)--------
+	'blnSPuser = ono_qlf(Request.Cookies("t-com")("qlf") , "スーパー","OR")
+	'スーパーユーザーはadmin.mdbを参照して設定する 2017/03/27
+	blnSPuser = chkSuperUser()
+
+'■-------管理者権限(blnMGuser)------------------
+	'blnMGuser = ono_qlf(Request.Cookies("t-com")("qlf") , "アンケート","OR")
+	'管理者権限であっても回答はできない運用なので常にFalseにしておく 2017/03/27
+	blnMGuser = False
+
+	'ドメインユーザー名を取得
+	'([\\Domain名\ユーザID]の形式になっているので、ユーザーIDのみ抽出)
+	strLogonUser = Request.ServerVariables("LOGON_USER")
+	varDat = Split(strLogonUser,"\")
+'redim varDat(1)
+'varDat(0) = ""
+'varDat(1) = "11300000"
+'varDat(1) = "02300000"
+
+	'-- ログインユーザーIDから販社コードを抽出
+	
+	If Len(varDat(UBound(varDat))) = 8 then
+        '-- 販社からのログインの場合先頭3文字を販社コードにセット
+        If IsNumeric(varDat(UBound(varDat))) = True Then
+            gbldlrcode = Left(CSTR(varDat(UBound(varDat))),3)
+        End if    
+    Else
+        '-- 工業側からのログイン時はアクセスできない(代理回答回避と、回答状況は別画面から参照可能なため)
+		'-- スーパーユーザーの時は回答リセットできるようにする 2017/03/27
+		If blnSPuser Then
+			reqFilter = "i"
+			gbldlrcode = ""
+		Else
+			Response.redirect "error.asp?code=6"
+		End If
+    End If
+    If Len(Trim(Request("dlrcode"))) > 0 then
+		'一覧表示からの遷移の場合
+		strDlrCode = Request("dlrcode")
+    Else
+		'閲覧制限のあるアンケートの場合
+		strDlrCode = gbldlrcode
+    End if
+
+	'入力項目ロック可否の判断(自販社以外の回答登録更新制御)
+	If strDlrCode = gbldlrcode Then
+		blnAnsctrl = "enabled"
+	Else
+		blnAnsctrl = "disabled"
+	End if
+	
+	if Request("p") = "true" then
+		blnAnsctrl = "disabled"
+	end if
+
+	'---Adユーザー情報取得
+	If blnSPuser Then
+		bln_Is_Ad = False		'-- スーパーユーザーの時はADユーザーチェックしない 20170329
+	Else
+		bln_Is_Ad = Exist_AD()
+	End If
+
+	Function Exist_AD()
+
+		Exist_AD = false
+
+		On Error Resume Next
+
+		Dim objsysInfo,objUser,strUser
+		Dim strCmd,strSQL 
+		Dim obj
+		Dim rsAD		
+		Dim varInfo
+
+		Set objsysinfo = Server.CreateObject("AdsystemInfo")
+
+		strUser = objsysInfo.UserName
+
+		Set obj = Server.CreateObject("WScript.Shell")
+
+''		strCmd = "cmd /c C:\question\GetAD.bat " & """" & Replace(strUser," ","~") & """"
+		strCmd = "cmd /c " & Server.MapPath("./") & "\" & "GetAD.bat " & """" & Replace(strUser," ","~") & """"
+
+		obj.Run strCmd,1,true
+
+		Set obj = nothing
+
+		'取得できたAD情報をDBから参照
+		strSQL = ""
+		strSQL = "SELECT 値 From AD_KEY WHERE ID =" & "'"  & strUser & "'"
+		Set rsAD = db.Execute(strSQL)
+		
+		varInfo = split(rsAD("値").value,"|")
+		if Ubound(varInfo) <> 0 then				
+			str_Ad_dspNm = varInfo(0)   'ADに登録されているログインユーザー名
+			str_Ad_email = varInfo(1)   'ADに登録されているe-Mailアドレス
+			str_Ad_Busho = varInfo(2)   'ADに登録されている部署名
+		End if	
+
+		strSQL = "Delete From AD_KEY WHERE ID =" & "'"  & strUser & "'"
+		Set rsAD = db.Execute(strSQL)
+
+
+		Exist_AD = (Err.NUmber = 0)
+		bln_Is_Ad = Exist_AD	
+
+		On Error Goto 0
+
+		Set rsAD = Nothing
+		Set objsysinfo = Nothing
+
+	End Function
+
+'Response.write Len(Request("QID"))
+'response.end
+'□------アンケートIDの引数チェック---------------------------------------
+if not Len(Request("QID")) > 0 then Response.redirect "error.asp?code=5" 'アンケート情報なし
+
+'■------アンケート情報のアクセス変数(rs)-----------------------
+Set rs=Server.CreateObject("ADODB.Recordset")
+SQL = "select * from Qmaster where QID=" & Request("QID")
+rs.Open SQL,db,3,3
+if rs.EOF then response.redirect "error.asp?code=5" 'アンケート情報なし
+
+'----- アンケートが非公開の場合回答画面に進まない
+if blnSPuser = false then
+    Set rs=Server.CreateObject("ADODB.Recordset")
+    
+    '親アンケートを取得する
+    SQL = "select * from Qmaster where QID=" & Request("QID")
+    rs.Open SQL,db,3,3
+    if rs.EOF then
+    	'アンケートがなければエラーにする
+    	Response.redirect "error.asp?code=5" 'アンケート情報なし
+    else
+    	if rs("QStatus") <> "公開中" then
+    		'アンケートが公開中でなければ親アンケートがあればその親アンケートの公開区分を判定する
+	    	dim koukaiflg
+	    	koukaiflg = false
+		    if isEmpty(Request("OYAQID")) = false then
+				if Request("OYAQID") <> "" then
+					dim rsoyakoukai
+				    Set rsoyakoukai=Server.CreateObject("ADODB.Recordset")
+				    dim SQLOYAKOUKAI
+				    SQLOYAKOUKAI = "select * from Qmaster where QID=" & Request("OYAQID") & " And QStatus = '公開中' "
+			        rsoyakoukai.Open SQLOYAKOUKAI,db,3,3
+					if rsoyakoukai.EOF = false then
+						koukaiflg = true
+					end if 
+				end if
+		    end if
+		    if koukaiflg = false then
+		    	response.redirect "error.asp?code=9" 'アンケート回答不可
+		    end if
+    	end if
+    end if
+
+'if Request("mode") = "input" then
+'Response.write oyakoukaiflg&"<br />"
+'For Each Key In Request.QueryString
+'Response.write Key&"は"&Request.QueryString(Key)&"<br />"
+'Next
+'Response.end
+'end if
+
+End if
+
+
+
+'■------子アンケート情報の判断変数(blnKors)-------------------------
+blnKors = (Len(rs("OYAQID") & "") > 0)
+
+		'■------根元アンケート情報のアクセス変数の取得（SRCrs)-------------
+		if blnKors then
+			if not GETSOYA(rs,SRCrs) then response.redirect "error.asp?code=5" '親アンケート情報なし
+		end if
+		'★------根元アンケート取得関数(GETSOYA)----------
+		Function	GETSOYA(argrs,outrs)
+			Set tmprs = Server.CreateObject("ADODB.Recordset")
+			SQL = "SELECT * FROM Qmaster WHERE QID=" & argrs("OYAQID")
+			tmprs.Open SQL,db,3,3
+			if tmprs.EOF then
+				GETSOYA = false
+			else
+				if tmprs("QID") = argrs("OYAQID") then
+					GETSOYA = false
+				else
+					if Len("" & tmprs("OYAQID")) > 0 then
+						GETSOYA = GETSOYA(tmprs,outrs)
+					else
+						outrs = tmprs
+						GETSOYA = true
+					end if
+				end if
+			end if
+		End Function
+		'★------根元アンケート取得関数（おわり）----------
+		'■------親アンケート情報の取得(OYArs)----------------------------------------
+		if blnKors then
+			Set OYArs = Server.CreateObject("ADODB.Recordset")
+			SQL= "SELECT * FROM Qmaster WHERE QID=" & rs("OYAQID") 
+			OYArs.Open SQL,db,3,3
+			if OYArs.EOF then Response.redirect "error.asp?code=6"
+		end if
+
+
+'■------設問情報のアクセス変数(rsQQ)-----------------------------
+Set rsQQ = Server.CreateObject("ADODB.Recordset")
+SQL = "SELECT * FROM QQmaster WHERE QID=" & Request("QID") & " ORDER BY QQNO,QQSubNO,QQID "
+rsQQ.Open SQL,db,3,3
+
+'■------販売店レコードのアクセス変数(rsInfo)---------------------------------
+Set rsInfo = Server.CreateObject("ADODB.Recordset")
+
+'■------販売店レコードの取得判断(blnrsInfo,blnrsInfos)-------------------------------------
+blnrsInfo = false		'単品レコード取得判断
+blnrsInfos = false	'複数レコード取得判断（おそらく未使用）
+
+
+''Response.write  Len(strDlrCode)
+''Response.write  blnSPuser 
+''Response.End
+
+
+if Len(Request("AAID") & "" ) > 0 then	'-----回答ID（AAID）指定の場合---------
+    SQL ="SELECT * FROM t_" & Request("QID") & " WHERE AAID=" & Request("AAID")
+    rsInfo.Open SQL,db,3,3
+    if not rsInfo.EOF then
+            if rsInfo.RecordCount > 1 then blnrsInfos = true
+            blnrsInfo = true
+            gblAAID = rsInfo("AAID")
+    end if
+elseif Len(strDlrCode) > 0 then	'-----ディーラーコード指定の場合-------
+
+	SQL ="SELECT * FROM t_" & Request("QID") & " WHERE dlrcode='" & strDlrCode & "' "
+	rsInfo.Open SQL,db,3,3
+	if not rsInfo.EOF then
+			if not blnKors then blnrsInfos = true
+			if not blnKors then	blnrsInfo = true
+			gblAAID = rsInfo("AAID")
+
+	end if
+
+'---add NCN Kondo 2017/9/19
+elseif blnSPuser = True then
+
+	SQL ="SELECT * FROM t_" & Request("QID") 
+	rsInfo.Open SQL,db,3,3
+	if not rsInfo.EOF then
+			if rsInfo.RecordCount > 1 then blnrsInfos = true
+			blnrsInfo = true
+			gblAAID = rsInfo("AAID")
+	end if
+
+end if
+
+'■------アンケートの認証チェック(blnACCESS)----------------------
+blnACCESS = CHKACCESS(rs)
+
+		'★------アクセス判定関数（CHKACCESS）----------
+		Function CHKACCESS(argrs)
+
+				'----子アンケートの判断--------------------
+				tmpblnKors = ( Len("" & argrs("OYAQID")) > 0 ) AND (Len("" & argrs("OYAQQID")) > 0 )
+			
+				'----チェック対象アンケートの取得（子なら総元アンケート）-------------
+				if tmpblnKors then
+					if not GETSOYA(argrs,tmpACrs) then Response.redirect "error.asp?code=6"
+				else
+					tmpACrs = argrs
+				end if
+				
+				tmpblnKeKKA = false
+				
+				'------販売店アクセス制限ない場合---------------
+				if not ((tmpACrs("Qfilter") & "")="1") then
+					tmpblnKeKKA = true
+				else
+				'------販売店アクセス制限ありの場合--------------
+					if blnSPuser then			'------スーパーユーザーの場合-------------
+						tmpblnKeKKA = true
+					elseif blnMGuser then	'------管理者の場合-----------------------
+						if Len(tmpACrs("Qpassword") & "" ) > 0 then	'-----管理者パスワードのチェック------
+							if ("" & tmpACrs("Qpassword")) = gblpass then tmpblnKeKKA = true
+						else
+							tmpblnKeKKA = true	'------管理者パスワードの設定なしの場合もOK----------------
+						end if
+					else
+						'------その他の場合、認証ディーラーコードと要求ディーラーが一緒ならOK-----------------
+						if gbldlrcode = strDlrCode then
+								tmpblnKeKKA = true
+						else	'---------初期表示時（＝ディーラーコード指定なし）--------------
+							SQL = "SELECT * FROM t_" & tmpACrs("QID") & " WHERE dlrcode ='" & gbldlrcode & "' "
+							Set CHKrs = db.execute(SQL)
+							if not CHKrs.EOF then
+								tmpblnKekka = true
+							end if
+							CHKrs.close
+							Set CHKrs = Nothing					
+						end if
+					end if
+				end if
+				CHKACCESS = tmpblnKeKKA
+		End Function
+		'★------アクセス判定関数（CHKACCESS）（おわり）----------
+
+		'★------閲覧アクセス判定関数（CHKACCESSV）----------
+		Function CHKACCESSV(argrs)
+
+			tmpblnKeKKA = false
+			if blnSPuser then			'------スーパーユーザーの場合-------------
+				tmpblnKeKKA = true
+			elseif blnMGuser then	'------管理者の場合-----------------------
+				if Len(argrs("Qpassword") & "" ) > 0 then	'-----管理者パスワードのチェック------
+					if ("" & argrs("Qpassword")) = gblpass then tmpblnKeKKA = true
+				else
+					tmpblnKeKKA = true	'------管理者パスワードの設定なしの場合もOK----------------
+				end if
+			end if
+			
+			
+			if not tmpblnKeKKA then
+				if (argrs("Qstatus")&"")="公開中" then
+					if Len(argrs("Qopen") & "" ) > 0 then '-----一般ピープルの場合-----------
+						if argrs("Qopen") = gblpass then tmpblnKeKKA = true '-----閲覧用パスワードのチェック-----
+					else
+						tmpblnKeKKA = true '------閲覧用パスワードの設定なしの場合もＯＫ--------
+					end if
+
+					if not tmpblnKeKKA then	'---------部署コードの適合チェック--------------
+						tmpblnKeKKA=ono_qlf(Request.ServerVariables("HTTP_TCOMORGANIZATION"),"" & argrs("Qopendiv"),"OR")
+					else
+
+					end if
+				else
+				end if
+			end if						
+
+			CHKACCESSV = tmpblnKeKKA
+		End Function
+		'★------アクセス判定関数（CHKACCESS）（おわり）----------
+
+
+'■------アンケートの更新チェック(blnKOSHIN)----------------------
+dim kikannnai
+kikannnai = false
+dim termError
+termError  = ""
+blnKOSHIN = CHKKOSHIN(rs,blnrsInfo,rsInfo)
+
+		'★------更新判定関数（CHKKOSHIN）----------
+		Function CHKKOSHIN(argrs,argblnrsInfo,argrsInfo)
+			if Request("p") = "true" then
+				tmpblnKOSHIN = true
+			else
+				tmpblnKOSHIN = false
+				if CHKACCESS(argrs) then '-----アクセス権限があること---------
+					'期間判定
+					'開始期間が設定されているか
+					dim startExist
+					startExist = false
+					if Len(argrs("Qstart") & "" ) > 0 then
+						startExist = true
+					end if
+					
+					'終了期間が設定されているか
+					dim endExist
+					endExist = false
+					if Len(argrs("Qend") & "" ) > 0 then
+						endExist = true
+					end if
+					
+					if (startExist) and (endExist) then
+						'両方設定されている場合
+						if (DateValue(argrs("Qend")) >= Date()) and (DateValue(argrs("Qstart")) <= Date()) then
+							'期間内なら更新可にする
+							 tmpblnKOSHIN = true	'---期間内なら更新可---
+							 kikannnai = true
+						else
+							if DateValue(argrs("Qstart")) > Date() then
+								'期間外でかつ開始日が現在日付よりも後ならエラーメッセージをセット
+								termError = "入力は"&argrs("Qstart")&"からになります"
+							else
+								if DateValue(argrs("Qend")) < Date() then
+									'期間外でかつ終了日が現在日付よりも前ならエラーメッセージをセット
+									termError = "入力は締め切りました（変更不可）"
+								end if
+							end if
+						end if
+					end if
+					
+					if (startExist) and (endExist = false) then
+						'開始日のみ設定されている場合
+						if DateValue(argrs("Qstart")) <= Date() then
+							 tmpblnKOSHIN = true	'---期間内なら更新可---
+							 kikannnai = true
+						else
+							'期間外でかつ開始日が現在日付よりも後ならエラーメッセージをセット
+							termError = "入力は"&argrs("Qstart")&"からになります"
+						end if
+					end if
+					
+					if (startExist = false) and (endExist) then
+						'終了日のみが設定されている場合
+						if DateValue(argrs("Qend")) >= Date() then
+							 tmpblnKOSHIN = true	'---期間内なら更新可---
+							 kikannnai = true
+						else
+							'期間外でかつ終了日が現在日付よりも前ならエラーメッセージをセット
+							termError = "入力は締め切りました（変更不可）"
+						end if
+					end if
+					
+					if (startExist = false) and (endExist = false) then
+						'両方設定されていない場合は無条件に更新可とする
+						tmpblnKOSHIN = true	'---期間内なら更新可---
+						kikannnai = true
+					end if										
+				end if
+				
+				if kikannnai then
+					if ("" & argrs("KAKUTEI"))="" then
+'response.write argrs("QID")&"<br />"
+'response.write "--post values--<br />"
+'response.write Request("OYAQID")
+'For Each Key In Request.QueryString
+'response.write Key&" is "&Request.QueryString(Key)&"<br />"
+'Next
+'response.write "<br />"
+'response.write "--argrsInfo--<br />"
+'response.write argrsInfo("status")&"<br />"
+'response.end
+						'子アンケートの時は親アンケートのステータスを見る
+						if isEmpty(Request("OYAQID")) = false then
+							if Request("OYAQID") <> "" then
+								dim oyars
+							    Set oyars=Server.CreateObject("ADODB.Recordset")
+							    SQL = "select * from t_"& Request("OYAQID")&" where dlrcode='" &Request("dlrcode")& "'"
+						        oyars.Open SQL,db,3,3
+								if oyars.EOF = false then
+									if (("" &oyars("status"))="●") then
+										tmpblnKOSHIN = false
+										termError = "確定済み（変更不可）"
+									end if
+								end if
+							else
+								if argrsInfo.eof = false then
+									if (("" &argrsInfo("status"))="●") then
+										tmpblnKOSHIN = false
+										termError = "確定済み（変更不可）"
+									end if
+								end if
+							end if
+						else
+							if argrsInfo.eof = false then
+								if (("" &argrsInfo("status"))="●") then
+									tmpblnKOSHIN = false
+									termError = "確定済み（変更不可）"
+								end if
+							end if
+						end if
+						
+						
+						
+					end if
+				else
+					if blnSPuser then
+						if argrsInfo.eof = false then
+							if ("" & argrsInfo("status"))="★" then
+								 tmpblnKOSHIN = true	'---特殊値なら更新可----
+							end if
+						end if
+					
+						if not ("" & argrs("KAKUTEI"))="期間" then
+							if argrsInfo.eof = false then
+								if not (("" &argrsInfo("status"))="●") then
+									tmpblnKOSHIN = true	'---期間でないとき●でないなら更新可
+								end if
+							end if
+						end if
+					end if
+				end if
+
+					'期間内は更新可で一回だけ更新可能なら更新可とする
+					'if not Request("Filter") = "i" then
+					'	if isEmpty(Request("OYAQID")) = false then
+					'		if ("" & argrs("KAKUTEI"))="期間" then
+					'			dim oyars2
+					'			Set oyars2=Server.CreateObject("ADODB.Recordset")
+					'			SQL = "select * from t_"& Request("OYAQID")&" where dlrcode='" &Request("dlrcode")& "'"
+					'	        	oyars2.Open SQL,db,3,3
+					'
+					'			if (("" &oyars2("status"))="★") then
+					'				tmpblnKOSHIN = true
+					'			end if
+					'		end if
+					'	else
+					'		if ("" & argrs("KAKUTEI"))="期間" then
+					'			if (("" &argrsInfo("status"))="★") then
+					'				tmpblnKOSHIN = true
+					'			end if
+					'		end if
+					'	end if
+					'end if
+				end if
+				
+
+				tmpblnKors = (Len(argrs("OYAQID") & "") > 0)
+
+
+				if tmpblnKOSHIN then
+					if tmpblnKors then	'-----現在レコードが更新可判定で子アンケートの場合、親アンケートの更新判定とする
+
+
+						Set tmpOYArs = Server.CreateObject("ADODB.Recordset")
+						SQL = "SELECT * FROM Qmaster WHERE QID=" & argrs("OYAQID")
+						tmpOYArs.Open SQL,db,3,3
+
+						if not tmpOYArs.EOF then	'-----親アンケートが存在したら、親レコードを取得してみる
+							if argblnrsInfo then '----現レコードが存在する場合--------
+								Set tmpOYArsInfo = Server.CreateObject("ADODB.Recordset")
+								SQL = "SELECT * FROM t_" & argrs("OYAQID") & " WHERE AAID=" & argrsInfo("OYAAAID")
+								tmpOYArsInfo.Open SQL,db,3,3
+
+								if not tmpOYArsInfo.EOF then
+									CHKKOSHIN = CHKKOSHIN(tmpOYArs,true,tmpOYArsInfo)
+								else
+									CHKKOSHIN = false
+								end if
+							else	'-----現レコードが存在しない場合-------------
+								CHKKOSHIN = CHKKOSHIN(tmpOYArs,false,tmpOYArsInfo)
+							end if
+						else
+							CHKKOSHIN = false
+						end if
+					else
+
+						CHKKOSHIN = true
+					end if
+				else
+
+					CHKKOSHIN = false
+				end if
+		End Function
+		'★------更新判定関数（CHKKOSHIN）（おわり）----------
+
+
+
+'===========その他関数=========================================
+'★★----ActiveDirectoryからログインユーザーの情報を抽出------
+' http://pnpk.net/cms/?p=400  参考ソース
+
+Function GetAdinfo(pmvstrUsrID,pmrstrUsrinf())
+
+	Dim objSysInfo
+	Dim objUser
+
+	Redim pmrstrUsrinf(10)
+
+	GetAdinfo = false
+
+	On Error Resume Next
+	Set objSysInfo = Server.CreateObject("ADSystemInfo")
+
+	' Currently logged in User
+	Set objUser = GetObject("LDAP://" & pmvstrUsrID)
+
+	'氏名
+	pmrstrUsrinf(1) = objUser.sn & space(2) & objUser.givenName
+	'e-Mail
+	pmrstrUsrinf(2) = objUser.mail
+
+	GetAdinfo = (Err.Number = 0)
+
+End Function
+
+'★★----テキストの改行ｺｰﾄﾞを「<BR>」へ変換する文字列関数------
+Function ono_en(strg)
+	if IsNull(strg) then
+		ono_en="<br>"
+		exit function
+	end if
+'	strg=Server.HTMLEncode(strg)
+	strg=Replace(strg,chr(10),"<br>")
+'	strg=Replace(strg," ","　")
+	strg=Replace(strg,"　","　")
+	ono_en=strg
+End Function
+
+'★★----テーブルに空白を埋める文字列関数----------------------
+Function OnoTD(str)
+  if Len("" & str)>0 then
+		OnoTD=str
+  else
+		OnoTD ="　"
+  End if
+End Function
+
+'★★----曜日も出力する日付文字列関数---------------------------
+Function OnoDate(str)
+ if IsDate(str) then
+    tmpd=DateValue(str)
+		OnoDate = RIght("00" & Month(tmpd),2) & "/" & Right("00" & Day(tmpd),2) & "(" & WeekdayName(Weekday(tmpd),true) & ")"
+ else
+		OnoDate="????"
+ end if
+End Function
+
+'★★----AにBをカンマをつけて結合する関数-----------------
+Function OnoComma(argStrA,argStrB)
+	if Len("" & argStrA) > 0 then
+		OnoComma = argStrA & "," & argStrB
+	else
+		OnoComma = "" & argStrB
+	end if
+End Function
+
+'★★----レコード無しのときは空白を出力する文字列関数-----------
+'Function SetV2(tmpddd,tmprs)
+'	if blnrsInfo then
+'				SetV2=Server.HTMLEncode("" & tmprs(tmpddd)) & ""
+'	else
+'				SetV2= ""
+'	end if
+'End Function
+'Function SetV(tmpddd,tmprs)
+'	if blnrsInfo then
+'				SetV=tmprs(tmpddd) & ""
+'	else
+'				SetV= ""
+'	end if
+'End Function
+
+'-----edit by 20170216 SetV2() SetV() 戻る時対応版
+Function SetV2(tmpddd,tmprs,blnBack)
+	if Request("p") = "true" then
+				SetV2= ""
+	else
+		if blnBack = true then
+			SetV2 = Request(tmpddd)
+		else
+			if blnrsInfo then
+				SetV2=Server.HTMLEncode("" & tmprs(tmpddd)) & ""
+			else
+				SetV2= ""
+			end if
+		end if
+	end if
+
+
+End Function
+
+Function SetV(tmpddd,tmprs,blnBack)
+'	if Request("p") = "true" then
+'				SetV= ""
+'	else
+		if blnBack = true then
+			SetV = Request(tmpddd)
+		else
+			if blnrsInfo then
+				SetV=tmprs(tmpddd) & ""
+			else
+				SetV= ""
+			end if
+		end if
+'	end if
+End Function
+
+'★★----空白の時にnullを出力する文字列関数-------
+Function OnoNull(str)
+		if Len(str & "")>0 then
+			OnoNull = str
+		else
+			OnoNull = null
+		end if
+End Function
+
+'★★----ａとｂが合致したら「SELECTED」を出力する文字列関数--------
+Function OnoSelected(a,b)
+  if ("" & a)=("" & b) then
+			OnoSelected="selected"
+		Else
+	    OnoSelected=""
+		End if
+End Function
+
+'★★----ａとｂが合致したら「CHECKED」を出力する文字列関数---------
+Function OnoChecked(a,b)
+  if ("" & a)=("" & b) then
+		OnoChecked="checked"
+  else
+    OnoChecked=""
+  end if
+End Function
+
+'★★-----複数選択バージョン〜ａがｂに含まれるときに「CHECKED」を出力する文字列関数-------
+Function OnoChecked2(a,b)
+		Dim tmpB,key,tmpBln
+		tmpB = Split(b,",")
+		tmpBln = False
+		For each key in tmpB
+			if Trim(key) = Trim(a) then
+			 tmpBln = True
+			 Exit For
+			end if
+		Next
+		if tmpBln then
+			OnoChecked2="checked"
+		Else
+	    OnoChecked2=""
+		End if
+
+End Function
+
+'★★-----指定した文字数にカットする文字列関数-------
+Function OnoCutValue(argStr,argCn)
+	if Len(argStr & "" ) > 0 then
+		cnt = 0
+		For i=1 to Len(argStr & "")
+			if (0<=ASC(Mid(argStr,i,1))) AND (ASC(Mid(argStr,i,1))<=256) then
+				cnt =cnt +1
+			else
+				cnt =cnt +2
+			end if
+			if cnt = (argCn-1)*2 then
+				 OnoCutValue = Left(argStr,i-1) & "…"
+				 Exit Function
+			end if
+			if cnt > (argCn-1)*2-1 then
+				 OnoCutValue = Left(argStr,i-2) & "…"
+				 Exit Function
+			end if
+		Next
+		OnoCutValue = "" & argStr
+	else
+			OnoCutValue = "<center>-----</center>"
+	end if
+End Function
+
+'■■■HTML出力開始■■■
+%>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=SHIFT_JIS">
+<meta http-equiv="Pragma" content="no-cache">
+<title><%=rs("Qtitle")%></title>
+<STYLE TYPE="text/css">
+<!--
+body		{ background-color: lightcyan; }
+table			{empty-cells: show;}
+A:link		{ font-weight:bold ; text-decoration: none;  color:#6000C0 ;}
+A:visited	{ font-weight:bold ; text-decoration: none; color:#6000C0  ; }
+A:hover		{ font-weight:bold ; text-decoration: underline; color: #F00010 ; }
+dt		{ font-size: 14px; line-height: 18px; font-weight:bold ; text-decoration: none; color: none ; }
+dd		{ font-size: 14px; line-height: 18px; font-weight:none ; text-decoration: none; color: none ; }
+SPAN.ononew			{font-size:10pt;font-weight:bold;color:#ff1493;}
+DIV.display			{border-style:ridge;border-color:#F3F;background-color:#FFFFCC;
+				width:95%;margin-left:10 ;padding:3 ;background-color:#FFE;}
+.ddlist	{overflow:scroll;border:2 inset #CCCCCC;width:800px;height:10em;background-color:#CCCCCC;}
+/* 印刷用 */
+@media print{
+	body	{zoom:60%;}
+	.ddlist	{overflow:visible;border:2 inset #CCCCCC;width:800px;height:10em;background-color:#CCCCCC;}
+}
+-->
+</STYLE>
+
+</head>
+<body>
+
+<script type="text/javascript" src="OnoFunction.js"></script>
+<%
+Function GoTOYOTA()
+	if not blnACCESS then
+		blnACCESSV =CHKACCESSV(rs)
+		if blnTOYOTA then
+			if not (blnSPuser OR blnMGuser) then
+				if blnACCESSV then
+					Response.redirect "view.asp?mode=Qmenu&QID=" & Request("QID")
+				else
+					Response.redirect "view.asp"
+				end if
+			elseif (blnMGuser) then
+				Response.redirect "view.asp"
+			end if
+		end if
+	end if
+End Function
+
+call GoTOYOTA()
+
+
+
+
+
+
+
+
+
+
+
+
+
+'==================================
+'JOB_INDEX
+'==================================
+
+Select Case Request("mode")
+'==================================
+'販売店一覧の表示
+'==================================
+case ""
+
+
+'	if Request("Filter") = "i" then
+	if reqFilter = "i"  then
+		'一覧から選択(閲覧制限のない場合)
+		call JOB_SYOKI()
+	Else
+		'閲覧制限のある場合、直接回答画面に移動(管理者・一般関係なし)
+		'回答内容は閲覧画面で見ればいいと考えているので、ここは考慮必要なし
+		call JOB_INPUT()
+	End if
+
+'=============================
+'入力画面表示
+'=============================
+Case "input"
+
+	call JOB_INPUT()
+'=============================
+'アンケート登録処理
+'=============================
+Case "edit"
+	call JOB_EDIT()
+
+%>
+<!--子アンケートの回答結果が２件同じものができるのを回避するダミー値-->
+<input type="hidden" id = "recmake" name="recmake" value="">
+<%
+'-----------------------------
+' 入力・更新前の確認
+' add by 20170215
+'-----------------------------
+Case "confirm"
+	call JOB_CONFIRM()
+
+'=============================
+'アンケート削除処理
+'=============================
+Case "AADelete"
+	call JOB_AADelete()
+
+'=============================
+'ファイル登録画面
+'=============================
+Case "file"
+	call JOB_EDIT()
+	call JOB_file()
+
+'=============================
+'ファイル登録後処理
+'=============================
+Case "filereturn"
+	call JOB_FileReturn()
+	call JOB_INPUT()
+
+'=============================
+'子アンケート表示モード
+'=============================
+Case "KoQ"
+
+	call JOB_EDIT()
+	call JOB_KoQ()
+
+End Select
+
+%>
+</body>
+</html>
+
+<%
+'=============================
+'アンケート削除処理
+'=============================
+Function JOB_AADelete()
+	if blnKors then
+			if blnrsInfo then					
+
+					'------直近上位アンケートのレコードの取得処理------------------------
+					SQL= "SELECT * FROM t_" & rs("OYAQID") & " WHERE AAID=" & rsInfo("OYAAAID")
+					Set OYArsAA = Server.CreateObject("ADODB.Recordset")
+					OYArsAA.Open SQL,db,3,3
+			
+
+					if CHKKOSHIN(OYArs,true,OYArsAA) then
+
+						Response.Write "*****アンケートを削除します<br/>"
+						rsInfo.Delete
+						rsInfo.Update
+
+						SQL = "SELECT * FROM t_" & Request("QID") & " WHERE dlrcode='" & strDlrCode & "'"
+						Set CountRs = Server.CreateObject("ADODB.Recordset")
+						CountRs.Open SQL,db,3,3
+						if CountRs.EOF then
+							OYArsAA("C" & rs("OYAQQID")) = null
+						else
+							OYArsAA("C" & rs("OYAQQID")) = "" & CountRs.RecordCount
+						end if
+						OYArsAA.Update
+					else
+						Response.redirect "error.asp?code=6"
+					end if
+			end if
+	else
+		Response.Redirect "error.asp?code=6"
+	end if
+	Response.Redirect selfPname & "?mode=input&QID=" & rs("OYAQID") & "&dlrcode=" & strDlrCode
+End Function
+'==================================
+'●販売店一覧の表示
+'==================================
+Function JOB_SYOKI()
+
+	'------認証処理------------------------------------------
+	if not blnACCESS then Response.redirect "error.asp?code=6" '当処理は許可されていません。
+	'------認証処理（終わり）---------------------------------
+
+	'------子アンケートの場合はエラー---------------------------------
+	if blnKors then Response.redirect "error.asp?code=6"	'当処理は許可されていません。
+	'------子アンケートの場合はエラー（おわり）---------------------------------
+	
+	'------販売店限定の場合のレダイレクト処理----------------------------
+	if not (blnSPuser OR blnMGuser) then
+		if (rs("Qfilter") & "") = "1" then
+			 Response.redirect selfPname & "?mode=input&QID=" & Request("QID") & "&dlrcode=" & gbldlrcode
+		end if
+	end if
+	'------販売店限定の場合のレダイレクト処理----------------------------
+
+	%>
+	<p>販社を選択してください。</p>
+	<%
+	   SQL = "SELECT * FROM t_" & Request("QID") & " ORDER BY CINT(sort),dlrcode "
+	   Set rsdlrlist=db.Execute(SQL)
+	   suji=1
+	   memotop=""
+	   Do While not rsdlrlist.EOF
+	      if memotop<>rsdlrlist("sort") then
+					if memotop<>"" then Response.Write "</tr></table><br>" & chr(13)
+			    Response.Write "<table border=0 ><colgroup span=6 style='width:8em;font-size:80%;' ><tr>"
+					memotop=rsdlrlist("sort")
+	        suji=1
+				End if
+	      if suji >6 then
+	         Response.Write "</tr><tr>"&chr(13)
+	         suji=1
+	      End if
+	      Response.Write "<td bgcolor=#80F0A0 ><a href='" & selfPname & "?mode=input&QID=" & Request("QID") & "&dlrcode=" & rsdlrlist("dlrcode") & "'>" & rsdlrlist("dlrname_s") & "</a></td>" & chr(13)
+	 		  rsdlrlist.MoveNext
+	      suji=suji+1
+	   Loop 
+		 Response.Write "</tr></table>"
+
+End Function
+
+'=============================
+'●入力画面表示
+'=============================
+Function JOB_INPUT()
+
+
+	'-------認証処理------------------------------------------
+	if not blnACCESS then Response.redirect "error.asp?code=6"	'当処理は許可されていません。
+	'------認証処理（終わり）---------------------------------
+
+'if  Request("mode") = "input" then
+'Response.write Request("mode")
+'Response.write blnKors
+'Response.end
+'end if
+	if not blnKors then '----親アンケートのとき--------------
+		if not Request("p") = "true" then
+			if not blnrsInfo then Response.redirect "error.asp?code=6"	'----回答対象でないディーラーコードを指定したため
+		end if
+	end if
+
+	'戻るボタンで戻ってきたかどうかの判定
+	blnBack = false
+	if Request("goback") = "on" then
+		blnBack = true
+	end if
+
+'	if not blnKors then '----親アンケートで部署＆名前の初期表示----
+'		if gbldlrcode = strDlrCode then
+'
+'			if Len("" & rsInfo("busyo") & rsInfo("tantou"))=0 then
+'				rsInfo("tantou")=Trim(Request.ServerVariables("HTTP_TCOMUSERNAMEJ"))
+'				rsInfo.Update
+'			end if
+'		end if
+'	end if
+
+	'--------子アンケートの場合の入力件数制限------------------------------
+	if blnKors then
+		blnLMT = true
+		Set LMTrs = Server.CreateObject("ADODB.Recordset")
+		if Len("" & rs("LMTALL")) > 0 then
+			SQL = "select * from t_" & rs("QID") 
+			LMTrs.Open SQL,db,3,3
+			cntLMT = CInt(rs("LMTALL"))-LMTrs.RecordCount
+			LMTrs.Close
+			if cntLMT > 0 then
+				blnLMT = true
+			else
+				blnLMT = false
+			end if
+		end if
+		if blnLMT then
+			if Len("" & rs("LMTDLR")) > 0 then
+				SQL = "select * from t_" & rs("QID") & " WHERE dlrcode='" & strDlrCode & "' "
+				LMTrs.Open SQL,db,3,3
+				cntLMTB = CInt(rs("LMTDLR"))-LMTrs.RecordCount
+				if cntLMTB >0 then
+					if Len("" & rs("LMTALL")) > 0 then
+						if cntLMTB < cntLMT then cntLMT = cntLMTB
+					else
+						cntLMT = cntLMTB
+					end if
+				else
+					blnLMT = false
+				end if
+			end if
+		end if
+		
+		'-------新規登録の場合、マックス件数を上回った場合は、エラーメッセージを表示------
+		if (not blnrsInfo) AND (not blnLMT) then
+		%>
+		<h3>入力可能件数に達しましたので、新規登録はできません</h3>
+		<p><button OnClick="history.back();" >戻る</button></p>
+		<%
+		Exit Function
+		end if
+	end if
+	'--------子アンケートの場合の入力件数制限（おわり）------------------------------
+
+	'------子アンケートのとき、直近上位アンケートのレコードの取得処理------------------------
+	if blnKors AND blnrsInfo then
+		SQL= "SELECT * FROM t_" & rs("OYAQID") & " WHERE AAID=" & rsInfo("OYAAAID")
+		Set OYArsAA = Server.CreateObject("ADODB.Recordset")
+		OYArsAA.Open SQL,db,3,3
+	end if
+
+	if not blnKors then	'---------------子アンケートのときは処理しない------------------
+%>
+				<h3 style="margin:0;font-size:150%;border:1 solid red;background-color:#FFCCCC;" ><%=rs("Qtitle")%></h3>
+				<div style="border-width:0 1 1 1;border-style:solid;border-color:red; background-color:#5DDDDFF;padding:1em;margin:0;" >
+				<%=ono_en(rs("Qcome"))%>
+				<table border=1 cellspacing=0 style="margin-top:1em;font-size:80%;" >
+				<tr>
+				  <td style="background-color:#CCFFFF;" >
+					【お問い合わせ窓口】
+				  </td>
+				</tr>
+				<tr>
+				  <td>
+					<div style="margin-left:1em;">
+				  <%=rs("Qbusyo")%>
+					<br><b><%=rs("Qtantou")%></b>
+					<br>TEL：<%=rs("Qtel")%>
+					<br>mail:<a href="mailto:<%=rs("Qmail")%>" ><%=rs("Qmail")%></a>
+				  </div>
+				  </td>
+				</table>
+				<% if Len(rs("Qend2")&"")>0 then %>
+					<div style="font-size:150%;font-weight:bold;color:red;" >
+						期限：<%=OnoDate(rs("Qend2"))%>までに入力してください。
+					</div>
+				<%elseif Len(rs("Qend") & "" ) > 0 then%>
+					<div style="font-size:150%;font-weight:bold;color:red;" >
+						期限：<%=OnoDate(rs("Qend"))%>までに入力してください。
+					</div>
+				<% end if %>
+<%
+	else	'---------------子アンケートのとき処理------------------------
+%>
+	<p><button OnCliCK="OYABACK();" style="font-size:110%;font-weight:bold;" >元の画面へ戻る</button></p>
+	<script type="text/JavaScript" >
+	<!--
+	function OYABACK(){
+
+		<% if Request("p") = "true" then %>
+			var href = "<%=selfPname%>?mode=input&p=true&Filter=i&QID=<%=rs("OYAQID")%>";
+			location.href = href;
+
+		<% else %>
+			location.href = "<%=selfPname%>?mode=input&dlrcode=<%=Request("dlrcode")%>&QID=<%=rs("OYAQID")%>";
+
+//			history.back();
+		<%end if %>
+	}
+	
+	//-->
+	</script>
+
+<%
+	end if '--------------子アンケートの判断処理（終わり）----------------
+%>
+
+				<script language="JavaScript" >
+				<!--
+				gblblnKKK = false;
+				function checkRR(objform){
+				  if(objform.status.checked){
+						blnTT = true;
+						for (i=0;i<objform.elements.length;i++){
+						   if(objform.elements[i].className == "mustValue"){
+									switch(objform.elements[i].type){
+										case "select-one":
+											if(!(objform.elements[i].options[objform.elements[i].selectedIndex].value.length > 0)){
+											objform.elements[i].style.backgroundColor = "#FF8888";
+											blnTT = false;
+									    }else{
+											objform.elements[i].style.backgroundColor = "#FFFFFF";
+											}
+											break;
+										case "text":
+										case "textarea":
+											if(!(objform.elements[i].value.length > 0)){
+											objform.elements[i].style.backgroundColor = "#FF8888";
+											blnTT = false;
+									    }else{
+											objform.elements[i].style.backgroundColor = "#FFFFFF";
+											}
+											break;
+										case "radio":
+										case "checkbox":
+											if(!CHKRADIO(document.all.item(objform.elements[i].name))){
+												objform.elements[i].style.backgroundColor = "#FF8888";
+												blnTT = false;
+									    }else{
+												objform.elements[i].style.backgroundColor = "#FFFFFF";
+											}
+											break;
+										default:
+											alert(objform.elements[i].type);
+											break;
+							    }
+							 }
+						}
+				    if(!(blnTT))alert("必須項目が入力されていないので確定できません。\n赤くなった項目を入力してください。");
+						return blnTT;
+				  }else{
+						return true;
+				  }
+				}
+				function CHKRADIO(objRADIO){
+				    var i,blnRADIO;
+						blnRADIO = false;
+				    for (i = 0; i < objRADIO.length; i++) {
+								if (!(blnRADIO)){
+									if(objRADIO[i].checked){
+										if(objRADIO[i].value.length > 0){
+											blnRADIO=true;
+										}
+									}
+					      }
+				    }
+						return blnRADIO;
+				}
+				function KOEDIT(argOYAQID,argOYAQQID,argKoQID,argKoAAID,argOYAAAID){
+					ttt="<%=selfPname%>?mode=input&AAID=" + argKoAAID + "&OYAAAID=" + argOYAAAID + "&dlrcode=<%=strDlrCode%>&QID=" + argKoQID + "&OYAQID=" + argOYAQID + "&OYAQQID=" + argOYAQQID;
+					location.href = ttt;
+				}
+				function OnoFile(str){
+					document.myform.QQID.value = str;
+					document.myform.mode.value = "file";
+					document.myform.submit();
+				}
+				function OnoKoQ(argQQID,argKoAAID,argKoQID){
+					document.myform.QQID.value = argQQID;
+					document.myform.KoAAID.value = argKoAAID;
+					document.myform.OYAAAID.value = argKoAAID
+					document.myform.KoQID.value = argKoQID;
+					document.myform.status.checked = false;
+					document.myform.mode.value = "KoQ";
+
+					document.myform.submit();
+				}
+				//-->
+				</script>
+				<form action="<%=selfPname%>" method="post" name="myform" OnSubmit="return checkRR(this);" >
+				<input type="hidden" name="AAID" value="<%=SetV2("AAID",rsInfo,blnBack)%>" >
+				<input type="hidden" name="HUKU" value="<%=Request("HUKU")%>" >
+				<input type="hidden" name="OYAQID" value="<%=rs("OYAQID")%>" >
+				<input type="hidden" name="OYAQQID" value="<%=rs("OYAQQID")%>" >
+<%if blnrsInfo then %>
+				<input type="hidden" name="OYAAAID" value="<%=rsInfo("OYAAAID")%>" >
+<%else%>
+				<input type="hidden" name="OYAAAID" value="<%=Request("OYAAAID")%>" >
+<%end if%>
+				<input type="hidden" name="QQID" value="">
+				<input type="hidden" name="KoAAID" value="">
+				<input type="hidden" name="KoQID" value="">
+				<input type="hidden" name="QID" value="<%=Request("QID")%>" >
+				<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+				<!-- edit by 20170215 確認画面表示対応 -->
+				<input type="hidden" name="mode" value="confirm" id="Mode">
+				<input type="hidden" name="save" value="" >
+				<!--<input type="hidden" name="mode" value="edit" >-->
+				<!--<input type="hidden" name="mode" value="confirm" >-->
+				<%
+				blnRs = false
+				Set rsQA = Server.CreateObject("ADODB.Recordset" )
+
+
+if not blnKors then	'---------------子アンケートのときは処理しない------------------
+%>
+	<% if not Request("p") = "true" then %>
+		<div style="border:1 solid blue;font-size:150%;margin-bottom:3px;background-color:#CCCCCC;" ><%=rsInfo("dlrname_l")%></div>
+	<% end if %>
+	<div style="margin-left:1em;" >
+		<table>
+			<tr>
+				<td>記入者</td>
+				<td>
+					<% If bln_Is_Ad = True And blnAnsctrl = "enabled" And SetV2("tantou",rsInfo,blnBack) = "" Then '自販社新規回答の場合、Ad情報を反映させる(部署・氏名・メール) %>
+						<table >
+							<tr><td>部署</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="busyo" value="<%= str_Ad_Busho %>" size=90 maxlength=30 ></td></tr>
+							<tr><td>役職</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="post" value="<%=SetV2("post",rsInfo,blnBack)%>" size=90 maxlength=30 ></td></tr>
+							<tr><td>氏名</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="tantou" value="<%= str_Ad_dspNm %>" size=30 maxlength=10 ></td></tr>
+							<tr><td>電話</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="tel" value="<%=SetV2("tel",rsInfo,blnBack)%>" style="ime-mode: disabled;" size=30 maxlength=20 ></td></tr>
+							<tr><td>メール</td><td><input <%=blnAnsctrl%> type="text" name="mail" value="<%= str_Ad_email %>" style="ime-mode: disabled;" size=90 maxlength=60 ></td></tr>
+						</table>
+                    <% Else 'すでに回答済の場合や他販社参照の場合 %>
+						<table >
+							<tr><td>部署</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="busyo" value="<%=SetV2("busyo",rsInfo,blnBack)%>" size=90 maxlength=30 ></td></tr>
+							<tr><td>役職</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="post" value="<%=SetV2("post",rsInfo,blnBack)%>" size=90 maxlength=30 ></td></tr>
+							<tr><td>氏名</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="tantou" value="<%=SetV2("tantou",rsInfo,blnBack)%>" size=30 maxlength=10 ></td></tr>
+							<tr><td>電話</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="tel" value="<%=SetV2("tel",rsInfo,blnBack)%>" style="ime-mode: disabled;" size=30 maxlength=20 ></td></tr>
+							<tr><td>メール</td><td><input <%=blnAnsctrl%> type="text" name="mail" value="<%=SetV2("mail",rsInfo,blnBack)%>" style="ime-mode: disabled;" size=90 maxlength=60 ></td></tr>
+						</table>
+                    <% End If %>
+				</td>
+			</tr>
+		</table>
+	</div>
+<%
+end if	'----------------------------子アンケートの判断処理終わり----------------------
+
+
+				'============確定ボタン処理========================================
+				if (rs("KAKUTEI") & "")="期間" then
+					if blnKOSHIN then%>
+<!--
+						<h3 style="background-color:yellow;border:1 solid red;" >入力後、確定してください。
+						<br>
+						<% if Len(rs("Qend") & "") >0 then %>期限までは、<% end if %>内容は変更できます。
+						</h3>
+-->
+						<div >
+							<input  style="display:none;" type="checkbox" name="status" value="●" CHECKED  >
+							<table>
+								<tr>
+									<td>
+										<input <%=blnAnsctrl%> style="width:14em;font-size:120%;font-weight:bold;" type="submit" value="入力内容を確認する">
+										<% if blnKors AND blnrsInfo then %>
+											</td><td>
+											<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+										<% end if %>
+									</td>
+								</tr>
+							</table>
+						<div>
+					<%else%>
+						<h3 style="background-color:yellow;border:1 solid red;" >
+							
+							<b><%=termError%></b>
+						</h3>
+						
+						<% if blnKors AND blnrsInfo then
+							if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+								<table><tr><td>
+								<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+								</td>
+								</tr></table>
+							<% end if
+						end if %>
+					<%end if
+				else
+
+
+					if not blnKOSHIN then %>
+						<h3 style="background-color:yellow;border:1 solid red;" >
+							<% if kikannnai = true then %>
+								<input  style="display:none;" type="checkbox" name="status" value="●" CHECKED  >
+								<b><%=termError%></b>
+							<% else %>
+								<b><%=termError%></b>
+							<% end if %>
+						</h3>
+						<% if blnKors AND blnrsInfo then
+							if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+								<table>
+									<tr>
+										<td>
+											<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+										</td>
+									</tr>
+								</table>
+							<% end if
+						end if %>
+					<% else%>
+
+						<h3 style="background-color:yellow;border:1 solid red;" >回答内容を入力し、「入力内容を確認する」ボタンをクリックしてください。<br>（まだ入力内容は保存されません）</h3>
+						<div >
+							<input  style="display:none;" type="checkbox" name="status" value="●"   >
+							<table>
+								<tr>
+									<td>
+										<input <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;" type="submit" value="入力内容を確認する" Onclick="document.myform.status.checked=true;">
+
+									</td>
+<!--
+									<td>
+										<input <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;" type="submit" value="内容を保存（確定しない）" OnClick="document.myform.status.checked=false;document.myform.save.value='on'" >
+									</td>
+-->
+									<% if blnKors AND blnrsInfo  then
+										if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+											<td>
+												<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+											</td>
+										<% end if 
+									end if%>
+								</tr>
+							</table>
+						</div>
+						<% End if 
+				end if
+
+
+
+
+if Request("p") = "true" then
+	blnKOSHIN = true
+	blnKoLMT = true
+end if
+
+
+
+			 if blnrsInfo AND blnKors then 
+				if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+					<script type="text/JavaScript" >
+					<!--
+					function DDEL(){
+						if(confirm("本当に削除しますか？")){
+							
+							ttt = "<%=selfPname%>?mode=AADelete&dlrcode=<%=strDlrCode%>&QID=<%=Request("QID")%>&AAID=<%=rsInfo("AAID")%>"
+							location.href = ttt;
+						}
+					
+					}
+					//-->
+					</script>
+				<%	end if
+			 end if 
+
+
+				'ーーーメンテ権限のチェックーーー
+				if blnSPuser OR (blnMGuser AND blnACCESS) then
+						if rs("KAKUTEI")="期間" then
+									if not blnKOSHIN then%>
+								 		<% if Request("OYAQID") = "" then %>
+
+											<p><span style="padding:2;border-style:solid;border-width:3;border-color:green;background-color:#CCCCFF;" >
+											　管理用　<input type="submit" name="support" value="１回だけ入力可能とする" onclick="document.myform.mode.value='edit';">
+											　</span></P>
+											<input  style="display:none;" type="checkbox" name="status" value="★"   >
+										<% end if %>
+									<%end if
+
+						else
+							 	if not blnKOSHIN then %>
+							 		<% if Request("OYAQID") = "" then %>
+										<p><span style="padding:2;border-style:solid;border-width:3;border-color:green;background-color:#CCCCFF;" >
+										　管理用　<input type="submit" name="support" value="確定情報のリセット" onClick="document.myform.mode.value='edit';">
+										　</span></p>
+										<input  style="display:none;" type="checkbox" name="status" value=""   >
+									<% end if %>
+				<%			end if
+						end if
+
+				end if
+
+				'===========設問表示処理================
+
+				MEMONO = ""		'タイトルまとめ用の判断変数　QQNOの格納
+				Do while not rsQQ.EOF
+				 '==========タイトル編集================
+				 if not(MEMONO = rsQQ("QQNO")) then%>
+						<h3 style="border:1 solid red;margin-bottom:3px;background-color:#FFCCCC;" ><%=rsQQ("QQNO")%>．<%=rsQQ("QQtitle")%></h3>
+						<%
+						MEMONO = rsQQ("QQNO")
+				 else
+				 		%><div>　</div><%
+				 end if 
+				 '==========タイトル編集（おわり）=======
+				 '==========説明文========================
+				 if Len("" & rsQQ("QQexp"))>0 then%>
+				<div style="margin-left:1em;" ><%=ono_en(rsQQ("QQexp"))%></div>
+										<input  style="display:none;" type="checkbox" name="status" value=""   >
+				<%end if 
+				'==========説明文（おわり）===============
+				'==========入力欄編集=====================%>
+				<div style="margin-left:1em;" >
+						<% if rsQQ("QQtype")="複数回答" then
+									blnKorsQQ = false
+									blnKorsAA = false
+									TableWidth = 11
+
+									'--------子情報の取得------------
+									if Len("" & rsQQ("SubQID")) > 0 then
+										'------子情報の取得--------
+										Set Kors = Server.CreateObject("ADODB.Recordset")
+										SQL = "SELECT * FROM Qmaster WHERE QID=" & rsQQ("SubQID")
+										Kors.Open SQL,db,3,3
+										'------子情報の入力制限のチェック------------------------
+										blnKoLMT = true
+										cntLMT = null
+										Set LMTKors = Server.CreateObject("ADODB.Recordset")
+										if Len("" & Kors("LMTALL")) > 0 then
+											SQL = "select * from t_" & Kors("QID") 
+											LMTKors.Open SQL,db,3,3
+											cntLMT = CInt(Kors("LMTALL"))-LMTKors.RecordCount
+											LMTKors.Close
+											if cntLMT > 0 then
+												blnKoLMT = true
+											else
+												blnKoLMT = false
+											end if
+										end if
+										if blnKoLMT then
+											if Len("" & Kors("LMTDLR")) > 0 then
+												SQL = "select * from t_" & Kors("QID") & " WHERE dlrcode='" & strDlrCode & "' "
+												LMTKors.Open SQL,db,3,3
+												cntLMTB = CInt(Kors("LMTDLR"))-LMTKors.RecordCount
+												LMTKors.Close
+												if cntLMTB >0 then
+													if Len("" & Kors("LMTALL")) > 0 then
+														if cntLMTB < cntLMT then cntLMT = cntLMTB
+													else
+														cntLMT = cntLMTB
+													end if
+												else
+													blnKoLMT = false
+												end if
+											end if
+										end if
+
+										'------子情報の入力制限のチェック（おわり）------------------------
+
+										'------子項目情報の取得--------
+										Set KorsQQ = Server.CreateObject("ADODB.Recordset")
+										SQL = "SELECT * FROM QQmaster WHERE QID=" & rsQQ("SubQID") & " ORDER BY QQNO,QQSubNO,QQID "
+										KorsQQ.Open SQL,db,3,3
+										if not KorsQQ.EOF then
+											blnKorsQQ = true
+											'------子入力情報の取得--------
+											Set KorsAA = Server.CreateObject("ADODB.Recordset")
+											SQL = "SELECT * FROM t_" & rsQQ("SubQID") & " WHERE dlrcode='" & strDlrCode & "' ORDER BY AADate DESC,AAID "
+											KorsAA.Open SQL,db,3,3
+											if not KorsAA.EOF then blnKorsAA = true
+										end if
+										'------表示タイトルの取得--------
+										blnKoTitle = false
+										strTitleNum=""
+										strTitleName = ""
+										strTitleWidth = ""
+										TableWidth = 10
+										if Len(Kors("Qflg") & "" ) > 0 then
+										 strTitleNum = "status"
+										 strTitleWidth = "5"
+										 strTitleName = "入力状態"
+										 TableWidth = TableWidth + 5
+										end if
+
+										Do while not KorsQQ.EOF
+											if IsNumeric(KorsQQ("colflg") & "" ) then
+												strTitleNum = OnoComma(strTitleNum,"C" & KorsQQ("QQID"))
+												strTitleWidth = OnoComma(strTitleWidth,CStr(CInt(KorsQQ("colflg"))+1))
+												if Len("" & KorsQQ("QQSubtitle")) > 0 then
+													strTitleName = OnoComma(strTitleName,KorsQQ("QQSubtitle"))
+												else
+													strTitleName = OnoComma(strTitleName,KorsQQ("QQtitle"))
+												end if
+												TableWidth = TableWidth + CInt(KorsQQ("colflg")) + 1
+											end if
+											KorsQQ.MoveNext
+										Loop
+										if Len(strTitleName ) > 0 then
+											blnKoTitle = true
+											AryKoNum = Split(strTitleNum , ",")
+											AryKoName = Split(strTitleName ,",")
+											AryKoWidth = Split(strTitleWidth ,",")
+										end if
+										
+									end if
+									'--------子情報の取得（おわり）------------
+						
+						%>
+						<p>
+								<div style="padding:1px;background-color:#777777;color:white;font-weight:bold;width:800px;" >
+										【入力済み一覧】　
+
+		<% if Request("p") = "true" then
+		dim href
+		
+'dealer.asp?mode=input&AAID=1&dlrcode=113&QID=7&OYAAAID=4&OYAQID=6&OYAQQID=13
+		href = "dealer.asp?Filter=i&p=true&mode=input&OYAQQID="&rsQQ("QQID")&"OYAQID="&rsQQ("QID")&"&QID="&rsQQ("SubQID")&"&OYAAAID=&AAID="
+		if blnrsInfo then 
+			href = href & rsInfo("OYAAAID")
+		else
+			href = href & Request("OYAAAID")
+		end if
+		
+		%>
+		<button type="button" style="margin:1px;" OnClick="location.href = '<%=href%>';">プレビュー</button>
+		<% end if %>
+<% if blnKOSHIN then 
+	if blnKoLMT then%>
+		<button style="margin:1px;" <%=blnAnsctrl%> OnClick="OnoKoQ('<%=rsQQ("QQID")%>','','<%=rsQQ("SubQID")%>');">新規入力</button>
+<%	end if
+end if
+%>
+
+<!--
+子アンケートの入力件数表示
+-->
+<% if not Request("p") = "true" then %>
+	<input type="text" readonly name="<%="C"& rsQQ("QQID")%>" value="<%=SetV2("C"& rsQQ("QQID"),rsInfo,blnBack)%>" style="font-size:110%;font-weight:bold;text-align:right;width:3em;border:0;background-color:#777777;color:white;" <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%> >
+
+	<% if Len("" & SetV2("C"& rsQQ("QQID"),rsInfo,blnBack))>0 then %>件入力されています。<%else%>入力件数は０です。<%end if %>
+	<% if blnKoLMT then 
+		if Len("" & cntLMT) > 0 then%>
+			（あと<%=cntLMT%>件入力可）
+		<%end if
+	 else%>
+		<span style="color:pink;" >（入力可能件数に達しました）</span>
+	<% end if %>
+<% end if %>
+</div>
+								<div class="ddlist" >
+										<table border=1 cellspacing=0 style="width:<%=TableWidth%>em;" >
+										<colgroup span=6 style="background-color:white;" >
+										<tr style="background-color:yellow;" >
+											<th style="width:3em;" >操作</th>
+											<th style="width:7em;">入力日</th>
+											<% if blnKoTitle then
+														For i=0 to UBound(AryKoName)%>
+																<th style="width:<%=AryKoWidth(i)%>em;"><%=AryKoName(i)%></th>
+													<%Next
+												 end if%>
+										</tr>
+<%
+if not Request("p") = "true" then
+	if blnKorsAA then 
+				Do while not KorsAA.EOF%>
+											<tr style="background-color:white;" >
+	<%
+	'スーパーユーザーの時は必ずenabledにする
+	dim tmpBlnAnsctrl
+	tmpBlnAnsctrl = blnAnsctrl
+	if blnSPuser then
+		tmpBlnAnsctrl = true
+	end if
+	%>											<td style="width:2em;"><button class="test" <%=tmpBlnAnsctrl %> OnClick="document.getElementById('Mode').value='KoQ';OnoKoQ('<%=rsQQ("QQID")%>','<%=KorsAA("AAID")%>','<%=rsQQ("SubQID")%>');">表示</button></td>
+												<td style="width:7em;"><%=OnoTD(KorsAA("AADate"))%></td>
+												<% if blnKoTitle then
+															For i=0 to UBound(AryKoName)
+																	if AryKoNum(i)="status" then%>
+																	<td style="text-align:center;width:<%=AryKoWidth(i)%>em;"><%if KorsAA("status")="●" then %>確定済み<%else%>---<%end if %></td>
+												<%				else%>
+																	<td style="width:<%=AryKoWidth(i)%>em;"><%=OnoCutValue(KorsAA(AryKoNum(i)),AryKoWidth(i))%></td>
+												<%				end if
+															Next
+													 end if%>
+											</tr>
+	<%			KorsAA.MoveNext
+				Loop
+	%>
+											</table>
+	<%	else %>
+											</table>
+											<p >−−入力情報はありません。−−</p>
+	<%	end if %>
+<%	else %>
+										</table>
+										<p >−−入力情報はありません。−−</p>
+<%	end if %>
+								</div>
+						</p>
+
+						<% elseif rsQQ("QQtype")="入力方式" then %>
+								<input <%=blnAnsctrl%> type="text" 
+				           <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%>
+				           name="C<%=rsQQ("QQID")%>" value="<%=SetV2("C"& rsQQ("QQID"),rsInfo,blnBack)%>" size=80 maxlength=<%if Len(rsQQ("QQoption"))>0 then %><%=rsQQ("QQoption")%><%else%>30<%end if%> >（<%if Len(rsQQ("QQoption"))>0 then %><%=rsQQ("QQoption")%><%else%>30<%end if%>文字まで）
+						<% elseif rsQQ("QQtype")="入力方式（日付）" then %>
+								<input <%=blnAnsctrl%> type="text" readonly 
+				           <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%>
+				           name="C<%=rsQQ("QQID")%>" value="<%=SetV2("C"& rsQQ("QQID"),rsInfo,blnBack)%>" size=30 maxlength=20
+				           onClick="OnoCALE(this,'<%=rsQQ("QQoption")%>');" >
+						<% elseif rsQQ("QQtype")="入力方式（数値）" then %>
+								<input <%=blnAnsctrl%> type="text" readonly style="text-align:right;"
+				           <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%>
+				           name="C<%=rsQQ("QQID")%>" value="<%=SetV2("C"& rsQQ("QQID"),rsInfo,blnBack)%>" size=30 maxlength=20
+				           onClick="OnoCALC(this,'<%=rsQQ("QQoption")%>');" >
+						<% elseif rsQQ("QQtype")="入力方式（メモ）" then 
+								if Len("" & rsQQ("QQoption"))>0 then
+										AryOP = Split("" & rsQQ("QQoption"),",")
+										i=0
+										cmdline =""
+										CntRow = 3
+										MOJILMT = ""
+										for each key in AryOP
+											Select Case i 
+											case 0
+												if Len( Key& "") >0 then
+													MOJILMT = Key
+													cmdline = "onChange=" & chr(13) & "CutValue(this,'" & key & "');" & chr(13)
+												end if
+											case 1
+												if Len(Trim(Key) & "") >0 then
+													CntRow = key
+												end if
+											End Select
+											i=i+1
+										Next
+								else
+									CntRow = 3								
+								End if
+								%>
+								<textarea <%=blnAnsctrl%> cols=90 rows=<%=CntRow%> 
+				           <% if rsQQ("QQhissu")="必須" then %> class="mustValue" <% end if%>
+				           name="C<%=rsQQ("QQID")%>" <%=cmdline%> 
+				         ><%=SetV2("C" & rsQQ("QQID"),rsInfo,blnBack)%></textarea><%if Len(MOJILMT)>0 then %>(<%=MOJILMT%>文字まで）<%end if%>
+						<% elseif rsQQ("QQtype")="選択方式" then %>
+								<select <%=blnAnsctrl%> <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%> name="C<%=rsQQ("QQID")%>"  >
+								<% 
+								SQL = "select * from QAmaster where QID=" & Request("QID") & " and QQID=" & rsQQ("QQID") & " ORDER BY QANO,QAID "
+								rsQA.Open SQL,db,3,2
+								Do while not rsQA.EOF %>
+										<option <%=blnAnsctrl%> value="<%=rsQA("QAvalue")%>"  <%=OnoSelected(rsQA("QAvalue"),SetV("C" & rsQQ("QQID"),rsInfo,blnBack))%> ><%=rsQA("QAexp")%></option>
+								<%
+										rsQA.MoveNext
+								Loop
+				        rsQA.Close
+								%>
+								</select>
+						<% elseif rsQQ("QQtype")="選択方式（ラジオ）" then 
+								SQL = "select * from QAmaster where QID=" & Request("QID") & " and QQID=" & rsQQ("QQID") & " ORDER BY QANO,QAID "
+								rsQA.Open SQL,db,3,2
+								Do while not rsQA.EOF %>
+										<div><input <%=blnAnsctrl%> type="radio" <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%> name="C<%=rsQQ("QQID")%>" value="<%=rsQA("QAvalue")%>"  <%=OnoChecked(rsQA("QAvalue"),SetV("C" & rsQQ("QQID"),rsInfo,blnBack))%> ><%=rsQA("QAexp")%></div>
+								<%
+										rsQA.MoveNext
+								Loop
+				        rsQA.Close
+						  elseif rsQQ("QQtype")="選択方式（チェック）" then 
+								SQL = "select * from QAmaster where QID=" & Request("QID") & " and QQID=" & rsQQ("QQID") & " ORDER BY QANO,QAID "
+								rsQA.Open SQL,db,3,2
+								Do while not rsQA.EOF %>
+										<div><input <%=blnAnsctrl%> type="checkbox" <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%> name="C<%=rsQQ("QQID")%>" value="<%=rsQA("QAvalue")%>"  <%=OnoChecked2(rsQA("QAvalue"),SetV("C" & rsQQ("QQID"),rsInfo,blnBack))%> ><%=rsQA("QAexp")%></div>
+								<%
+										rsQA.MoveNext
+								Loop
+				        rsQA.Close
+						  elseif rsQQ("QQtype")="ファイル" then %>
+						  	<div><table border="1" cellspacing="0" ><tr bgcolor="yellow" ><th>送信ファイル名</th><th>最新ご連絡日</th>
+						  	<% if blnKOSHIN then %>
+						  	<th>操作</th>
+						  	<%end if%>
+								</tr>
+						  	<tr><td><% OP = InStr(rsQQ("QQoption"),",")
+						  	strfilename = ""
+						  	if OP > 0 then
+						  		strfilename = Left(rsQQ("QQoption"),OP)
+						  	else
+						  		strfilename = rsQQ("QQoption")
+						  	end if
+						  	Response.Write strfilename
+						  	%>
+						  	</td><td>
+						  	<input style="border:0;" type="text" <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%> ReadOnly name="C<%=rsQQ("QQID")%>" value="<%=SetV2("C" & rsQQ("QQID"),rsInfo,blnBack)%>" size=50></td>
+						  	<% if blnKOSHIN then %>
+						  	<td><button <%=blnAnsctrl%> onClick="OnoFile('<%=rsQQ("QQID")%>');">ファイルの参照</button></td>
+						  	<%end if%>
+						  	</tr>
+						  	</script>
+						  	</table>
+						  	</div>
+						  <%
+						  end if %><%=rsQQ("Qunit")%>
+				</div>
+				<%'========入力欄編集（おわり）===================
+				  rsQQ.MoveNext
+				Loop
+				%>
+				<% if (rs("KAKUTEI") & "")="期間" then %>
+					<% if blnKOSHIN then %>
+						<div >
+							<table>
+								<tr>
+									<td>
+										<input <%=blnAnsctrl%> style="width:14em;font-size:120%;font-weight:bold;" type="submit" value="入力内容を確認する">
+										<% if blnKors AND blnrsInfo then %>
+											</td>
+											<td>
+												<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+										<% end if %>
+									</td>
+								</tr>
+							</table>
+						<div>
+					<%else%>
+						<% if blnKors AND blnrsInfo then %>
+							<% if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+								<table><tr><td>
+								<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+								</td>
+								</tr></table>
+							<% end if %>
+						<% end if %>
+					<%end if %>
+				<% else %>
+					<% if blnKOSHIN then %>
+						<div>
+							<input  style="display:none;" type="checkbox" name="status" value="●"   >
+							<table>
+							<tr><td>
+								<input <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;" type="submit" value="入力内容を確認する" Onclick="document.myform.status.checked=true;">
+
+							</td>
+<!--
+							<td>
+								<input <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;" type="submit" value="内容を保存（確定しない）" OnClick="document.myform.status.checked=false;document.myform.save.value='on'" >
+							</td>
+-->
+							<% if blnKors AND blnrsInfo then %>
+								<% if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+									<td>
+									<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+									</td>
+								<% end if %>
+							<% end if%>
+							</table>
+						</div>
+					<%else%>
+					
+					<%end if %>
+
+				<% end if %>
+				</form>
+
+				<%
+End Function
+
+'=======================================================================================================================
+'●アンケート登録処理
+'=============================
+Function JOB_EDIT()
+
+
+			flgDokakutei = flase
+			flgKakutei =false
+'ーーー管理者の初期化ーーー
+if Len(Request("support"))>0 then
+		rsInfo("status")= null
+		if rs("KAKUTEI")="期間" then
+			rsInfo("status")="★"
+		end if
+		rsInfo.Update
+%>
+<h3>入力可能な状態にしました。</h3>
+		<form action="<%=selfPname%>" method=get>
+		<input type="hidden" name="mode" value="input" >
+		<input type="hidden" name="QID" value="<%=Request("QID")%>" >
+		<input type="hidden" name="AAID" value="<%=rsInfo("AAID")%>" >
+		<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+		<input style="font-size:110%;font-weight:bold;" type="submit" value="入力画面に戻る" >
+		</form>
+
+<%
+		Exit Function
+end if
+
+
+	'------回答対象チェック-----------------------------------
+	if not blnACCESS then Response.Redirect "error.asp?code=6"
+	'------回答対象チェック（おわり）-----------------------------------
+
+	if blnKors then
+		'------直近上位アンケートのレコードの取得処理------------------------
+		if blnrsInfo then
+			SQL= "SELECT * FROM t_" & rs("OYAQID") & " WHERE AAID=" & rsInfo("OYAAAID")
+		else
+			SQL= "SELECT * FROM t_" & rs("OYAQID") & " WHERE AAID=" & Request("OYAAAID")
+		end if
+		Set OYArsAA = Server.CreateObject("ADODB.Recordset")
+		OYArsAA.Open SQL,db,3,3
+		if not CHKKOSHIN(OYArs,true,OYArsAA) then
+%>
+			<h3>確定済みのため、処理できません</h3>
+					<form action="<%=selfPname%>" method=get>
+					<input type="hidden" name="mode" value="input" >
+					<input type="hidden" name="QID" value="<%=Request("OYAQID")%>" >
+					<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+					<input style="font-size:110%;font-weight:bold;" type="submit" value="入力画面に戻る" >
+					</form>
+
+<%		
+			Exit Function
+		end if
+	end if
+
+
+	'--------子アンケートの場合の入力件数制限------------------------------
+	if blnKors then
+		blnLMT = true
+		Set LMTrs = Server.CreateObject("ADODB.Recordset")
+		if Len("" & rs("LMTALL")) > 0 then
+			SQL = "select * from t_" & rs("QID") 
+			LMTrs.Open SQL,db,3,3
+			cntLMT = CInt(rs("LMTALL"))-LMTrs.RecordCount
+			LMTrs.Close
+			if cntLMT > 0 then
+				blnLMT = true
+			else
+				blnLMT = false
+			end if
+		end if
+		if blnLMT then
+			if Len("" & rs("LMTDLR")) > 0 then
+				SQL = "select * from t_" & rs("QID") & " WHERE dlrcode='" & strDlrCode & "' "
+				LMTrs.Open SQL,db,3,3
+				cntLMTB = CInt(rs("LMTDLR"))-LMTrs.RecordCount
+				if cntLMTB >0 then
+					if Len("" & rs("LMTALL")) > 0 then
+						if cntLMTB < cntLMT then cntLMT = cntLMTB
+					else
+						cntLMT = cntLMTB
+					end if
+				else
+					blnLMT = false
+				end if
+			end if
+		end if
+		
+		'-------新規登録の場合、マックス件数を上回った場合は、エラーメッセージを表示------
+		if (not blnrsInfo) AND (not blnLMT) then
+		%>
+		<h3>入力可能件数に達しましたので、新規登録はできません</h3>
+					<form action="<%=selfPname%>" method=get>
+					<input type="hidden" name="mode" value="input" >
+					<input type="hidden" name="QID" value="<%=Request("OYAQID")%>" >
+					<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+					<input style="font-size:110%;font-weight:bold;" type="submit" value="入力画面に戻る" >
+					</form>
+		<%
+		Exit Function
+		end if
+	end if
+	'--------子アンケートの場合の入力件数制限（おわり）------------------------------
+
+
+	if blnKors then		'------子アンケートのときの処理----------------------------------------
+		'------直近上位アンケートのレコードの取得処理------------------------
+		SQL= "SELECT * FROM t_" & rs("OYAQID") & " WHERE AAID=" & Request("OYAAAID")
+
+
+		Set OYArsAA = Server.CreateObject("ADODB.Recordset")
+		OYArsAA.Open SQL,db,3,3
+
+''		if not blnrsInfo then	                           '-----新規登録のとき-------
+		if not blnrsInfo and Request("recmake") <> "1" then '-----新規登録のとき-------
+
+
+			'------最上位親アンケートのレコードの取得処理------------------------
+			SQL= "SELECT * FROM t_" & SRCrs("QID") & " WHERE dlrcode ='" & strDlrCode & "'"
+			Set SrcrsAA = db.execute(SQL)
+
+
+			'------新規登録処理-------------------------------
+			rsInfo.AddNew
+			rsInfo("dlrcode") = OnoNull(OYArsAA("dlrcode"))
+			rsInfo("dlrname_s") = OnoNull(OYArsAA("dlrname_s"))
+			rsInfo("dlrname_l") = OnoNull(OYArsAA("dlrname_l"))
+			rsInfo("OYAAAID") = OnoNull(OYArsAA("AAID"))
+			rsInfo("tiku") = OnoNull(OYArsAA("tiku"))
+		end if
+	end if	'-----------------子アンケートのときの処理（おわり）---------
+
+
+	if blnKOSHIN then		'------更新可能な場合-------------
+								'−−−登録項目の取得ーーー
+						  Set rsQQ = Server.CreateObject("ADODB.Recordset")
+						  SQL = "select * from QQmaster where QID=" & Request("QID")
+						  rsQQ.Open SQL,db,3,2
+						
+						'ーーー確定処理ーーー
+						if Request("status")="●" then
+								blnST = true  '確定条件の初期値
+'response.write "test"
+'response.write blnST
+'response.end
+								
+								blnST = blnST and (Len(Request("tantou"))>0)
+								blnST = blnST and (Len(Request("post"))>0)
+								blnST = blnST and (Len(Request("tel"))>0)
+								blnST = blnST and (Len(Request("busyo"))>0)
+								
+								if blnKors then blnST = true  '---子アンケートの場合、上記項目は確定条件に入れない
+
+								if not rsQQ.EOF then
+							    Do while not rsQQ.EOF
+							       strRnm = "C" & rsQQ("QQID")
+							       if rsQQ("QQHissu")="必須" then
+												blnST = blnST and (Len(Request(strRnm)&"")>0)
+							       end if
+							       rsQQ.MoveNext
+							    Loop
+							    rsQQ.MoveFirst
+								end if
+
+								if blnST then 
+										rsInfo("status")="●"
+										flgDokakutei = true
+								end if
+						end if
+						
+						'ーーー登録処理ーーー
+						rsInfo("tantou")=OnoNull(Request("tantou"))
+						rsInfo("busyo")=OnoNull(Request("busyo"))
+						rsInfo("post")=OnoNull(Request("post"))
+						rsInfo("tel")=OnoNull(Request("tel"))
+						rsInfo("mail")=OnoNull(Request("mail"))
+						rsInfo("AADate")=Right(Year(Now()),2) & "/" & Right("00" & Month(Now()),2) & "/" & Right("00" & Day(Now()) ,2) & " " & Right("00" & Hour(Now()),2) & ":" & Right("00" & Minute(Now()),2)
+						
+						Do while not rsQQ.EOF
+						  strRnm = "C" & rsQQ("QQID")
+						    rsInfo(strRnm)=OnoNull(Request(strRnm))
+						  rsQQ.MoveNext
+						Loop
+			end if
+
+			rsInfo.Update
+
+'------子アンケートのとき、親レコードに対し、カウンターをセットする------------
+			if blnKors then
+					SQL = "SELECT * FROM t_" & Request("QID") & " WHERE dlrcode='" & strDlrCode & "'"
+					Set CountRs = Server.CreateObject("ADODB.Recordset")
+					CountRs.Open SQL,db,3,3
+					if CountRs.EOF then
+						OYArsAA("C" & rs("OYAQQID")) = null
+					else
+						'Response.Write "record_count" & CountRs.RecordCount
+						OYArsAA("C" & rs("OYAQQID")) = "" & CountRs.RecordCount
+					end if
+					OYArsAA.Update
+			end if
+
+'ファイル登録モードはここでおしまい
+if Request("mode")="file" then
+	 exit function
+end if
+'子アンケート表示モードはここでおしまい
+if Request("mode")="KoQ" then
+	 exit function
+end if
+
+			if not(Len(Request("support"))>0) then
+						%>
+						<h1>処理結果</h1><hr>
+						<%if rs("KAKUTEI")="期間" then %>
+								<div style="font-size:larger;font-weight:bold;" >
+								<p>入力内容が確定されました。
+						<%else%>
+								<div style="font-size:larger;font-weight:bold;" >
+								<% if (flgDokakutei) then %>
+								<p>入力内容が確定されました。
+<!--
+この文言はいらない
+tyoshiya 20170923
+<% if not blnKors then%>
+								<p>アンケートへのご協力ありがとうございました。
+<% end if %>
+-->								<% else %>
+									<p>入力内容が保存されました。
+									<p>確定されていませんので、改めて内容確定を行ってください。
+								<% end if %>
+								<div>
+						<%end if
+			end if%>
+
+					<form action="<%=selfPname%>" method=get>
+					<input type="hidden" name="mode" value="input" >
+<% if blnKors then %>
+					<input type="hidden" name="QID" value="<%=Request("OYAQID")%>" >
+<% else %>
+					<input type="hidden" name="QID" value="<%=Request("QID")%>" >
+<% end if %>
+					<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+
+					<input style="font-size:110%;font-weight:bold;" type="submit" value="入力画面に戻る" >
+
+					</form>
+
+			<%
+End Function
+
+'=============================
+'ファイル登録画面
+'=============================
+Function JOB_file()
+
+	'-------認証処理------------------------------------------
+	if not blnACCESS then Response.redirect "error.asp?code=6"	'当処理は許可されていません。
+	'------認証処理（終わり）---------------------------------
+
+	'------更新判断--------------------------------------------
+	if not blnKOSHIN then Response.redirect "error.asp?code=6"
+	'----------------------------------------------------------
+
+	if not blnKors then '----親アンケートのとき--------------
+		if not blnrsInfo then Response.redirect "error.asp?code=6"	'----回答対象でないディーラーコードを指定したため
+	end if
+
+	CDir = "http://" & Request.ServerVariables("SERVER_NAME") & Request.ServerVariables("SCRIPT_NAME")
+
+
+%>
+<script language="JavaScript" >
+<!--
+function MODORU(){
+	document.myform.mode.value="input";
+	document.myform.submit();
+
+}
+//-->
+</script>
+<h3>ファイル登録画面　<button OnClick="MODORU();" >戻る</button></h3>
+<!--
+この部分は非表示にしても運用に影響がなさそうなのでコメントアウト 20170224
+<iframe src="./blank.asp" style="witdh:0.5em;height:0.5em;" style="border:0;" >
+この部分は iframe 対応のブラウザで見てください。
+</iframe>
+-->
+
+				<form action="<%=selfPname%>" method="post" name="myform" OnSubmit="return checkRR(this);" >
+				<input type="hidden" name="AAID" value="<%=SetV2("AAID",rsInfo,blnBack)%>" >
+				<input type="hidden" name="HUKU" value="<%=Request("HUKU")%>" >
+				<input type="hidden" name="OYAQID" value="<%=rs("OYAQID")%>" >
+				<input type="hidden" name="OYAQQID" value="<%=rs("OYAQQID")%>" >
+<%if blnrsInfo then %>
+				<input type="hidden" name="OYAAAID" value="<%=rsInfo("OYAAAID")%>" >
+<%else%>
+				<input type="hidden" name="OYAAAID" value="<%=Request("OYAAAID")%>" >
+<%end if%>
+				<input type="hidden" name="QQID" value="<%=Request("QQID")%>">
+				<input type="hidden" name="QID" value="<%=Request("QID")%>" >
+				<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+				<input type="hidden" name="mode" value="fileedit" >
+				</form>
+<hr>
+<p>作成したファイルを送信します。</p>
+<p>
+	<table border=1 cellspacing=0 cellpadding=3 style="">
+		<tr bgcolor=yellow>
+		<th>送信ファイル名</th>
+		<th>送信ファイルの指定</th>
+		<th>最新ご連絡日</th>
+		<tr>
+			<td><%
+			rsQQ.Filter="QQID=" & Request("QQID")
+			OP = InStr(rsQQ("QQoption"),",")
+						  	if OP > 0 then
+						  		strfilename = Left(rsQQ("QQoption"),OP)
+						  	else
+						  		strfilename = rsQQ("QQoption")
+						  	end if
+			Response.Write strfilename
+			%>
+			</td>
+			<td>
+				<form action="./file.asp" enctype="multipart/form-data" method="post" OnSubmit="return CHKFILE(this);"  style="margin:0;" >
+				<input type="hidden" name="MOTOURL" value="<%=CDir%>" >
+				<input type="hidden" name="AAID" value="<%=SetV2("AAID",rsInfo,blnBack)%>" >
+				<input type="hidden" name="HUKU" value="<%=Request("HUKU")%>" >
+				<input type="hidden" name="OYAQID" value="<%=rs("OYAQID")%>" >
+				<input type="hidden" name="OYAQQID" value="<%=rs("OYAQQID")%>" >
+<%if blnrsInfo then %>
+				<input type="hidden" name="OYAAAID" value="<%=rsInfo("OYAAAID")%>" >
+<%else%>
+				<input type="hidden" name="OYAAAID" value="<%=Request("OYAAAID")%>" >
+<%end if%>
+				<input type="hidden" name="QQID" value="<%=Request("QQID")%>">
+				<input type="hidden" name="QID" value="<%=Request("QID")%>" >
+				<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+				<input type="hidden" name="mode" value="send" >
+				<input type="hidden" name="tfolder" value="<%=rs("TFOLDER")%>" >
+				<input type="hidden" name="filename" value="<%=strfilename%>" >
+				<input class="mustValue" name="fln" type="file" >
+				<input type="submit" value="送信" >
+				</form>
+			</td>
+			<td>
+				<input style="margin:0;border:0;" type="text"  ReadOnly name="C<%=rsQQ("QQID")%>" value="<%=SetV2("C" & rsQQ("QQID"),rsInfo,blnBack)%>" size=50>
+			</td></tr>
+	</table>
+	<script type="text/JavaScript" >
+		<!--
+		function CHKFILE(objform){
+				tmpCHK = false;
+				for (i=0;i<objform.elements.length;i++){
+				   if(objform.elements[i].className == 'mustValue' ){
+				   		if( ("" + objform.elements[i].value).length > 0 ){
+				   			tmpCHK = true;
+				   		}
+				   }
+				 }
+				if(!tmpCHK){alert("ファイルが指定されていません")}
+				return tmpCHK;
+		}
+		function CHK(){
+
+			return confirm("本当に削除しますか？");
+
+		}
+		//-->
+	</script>
+</p>
+<p>
+<div style="margin-top:2em;font-weight:bold;" >＜送信の手順＞</div>
+<button OnClick="ff();" >送信の手順はこちら</button>
+<P>
+	<div id="sss" style="display:none;"  >
+		<script type="text/JavaScript" >
+		<!--
+		function ff(){
+			if(document.all.sss.style.display == 'block'){
+				document.all.sss.style.display = 'none';
+			}else{
+				document.all.sss.style.display = 'block';
+			}
+		}
+		//-->
+		</script>
+		<div><span style="color:red;" >【再度クリックで非表示】</span></div>
+	<p>
+		<div style="margin-top:1em;font-weight:bold;" >◆ファイルの送信方法</div>
+		<div style="margin-left:1em;" >
+		<table>
+		<colgroup valign=top span=2 style="padding-bottom:0.5em;"  >
+		<tr>
+		<td>①</td>
+		<td>
+		『送信ファイルの指定』欄の右側の『参照』ボタンをクリックします。
+		</td>
+		</tr>
+		<tr>
+		<td>②</td>
+		<td>
+		ファイル選択画面が表示されるので送信するファイルをクリックし、「開く」をクリックします。<br>
+		</td>
+		</tr>
+		<tr>
+		<td>③</td>
+		<td>
+		『参照』ボタンの隣にある『送信』ボタンをクリックします。
+		</td>
+		</tr>
+		<tr>
+		<td>④</td>
+		<td>
+		送信が完了し登録されますと、『最新ご連絡日』欄に送信日時が表示されます。<br>
+		※『送信ファイル名』と同名のファイルを指定しないと、エラーとなり送信できません。
+		</td>
+		</tr>
+		</table>
+		</div>
+	</p>
+
+	<p>
+		<div style="margin-top:1em;font-weight:bold;" >◆既に送信したファイルの内容を修正・変更する場合</div>
+		<div style="margin-left:1em;" >
+			<table>
+			<colgroup valign=top span=2 style="padding-bottom:0.5em;"  >
+			<tr>
+			<td colspan=2 >
+			</td>
+			</tr>
+			<tr>
+			<td>①</td>
+			<td>
+			内容を修正・変更したファイルを、上記の送信方法と同様の手順で送信します。
+			</td>
+			</tr>
+			<tr>
+			<td>②</td>
+			<td>
+			送信が完了しますと、『最新ご連絡日』欄の送信日時が更新されます。<br>
+			※最新に送信されたファイルのみが登録されます。（過去に送信されたファイルは残りません。）
+			</td>
+			</tr>
+			</table>
+		</div>
+	</p>
+
+</div>
+</div>
+
+<%
+End Function
+
+'===============================
+'ファイル登録回答処理
+'===============================
+Function JOB_FileReturn()
+
+	'------回答対象チェック-----------------------------------
+	if not blnACCESS then Response.Redirect "error.asp?code=6"
+	'------回答対象チェック（おわり）-----------------------------------
+
+	if blnKors then
+		'------直近上位アンケートのレコードの取得処理------------------------
+		if blnrsInfo then
+			SQL= "SELECT * FROM t_" & rs("OYAQID") & " WHERE AAID=" & rsInfo("OYAAAID")
+		else
+			SQL= "SELECT * FROM t_" & rs("OYAQID") & " WHERE AAID=" & Request("OYAAAID")
+		end if
+		Set OYArsAA = Server.CreateObject("ADODB.Recordset")
+		OYArsAA.Open SQL,db,3,3
+		if not CHKKOSHIN(OYArs,true,OYArsAA) then
+%>
+			<h3>確定済みのため、処理できません</h3>
+					<form action="<%=selfPname%>" method=get>
+					<input type="hidden" name="mode" value="input" >
+					<input type="hidden" name="QID" value="<%=Request("OYAQID")%>" >
+					<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+					<input style="font-size:110%;font-weight:bold;" type="submit" value="入力画面に戻る" >
+					</form>
+<%		
+			Exit Function
+		end if
+	end if
+
+	'返り値のセット
+	if Len("" & Request("QQID"))=0 then Respose.redirect "error.asp?noQID"
+	
+	rsInfo("C" & Request("QQID")) = Request("C" & Request("QQID"))
+	rsInfo.Update
+	rsInfo.Requery
+
+End Function
+
+'===============================
+'子アンケート表示処理
+'===============================
+
+Function JOB_KoQ()
+
+	Response.redirect selfPname & "?mode=input&AAID=" & Request("KoAAID") & "&dlrcode=" & strDlrCode & "&QID=" & Request("KoQID") & "&OYAAAID=" & gblAAID & "&OYAQID=" & Request("QID") & "&OYAQQID=" & Request("QQID")
+'	Response.write selfPname & "?mode=input&AAID=" & Request("KoAAID") & "&dlrcode=" & strDlrCode & "&QID=" & Request("KoQID") & "&OYAAAID=" & gblAAID & "&OYAQID=" & Request("QID") & "&OYAQQID=" & Request("QQID")
+
+End Function
+
+'-----------------------------------------------------------------------------------------------------------------------
+' 入力・更新前の確認
+' add by 20170215
+'-----------------------------
+Function JOB_CONFIRM()
+
+	'-------認証処理------------------------------------------
+	if not blnACCESS then Response.redirect "error.asp?code=6"	'当処理は許可されていません。
+	'------認証処理（終わり）---------------------------------
+
+	if not blnKors then '----親アンケートのとき--------------
+		if not blnrsInfo then Response.redirect "error.asp?code=6"	'----回答対象でないディーラーコードを指定したため
+	end if
+
+	'確認画面の時は戻るボタン判定は使わない（入力画面の時のみ使用）
+	blnBack = false
+
+	'--------子アンケートの場合の入力件数制限------------------------------
+	if blnKors then
+		blnLMT = true
+		Set LMTrs = Server.CreateObject("ADODB.Recordset")
+		if Len("" & rs("LMTALL")) > 0 then
+			SQL = "select * from t_" & rs("QID") 
+			LMTrs.Open SQL,db,3,3
+			cntLMT = CInt(rs("LMTALL"))-LMTrs.RecordCount
+			LMTrs.Close
+			if cntLMT > 0 then
+				blnLMT = true
+			else
+				blnLMT = false
+			end if
+		end if
+		if blnLMT then
+			if Len("" & rs("LMTDLR")) > 0 then
+				SQL = "select * from t_" & rs("QID") & " WHERE dlrcode='" & strDlrCode & "' "
+				LMTrs.Open SQL,db,3,3
+				cntLMTB = CInt(rs("LMTDLR"))-LMTrs.RecordCount
+				if cntLMTB >0 then
+					if Len("" & rs("LMTALL")) > 0 then
+						if cntLMTB < cntLMT then cntLMT = cntLMTB
+					else
+						cntLMT = cntLMTB
+					end if
+				else
+					blnLMT = false
+				end if
+			end if
+		end if
+		
+		'-------新規登録の場合、マックス件数を上回った場合は、エラーメッセージを表示------
+		if (not blnrsInfo) AND (not blnLMT) then
+		%>
+		<h3>入力可能件数に達しましたので、新規登録はできません</h3>
+		<p><button OnClick="history.back();" >戻る</button></p>
+		<%
+		Exit Function
+		end if
+	end if
+	'--------子アンケートの場合の入力件数制限（おわり）------------------------------
+
+	'------子アンケートのとき、直近上位アンケートのレコードの取得処理------------------------
+	if blnKors AND blnrsInfo then
+		SQL= "SELECT * FROM t_" & rs("OYAQID") & " WHERE AAID=" & rsInfo("OYAAAID")
+		Set OYArsAA = Server.CreateObject("ADODB.Recordset")
+		OYArsAA.Open SQL,db,3,3
+	end if
+	if not blnKors then	'---------------子アンケートのときは処理しない------------------
+%>
+				<h3 style="margin:0;font-size:150%;border:1 solid red;background-color:#FFCCCC;" ><%=rs("Qtitle")%></h3>
+				<div style="border-width:0 1 1 1;border-style:solid;border-color:red; background-color:#5DDDDFF;padding:1em;margin:0;" >
+				<%=ono_en(rs("Qcome"))%>
+				<table border=1 cellspacing=0 style="margin-top:1em;font-size:80%;" >
+				<tr>
+				  <td style="background-color:#CCFFFF;" >
+					【お問い合わせ窓口】
+				  </td>
+				</tr>
+				<tr>
+				  <td>
+					<div style="margin-left:1em;">
+				  <%=rs("Qbusyo")%>
+					<br><b><%=rs("Qtantou")%></b>
+					<br>TEL：<%=rs("Qtel")%>
+					<br>mail:<a href="mailto:<%=rs("Qmail")%>" ><%=rs("Qmail")%></a>
+				  </div>
+				  </td>
+				</table>
+				<% if Len(rs("Qend2")&"")>0 then %>
+					<div style="font-size:150%;font-weight:bold;color:red;" >
+						期限：<%=OnoDate(rs("Qend2"))%>までに入力してください。
+					</div>
+				<%elseif Len(rs("Qend") & "" ) > 0 then%>
+					<div style="font-size:150%;font-weight:bold;color:red;" >
+						期限：<%=OnoDate(rs("Qend"))%>までに入力してください。
+					</div>
+				<% end if %>
+<%
+	else	'---------------子アンケートのとき処理------------------------
+%>
+	<p><button OnCliCK="OYABACK();" style="font-size:110%;font-weight:bold;" >元の画面へ戻る</button></p>
+	<script type="text/JavaScript" >
+	<!--
+	function OYABACK(){
+			location.href = "<%=selfPname%>?mode=input&dlrcode=<%=Request("dlrcode")%>&QID=<%=rs("OYAQID")%>";
+
+//		history.back();
+	}
+	
+	//-->
+	</script>
+
+<%
+	end if '--------------子アンケートの判断処理（終わり）----------------
+%>
+
+				<script language="JavaScript" >
+				<!--
+				gblblnKKK = false;
+				function checkRR(objform){
+				  if(objform.status.checked){
+						blnTT = true;
+						for (i=0;i<objform.elements.length;i++){
+						   if(objform.elements[i].className == "mustValue"){
+									switch(objform.elements[i].type){
+										case "select-one":
+											if(!(objform.elements[i].options[objform.elements[i].selectedIndex].value.length > 0)){
+											objform.elements[i].style.backgroundColor = "#FF8888";
+											blnTT = false;
+									    }else{
+											objform.elements[i].style.backgroundColor = "#FFFFFF";
+											}
+											break;
+										case "text":
+										case "textarea":
+											if(!(objform.elements[i].value.length > 0)){
+											objform.elements[i].style.backgroundColor = "#FF8888";
+											blnTT = false;
+									    }else{
+											objform.elements[i].style.backgroundColor = "#FFFFFF";
+											}
+											break;
+										case "radio":
+										case "checkbox":
+											if(!CHKRADIO(document.all.item(objform.elements[i].name))){
+												objform.elements[i].style.backgroundColor = "#FF8888";
+												blnTT = false;
+									    }else{
+												objform.elements[i].style.backgroundColor = "#FFFFFF";
+											}
+											break;
+										default:
+											alert(objform.elements[i].type);
+											break;
+							    }
+							 }
+						}
+				    if(!(blnTT))alert("必須項目が入力されていないので確定できません。\n赤くなった項目を入力してください。");
+						return blnTT;
+				  }else{
+						return true;
+				  }
+				}
+				function CHKRADIO(objRADIO){
+				    var i,blnRADIO;
+						blnRADIO = false;
+				    for (i = 0; i < objRADIO.length; i++) {
+								if (!(blnRADIO)){
+									if(objRADIO[i].checked){
+										if(objRADIO[i].value.length > 0){
+											blnRADIO=true;
+										}
+									}
+					      }
+				    }
+						return blnRADIO;
+				}
+				function KOEDIT(argOYAQID,argOYAQQID,argKoQID,argKoAAID,argOYAAAID){
+					ttt="<%=selfPname%>?mode=input&AAID=" + argKoAAID + "&OYAAAID=" + argOYAAAID + "&dlrcode=<%=strDlrCode%>&QID=" + argKoQID + "&OYAQID=" + argOYAQID + "&OYAQQID=" + argOYAQQID;
+					location.href = ttt;
+				}
+				function OnoFile(str){
+					document.myform.QQID.value = str;
+					document.myform.mode.value = "file";
+					document.myform.submit();
+				}
+				function OnoKoQ(argQQID,argKoAAID,argKoQID){
+					document.myform.QQID.value = argQQID;
+					document.myform.KoAAID.value = argKoAAID;
+					document.myform.KoQID.value = argKoQID;
+					document.myform.OYAAAID.value = argKoAAID
+					document.myform.status.checked = false;
+					document.myform.mode.value = "KoQ";
+					document.myform.submit();
+				}
+				// [この内容で確定][この内容で保存]ボタン
+				function goUpdate(isKakutei)
+				{
+					document.myform.status.checked = isKakutei;
+					document.myform.mode.value = "edit";
+					//document.myform.mode.value = "confirm2";
+
+                                        //2行できてしまうのを回避フラグ  
+					document.getElementById("recmake").value = "1";
+
+					document.myform.submit();
+
+				}
+
+				// [入力画面に戻る]ボタン
+				function goBack()
+				{
+					document.myform.mode.value = "input";
+					document.myform.goback.value = "on";
+					document.myform.status.checked = false;
+					document.myform.submit();
+				}
+				//-->
+				</script>
+				<form action="<%=selfPname%>" method="post" name="myform" OnSubmit="return checkRR(this);" >
+				<!--<input type="hidden" name="AAID" value="<%=SetV2("AAID",rsInfo,blnBack)%>" >-->
+				<input type="hidden" name="AAID" value="<%=Request.Form("AAID")%>" >
+				<input type="hidden" name="HUKU" value="<%=Request("HUKU")%>" >
+				<input type="hidden" name="OYAQID" value="<%=rs("OYAQID")%>" >
+				<input type="hidden" name="OYAQQID" value="<%=rs("OYAQQID")%>" >
+<%if blnrsInfo then %>
+				<input type="hidden" name="OYAAAID" value="<%=rsInfo("OYAAAID")%>" >
+<%else%>
+				<input type="hidden" name="OYAAAID" value="<%=Request("OYAAAID")%>" >
+<%end if%>
+				<input type="hidden" name="QQID" value="">
+				<input type="hidden" name="KoAAID" value="">
+				<input type="hidden" name="KoQID" value="">
+				<input type="hidden" name="QID" value="<%=Request("QID")%>" >
+				<input type="hidden" name="dlrcode" value="<%=strDlrCode%>" >
+				<input type="hidden" name="mode" value="edit" >
+				<!--<input type="hidden" name="mode" value="edit" >-->
+				<!--<input type="hidden" name="mode" value="confirm" >-->
+				<%
+				blnRs = false
+				Set rsQA = Server.CreateObject("ADODB.Recordset" )
+
+
+if not blnKors then	'---------------子アンケートのときは処理しない------------------
+%>
+				<div style="border:1 solid blue;font-size:150%;margin-bottom:3px;background-color:#CCCCCC;" ><%=rsInfo("dlrname_l")%></div>
+				<div style="margin-left:1em;" >
+				<table>
+				<tr>
+				<td>記入者</td>
+				<td>
+					<table >
+						<!--
+						<tr><td>部署</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="busyo" value="<%=SetV2("busyo",rsInfo,blnBack)%>" size=90 maxlength=30 ></td></tr>
+						<tr><td>役職</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="post" value="<%=SetV2("post",rsInfo,blnBack)%>" size=90 maxlength=30 ></td></tr>
+						<tr><td>氏名</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="tantou" value="<%=SetV2("tantou",rsInfo,blnBack)%>" size=30 maxlength=10 ></td></tr>
+						<tr><td>電話</td><td><input <%=blnAnsctrl%> class="mustValue" type="text" name="tel" value="<%=SetV2("tel",rsInfo,blnBack)%>" style="ime-mode: disabled;" size=30 maxlength=20 ></td></tr>
+						<tr><td>メール</td><td><input <%=blnAnsctrl%> type="text" name="mail" value="<%=SetV2("mail",rsInfo,blnBack)%>" style="ime-mode: disabled;" size=90 maxlength=60 ></td></tr>
+						-->
+						<tr><td>部署</td><td><%=Request.Form("busyo")%></td></tr>
+						<tr><td>役職</td><td><%=Request.Form("post")%></td></tr>
+						<tr><td>氏名</td><td><%=Request.Form("tantou")%></td></tr>
+						<tr><td>電話</td><td><%=Request.Form("tel")%></td></tr>
+						<tr><td>メール</td><td><%=Request.Form("mail")%></td></tr>
+				<input type="hidden" name="busyo" value="<%=Request.Form("busyo")%>">
+				<input type="hidden" name="post" value="<%=Request.Form("post")%>">
+				<input type="hidden" name="tantou" value="<%=Request.Form("tantou")%>">
+				<input type="hidden" name="tel" value="<%=Request.Form("tel")%>">
+				<input type="hidden" name="mail" value="<%=Request.Form("mail")%>">
+					</table>
+				</td>
+				</tr>
+				</table>
+				</div>
+<%
+end if	'----------------------------子アンケートの判断処理終わり----------------------
+
+				'============確定ボタン処理========================================
+				if (rs("KAKUTEI") & "")="期間" then
+						if blnKOSHIN then%>
+							<h3 style="background-color:yellow;border:1 solid red;" >入力後、確定してください。<br />（<% if Len(rs("Qend") & "") >0 then %>期限までは、<% end if %>内容は変更できます。）</h3>
+							<div >
+									<input  style="display:none;" type="checkbox" name="status" value="●" CHECKED  >
+							<table><tr><td>
+							<input <%=blnAnsctrl%> style="width:14em;font-size:120%;font-weight:bold;" type="submit" value="入力画面に戻る" onClick="goBack();">
+							</td><td>
+							<input <%=blnAnsctrl%> style="width:14em;font-size:120%;font-weight:bold;" type="submit" value="内容を確定する" onClick="goUpdate(true);">
+
+							<% if blnKors AND blnrsInfo then %>
+							<!--確認画面の時は削除ボタンは不要-->
+							<!--</td><td>
+							<button  style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>-->
+							<% end if %>
+							</td>
+							</tr></table>
+						<div >
+						<%else%>
+						<h3 style="background-color:yellow;border:1 solid red;" >
+							<b><%=termError%></b>
+						</h3>
+						<% if blnKors AND blnrsInfo then
+									if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+						<table><tr><td>
+						<button style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+						</td>
+						</tr></table>
+						<% end if
+						end if %>
+
+						<%end if
+				else
+						if not blnKOSHIN then %>
+							
+							<h3 style="background-color:yellow;border:1 solid red;" >
+								<b><%=termError%></b>
+							</h3>
+							<% if blnKors AND blnrsInfo then
+								if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+									<table><tr><td>
+									<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+									</td>
+									</tr></table>
+								<% end if
+							end if %>
+
+						<% else%>
+<!--
+一時保存ができない問題について、name="status"が2つあるのが原因だったのでここをコメントアウト
+コメントアウトによっておこる影響は不明
+tyoshiya 20170923
+							<input  style="display:none;" type="checkbox" name="status" value="●" CHECKED  >
+-->
+							<% if Request("save") = "on" then %>
+								<h3 style="background-color:yellow;border:1 solid red;" >入力内容をご確認ください。<br />内容修正をされる場合は「入力画面に戻る」ボタンをクリックしてください。<br />「内容を確定する」ボタンをクリックすると入力内容が確定されます。（内容変更ができなくなります）<br />「一時保存する」ボタンをクリックすると入力内容が保存されます。（未確定）改めて内容呼出・修正が可能です。</h3>
+							<% else %>
+								<h3 style="background-color:yellow;border:1 solid red;" >入力内容をご確認ください。<br />内容修正をされる場合は「入力画面に戻る」ボタンをクリックしてください。<br />「内容を確定する」ボタンをクリックすると入力内容が確定されます。（内容変更ができなくなります）<br />「一時保存する」ボタンをクリックすると入力内容が保存されます。（未確定）改めて内容呼出・修正が可能です。</h3>
+							<% end if %>
+							<div >
+								<input  style="display:none;" type="checkbox" name="status" value="●"   >
+								<table>
+									<tr>
+										<td>
+											<input <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;" type="submit" value="入力画面に戻る" Onclick="goBack();">
+
+										</td>
+										<td>
+											<input <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;" type="submit" value="内容を確定する" OnClick="goUpdate(true);" >
+											<input <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;" type="submit" value="一時保存する" OnClick="goUpdate(false);" >
+										</td>
+								<% if blnKors AND blnrsInfo  then
+									if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+										<td>
+											<button <%=blnAnsctrl%> style="width:14em;font-size:110%;font-weight:bold;"  OnClick="DDEL();return false;" >この内容を削除する</button>
+										</td>
+									<% end if 
+								end if%>
+								</table>
+							</div>
+						<% End if 
+
+
+				end if
+
+			 if blnrsInfo AND blnKors then 
+						if CHKKOSHIN(OYArs,true,OYArsAA) then %>
+
+				<script type="text/JavaScript" >
+				<!--
+				function DDEL(){
+					if(confirm("本当に削除しますか？")){
+						
+						ttt = "<%=selfPname%>?mode=AADelete&dlrcode=<%=strDlrCode%>&QID=<%=Request("QID")%>&AAID=<%=rsInfo("AAID")%>"
+						location.href = ttt;
+					}
+				
+				}
+				//-->
+				</script>
+				<%	end if
+				 end if 
+
+
+				'ーーーメンテ権限のチェックーーー
+
+				if blnSPuser OR (blnMGuser AND blnACCESS) then
+						if rs("KAKUTEI")="期間" then
+									if not blnKOSHIN then%>
+										<p><span style="padding:2;border-style:solid;border-width:3;border-color:green;background-color:#CCCCFF;" >
+										　管理用　<input type="submit" name="support" value="１回だけ入力可能とする" onclick="document.myform.mode.value='edit';">
+										　</span></P>
+										<input  style="display:none;" type="checkbox" name="status" value="★"   >
+									<%end if
+
+						else
+							 	if not blnKOSHIN then %>
+										<p><span style="padding:2;border-style:solid;border-width:3;border-color:green;background-color:#CCCCFF;" >
+										　管理用　<input type="submit" name="support" value="確定情報のリセット">
+										　</span></p>
+										<input  style="display:none;" type="checkbox" name="status" value=""   >
+				<%			end if
+						end if
+
+				end if
+
+				'===========設問表示処理================
+
+				MEMONO = ""		'タイトルまとめ用の判断変数　QQNOの格納
+				Do while not rsQQ.EOF
+				 '==========タイトル編集================
+				 if not(MEMONO = rsQQ("QQNO")) then%>
+						<h3 style="border:1 solid red;margin-bottom:3px;background-color:#FFCCCC;" ><%=rsQQ("QQNO")%>．<%=rsQQ("QQtitle")%></h3>
+						<%
+						MEMONO = rsQQ("QQNO")
+				 else
+				 		%><div>　</div><%
+				 end if 
+				 '==========タイトル編集（おわり）=======
+				 '==========説明文========================
+				 if Len("" & rsQQ("QQexp"))>0 then%>
+				<div style="margin-left:1em;" ><%=ono_en(rsQQ("QQexp"))%></div>
+				<%end if 
+				'==========説明文（おわり）===============
+
+				'==========入力欄編集=====================%>
+				<div style="margin-left:1em;" >
+						<% if rsQQ("QQtype")="複数回答" then
+									blnKorsQQ = false
+									blnKorsAA = false
+									TableWidth = 11
+
+									'--------子情報の取得------------
+									if Len("" & rsQQ("SubQID")) > 0 then
+										'------子情報の取得--------
+										Set Kors = Server.CreateObject("ADODB.Recordset")
+										SQL = "SELECT * FROM Qmaster WHERE QID=" & rsQQ("SubQID")
+										Kors.Open SQL,db,3,3
+										'------子情報の入力制限のチェック------------------------
+										blnKoLMT = true
+										cntLMT = null
+										Set LMTKors = Server.CreateObject("ADODB.Recordset")
+										if Len("" & Kors("LMTALL")) > 0 then
+											SQL = "select * from t_" & Kors("QID") 
+											LMTKors.Open SQL,db,3,3
+											cntLMT = CInt(Kors("LMTALL"))-LMTKors.RecordCount
+											LMTKors.Close
+											if cntLMT > 0 then
+												blnKoLMT = true
+											else
+												blnKoLMT = false
+											end if
+										end if
+										if blnKoLMT then
+											if Len("" & Kors("LMTDLR")) > 0 then
+												SQL = "select * from t_" & Kors("QID") & " WHERE dlrcode='" & strDlrCode & "' "
+												LMTKors.Open SQL,db,3,3
+												cntLMTB = CInt(Kors("LMTDLR"))-LMTKors.RecordCount
+												LMTKors.Close
+												if cntLMTB >0 then
+													if Len("" & Kors("LMTALL")) > 0 then
+														if cntLMTB < cntLMT then cntLMT = cntLMTB
+													else
+														cntLMT = cntLMTB
+													end if
+												else
+													blnKoLMT = false
+												end if
+											end if
+										end if
+
+										'------子情報の入力制限のチェック（おわり）------------------------
+
+										'------子項目情報の取得--------
+										Set KorsQQ = Server.CreateObject("ADODB.Recordset")
+										SQL = "SELECT * FROM QQmaster WHERE QID=" & rsQQ("SubQID") & " ORDER BY QQNO,QQSubNO,QQID "
+										KorsQQ.Open SQL,db,3,3
+										if not KorsQQ.EOF then
+											blnKorsQQ = true
+											'------子入力情報の取得--------
+											Set KorsAA = Server.CreateObject("ADODB.Recordset")
+											SQL = "SELECT * FROM t_" & rsQQ("SubQID") & " WHERE dlrcode='" & strDlrCode & "' ORDER BY AADate DESC,AAID "
+											KorsAA.Open SQL,db,3,3
+											if not KorsAA.EOF then blnKorsAA = true
+										end if
+										'------表示タイトルの取得--------
+										blnKoTitle = false
+										strTitleNum=""
+										strTitleName = ""
+										strTitleWidth = ""
+										TableWidth = 10
+										if Len(Kors("Qflg") & "" ) > 0 then
+										 strTitleNum = "status"
+										 strTitleWidth = "5"
+										 strTitleName = "入力状態"
+										 TableWidth = TableWidth + 5
+										end if
+
+										Do while not KorsQQ.EOF
+											if IsNumeric(KorsQQ("colflg") & "" ) then
+												strTitleNum = OnoComma(strTitleNum,"C" & KorsQQ("QQID"))
+												strTitleWidth = OnoComma(strTitleWidth,CStr(CInt(KorsQQ("colflg"))+1))
+												if Len("" & KorsQQ("QQSubtitle")) > 0 then
+													strTitleName = OnoComma(strTitleName,KorsQQ("QQSubtitle"))
+												else
+													strTitleName = OnoComma(strTitleName,KorsQQ("QQtitle"))
+												end if
+												TableWidth = TableWidth + CInt(KorsQQ("colflg")) + 1
+											end if
+											KorsQQ.MoveNext
+										Loop
+										if Len(strTitleName ) > 0 then
+											blnKoTitle = true
+											AryKoNum = Split(strTitleNum , ",")
+											AryKoName = Split(strTitleName ,",")
+											AryKoWidth = Split(strTitleWidth ,",")
+										end if
+										
+									end if
+									'--------子情報の取得（おわり）------------
+						
+						%>
+						<p>
+								<div style="padding:1px;background-color:#777777;color:white;font-weight:bold;width:800px;" >
+										【入力済み一覧】　
+<% if blnKOSHIN then 
+			if blnKoLMT then%>
+										<button style="margin:1px;" disabled OnClick="OnoKoQ('<%=rsQQ("QQID")%>','','<%=rsQQ("SubQID")%>');">新規入力</button>
+<%		end if
+	 end if %>
+								<input type="text" readonly name="<%="C"& rsQQ("QQID")%>" value="<%=SetV2("C"& rsQQ("QQID"),rsInfo,blnBack)%>" style="font-size:110%;font-weight:bold;text-align:right;width:3em;border:0;background-color:#777777;color:white;" <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%> > <% if Len("" & SetV2("C"& rsQQ("QQID"),rsInfo,blnBack))>0 then %>件入力されています。<%else%>入力件数は０です。<%end if %>
+<% if blnKoLMT then 
+			if Len("" & cntLMT) > 0 then%>
+				（あと<%=cntLMT%>件入力可）
+			<%end if
+	 else%>
+			<span style="color:pink;" >（入力可能件数に達しました）</span>
+<%	 end if %>
+</div>
+								<div class="ddlist" >
+										<table border=1 cellspacing=0 style="width:<%=TableWidth%>em;" >
+										<colgroup span=6 style="background-color:white;" >
+										<tr style="background-color:yellow;" >
+											<th style="width:3em;" >操作</th>
+											<th style="width:7em;">入力日</th>
+											<% if blnKoTitle then
+														For i=0 to UBound(AryKoName)%>
+																<th style="width:<%=AryKoWidth(i)%>em;"><%=AryKoName(i)%></th>
+													<%Next
+												 end if%>
+										</tr>
+<%
+if not Request("p") = "true" then
+	if blnKorsAA then 
+				Do while not KorsAA.EOF%>
+											<tr style="background-color:white;" >
+												<td style="width:2em;"><button disabled OnClick="OnoKoQ('<%=rsQQ("QQID")%>','<%=KorsAA("AAID")%>','<%=rsQQ("SubQID")%>');">表示</button></td>
+												<td style="width:7em;"><%=OnoTD(KorsAA("AADate"))%></td>
+												<% if blnKoTitle then
+															For i=0 to UBound(AryKoName)
+																	if AryKoNum(i)="status" then%>
+																	<td style="text-align:center;width:<%=AryKoWidth(i)%>em;"><%if KorsAA("status")="●" then %>確定済み<%else%>---<%end if %></td>
+												<%				else%>
+																	<td style="width:<%=AryKoWidth(i)%>em;"><%=OnoCutValue(KorsAA(AryKoNum(i)),AryKoWidth(i))%></td>
+												<%				end if
+															Next
+													 end if%>
+											</tr>
+	<%			KorsAA.MoveNext
+				Loop
+	%>
+											</table>
+	<%	else %>
+											</table>
+											<p >−−入力情報はありません。−−</p>
+	<%	end if %>
+<%	else %>
+										</table>
+										<p >−−入力情報はありません。−−</p>
+<%	end if %>
+								</div>
+						</p>
+
+						<%
+							elseif rsQQ("QQtype")="入力方式" then
+								Response.Write Request.Form("C" & rsQQ("QQID"))
+							elseif rsQQ("QQtype")="入力方式（日付）" then
+								Response.Write Request.Form("C" & rsQQ("QQID"))
+							elseif rsQQ("QQtype")="入力方式（数値）" then
+								Response.Write Request.Form("C" & rsQQ("QQID"))
+							elseif rsQQ("QQtype")="入力方式（メモ）" then 
+								if Len("" & rsQQ("QQoption"))>0 then
+										AryOP = Split("" & rsQQ("QQoption"),",")
+										i=0
+										cmdline =""
+										CntRow = 3
+										MOJILMT = ""
+										for each key in AryOP
+											Select Case i 
+											case 0
+												if Len( Key& "") >0 then
+													MOJILMT = Key
+													cmdline = "onChange=" & chr(13) & "CutValue(this,'" & key & "');" & chr(13)
+												end if
+											case 1
+												if Len(Trim(Key) & "") >0 then
+													CntRow = key
+												end if
+											End Select
+											i=i+1
+										Next
+								else
+									CntRow = 3								
+								End if
+								Response.Write Request.Form("C" & rsQQ("QQID"))
+							elseif rsQQ("QQtype")="選択方式" then
+								setVal = ""
+								SQL = "select * from QAmaster where QID=" & Request("QID") & " and QQID=" & rsQQ("QQID") & " ORDER BY QANO,QAID "
+								rsQA.Open SQL,db,3,2
+								Do while not rsQA.EOF
+									if rsQA("QAvalue") = Request.Form("C" & rsQQ("QQID")) then
+										setVal = rsQA("QAexp")
+									end if
+									rsQA.MoveNext
+								Loop
+								rsQA.Close
+								Response.Write setVal
+							elseif rsQQ("QQtype")="選択方式（ラジオ）" then
+								setVal = ""
+								SQL = "select * from QAmaster where QID=" & Request("QID") & " and QQID=" & rsQQ("QQID") & " ORDER BY QANO,QAID "
+								rsQA.Open SQL,db,3,2
+								Do while not rsQA.EOF
+									if rsQA("QAvalue") = Request.Form("C" & rsQQ("QQID")) then
+										setVal = rsQA("QAexp")
+									end if
+										rsQA.MoveNext
+								Loop
+				        		rsQA.Close
+								Response.Write setVal
+							elseif rsQQ("QQtype")="選択方式（チェック）" then
+								SQL = "select * from QAmaster where QID=" & Request("QID") & " and QQID=" & rsQQ("QQID") & " ORDER BY QANO,QAID "
+								rsQA.Open SQL,db,3,2
+								Do while not rsQA.EOF
+										if OnoChecked2( rsQA("QAvalue") , Request.Form("C" & rsQQ("QQID"))) = "checked" then
+											Response.Write rsQA("QAexp") & " "
+										end if
+										rsQA.MoveNext
+								Loop
+				        		rsQA.Close
+
+							elseif rsQQ("QQtype")="ファイル" then
+							%>
+								<div><table border="1" cellspacing="0" ><tr bgcolor="yellow" ><th>送信ファイル名</th><th>最新ご連絡日</th>
+								<% if blnKOSHIN then %>
+								<th>操作</th>
+								<%end if%>
+								</tr>
+								<tr><td><% OP = InStr(rsQQ("QQoption"),",")
+								strfilename = ""
+								if OP > 0 then
+						  			strfilename = Left(rsQQ("QQoption"),OP)
+						  		else
+						  			strfilename = rsQQ("QQoption")
+						  		end if
+						  		Response.Write strfilename
+						  	%>
+								</td><td>
+								<input style="border:0;" type="text" <% if rsQQ("QQhissu")="必須" then %>class="mustValue" <% end if%> ReadOnly name="C<%=rsQQ("QQID")%>" value="<%=SetV2("C" & rsQQ("QQID"),rsInfo,blnBack)%>" size=50></td>
+								<% if blnKOSHIN then %>
+								<td><button disabled onClick="OnoFile('<%=rsQQ("QQID")%>');">ファイルの参照</button></td>
+								<%end if%>
+								</tr>
+								</script>
+								</table>
+								</div>
+						<%
+							end if
+							strPost = "C" & rsQQ("QQID")
+
+							'***** 各設問の回答データをhiddenへ入れておく（複数回答とファイルは個別に設定）
+							if rsQQ("QQtype")<>"複数回答" and rsQQ("QQtype")<>"ファイル" then
+						%>
+							<input type="hidden" name="<%=strPost%>" value="<%=Request.Form(strPost)%>">
+						<%	end if	%>
+						<%=rsQQ("Qunit")%>
+				</div>
+				<%'========入力欄編集（おわり）===================
+				  rsQQ.MoveNext
+				Loop
+%>
+				<!--[入力画面に戻る]ボタン判定用パラメータ-->
+				<input type="hidden" name="goback" value="">
+
+
+
+				</form>
+
+				<%
+End Function
+%>

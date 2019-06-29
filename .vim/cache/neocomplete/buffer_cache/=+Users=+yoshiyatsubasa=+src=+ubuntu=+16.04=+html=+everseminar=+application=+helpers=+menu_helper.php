@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'function_exists', 'active_link_controller', 'function', '$controller', 'get_instance', '$class', 'router', 'fetch_class', 'return', 'active', 'NULL', 'active_link_function', 'fetch_method'}

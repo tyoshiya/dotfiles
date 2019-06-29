@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', '$config', 'email', 'default', 'protocol', 'smtp', 'host', 'care', 'revo', 'port', 'user', 'support', 'password', 'support1111', 'from', 'name', 'Deview', 'gmail', 'levi2hands', 'kJ38685', 'mail', 'systems', 'deview'}

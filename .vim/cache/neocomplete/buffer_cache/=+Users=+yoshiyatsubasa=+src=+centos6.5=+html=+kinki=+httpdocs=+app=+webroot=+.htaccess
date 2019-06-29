@@ -1,0 +1,1 @@
+{'IfModule', 'mod_rewrite', 'RewriteEngine', 'RewriteCond', 'REQUEST_FILENAME', 'REQUEST_URI', 'kinki', 'RewriteRule', 'webroot', 'index'}

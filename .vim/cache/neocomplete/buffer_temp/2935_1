@@ -1,0 +1,197 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+class Sales extends MY_Controller {
+    function __construct() {
+        parent::__construct();
+    }
+
+    function index(){
+		//セッションチェック
+		$this->library("checker")->hasSession($this->library("session"));
+
+		//データ取得
+		$sales = $this->model("sales")->findAll("shop_id =".$_SESSION["user"]->shop_id,"","created desc");
+		$this->set("sales",$sales);
+
+		$this->view("/sales/index");
+    }
+
+    function daily_index(){
+		//セッションチェック
+		$this->library("checker")->hasSession($this->library("session"));
+
+        $message = "";
+
+
+        if(isset($_GET["mode"])){
+            if($_GET["mode"] == "send_clubmanager"){
+                $url = _def_clubmanager_url."/reports/listmanager_add";
+                $data = $_POST;
+                $headers = array(
+                    'Content-Type: application/x-www-form-urlencoded',
+                );
+                $options = array('http' => array(
+                    'method' => 'POST',
+                    'content' => http_build_query($data),
+                    'header' => implode("\r\n", $headers),
+                ));
+                $contents = file_get_contents($url, false, stream_context_create($options));
+
+                $message = "クラブマネージャーに日報を送信しました。";
+            }
+        
+        }
+
+        //クラブマネージャーのユーザーを取得する
+        $clubmanager_users = array();
+        if($_SESSION["user"]->clubmanager_shop_id > 0){
+            $url = _def_clubmanager_url."/users/return_clubmanager_users/".$_SESSION["user"]->clubmanager_shop_id;
+            $res = file_get_contents($url);
+            if($res != ""){
+                vendor("json/JSON");
+                $json = new Services_JSON();
+                $decode = $json->decode($res);
+                foreach ($decode as $val) {
+                    $clubmanager_users[$val->User->id] = $val->User->name;
+                }
+            }
+        }
+        $this->set("clubmanager_users",$clubmanager_users);
+
+        //営業時間を取得
+        list($this_open_datetime,$this_close_datetime) = $this->model("times")->getThisStoretime();
+        $this->set("this_open_datetime",date("m/d H:i",strtotime($this_open_datetime)));
+        $this->set("this_close_datetime",date("m/d H:i",strtotime($this_close_datetime)));
+
+        //総売上
+        $uriage = $this->model("sales")->getUriage();
+        $this->set("uriage",$uriage);
+        //
+        //現金合計を取得
+        $genkin = $this->model("sales")->getGenkin();
+        $this->set("genkin",$genkin);
+
+        //カード売上
+        $credit = $uriage - $genkin;
+        $this->set("credit",$credit);
+
+        //未収総額を取得
+        $uncollected = $this->model("sales")->getUncollected();
+        $this->set("uncollected",$uncollected);
+
+        //入金合計を取得
+        $nyukin = $this->model("monies")->getNyukin();
+        $this->set("nyukin",$nyukin);
+
+        //出金合計
+        $shukkin = $this->model("monies")->getShukkin();
+        $this->set("shukkin",$shukkin);
+
+        //テーブル料の総額を取得
+        $table_charge = $this->model("sales")->getTableCharge();
+        $this->set("table_charge",$table_charge);
+
+        //ハーフ延長の総額を取得
+        $half_table_charge = $this->model("sales")->getHalfTableCharge();
+        $this->set("half_table_charge",$half_table_charge);
+
+        //本指名の総額を取得
+        list($simei_charge,$jounai_simei_charge,$half_simei_charge) = $this->model("sales")->getSimeiCharge();
+        $this->set("simei_charge",$simei_charge);
+        $this->set("jounai_simei_charge",$jounai_simei_charge);
+        $this->set("half_simei_charge",$half_simei_charge);
+
+        //割引ポイント数を取得
+        $point = $this->model("sales")->getPoint();
+        $this->set("point",$point);
+
+        //割引ポイント数を取得
+        $point_discount = $this->model("sales")->getPointDiscount();
+        $this->set("point_discount",$point_discount);
+
+        //会員割引を取得
+        $customer_rank_discount = $this->model("sales")->getCustomerRankDiscount();
+        $this->set("customer_rank_discount",$customer_rank_discount);
+
+        //割引ポイント数を取得
+        $discount = $this->model("sales")->getDiscount();
+        $this->set("discount",$discount);
+
+        //来店組数と人数の取得
+        list($sale_cnt,$sale_detail_cnt) = $this->model("sales")->getSaleCnt();
+        $this->set("sale_cnt",$sale_cnt);
+        $this->set("sale_detail_cnt",$sale_detail_cnt);
+
+
+        //キャストの総獲得ポイントを取得
+        $options = array();
+        $options["open_datetime"] = $this_open_datetime;
+        $options["close_datetime"] = $this_close_datetime;
+        $sum_point = $this->model("point_histories")->getSumPoint($options);
+        $this->set("sum_point",$sum_point);
+
+        //テーブルクリアの件数を取得
+        $options = array();
+        $options["open_datetime"] = $this_open_datetime;
+        $options["close_datetime"] = $this_close_datetime;
+        $table_clear_count = $this->model("fraud_target_logs")->getClearCount($options);
+        $this->set("table_clear_count",$table_clear_count);
+
+        //本指名の人数を取得
+        $simei_sale_detail_cnt = $this->model("sale_details")->getSimeiCnt();
+		$this->set('simei_sale_detail_cnt',$simei_sale_detail_cnt);
+
+        //本指名の現金売上を取得
+        $ = $this->model("sale_details")->getSimeiCnt();
+		$this->set('simei_sale_detail_cnt',$simei_sale_detail_cnt);
+
+        //本指名の人数を取得
+        $simei_sale_detail_cnt = $this->model("sale_details")->getSimeiCnt();
+		$this->set('simei_sale_detail_cnt',$simei_sale_detail_cnt);
+
+		$this->set('message',$message);
+
+		$this->view("/sales/daily_index");
+    }
+    function detail($id){
+		//セッションチェック
+		$this->library("checker")->hasSession($this->library("session"));
+
+		//データ取得
+        $sale = $this->model("sales")->findById($id);
+
+        if(!empty($sale)){
+            $sale->sale_details = $this->model("sale_details")->findAll(
+                "sale_id = ".$sale->id,
+                null,
+                "id asc",
+                null,
+                false
+            );
+
+            if(!empty($sale->sale_details)){
+                foreach($sale->sale_details as $key => &$row){
+                    $row->sale_detail_casts = $this->model("sale_detail_casts")->findAll(
+                        "sale_detail_id = ".$row->id,
+                        null,
+                        "id asc",
+                        null,
+                        false
+                    );
+
+                    $row->sale_detail_items = $this->model("sale_detail_items")->findAll(
+                        "sale_detail_id = ".$row->id,
+                        null,
+                        "id asc",
+                        null,
+                        false
+                    );
+                }
+            }
+        }else{
+            echo "エラーです";exit;
+        }
+
+		$this->set("sale",$sale);
+		$this->view("/sales/detail");
+    }
+}

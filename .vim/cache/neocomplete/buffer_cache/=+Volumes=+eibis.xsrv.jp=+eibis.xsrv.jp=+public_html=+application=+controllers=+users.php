@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'class', 'Users', 'extends', 'MY_Controller', 'function', '__construct', 'parent::__construct', 'login', '$this', 'redirect', 'admin', 'users', 'index', 'view', 'default'}

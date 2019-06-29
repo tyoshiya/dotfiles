@@ -1,0 +1,1 @@
+{'get_header', '<div ', 'class', '<h2 ', 'maintitle', '<img ', 'echo', 'get_template_directory_uri', 'images', 'contact', 'title', 'srcset', '</h2>', 'box_in', 'contact_p', '<span>', '</span>', '<br />', '</p>', '<ul ', 'contact_list', '<li ', 'contact_tel', 'href', '</a>', '</li>', '<li>', 'mail', 'mailto', 'c11122', 'pref', 'gifu', '</ul>', '</div>', 'get_footer'}

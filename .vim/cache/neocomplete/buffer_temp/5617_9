@@ -1,0 +1,646 @@
+<?php get_header(); ?>
+<?php
+$columns = array('lg01','lg02','lg03','lg04','lg05');
+$league_infos = getLeagueInfos($columns);
+//new dbug($league_infos);
+//exit;
+?>
+
+	<link rel="stylesheet" href="common/js/slick/slick.css">
+	<link rel="stylesheet" href="common/js/slick/slick-theme.css">
+
+	<div class="indexContents">
+<?php $main_image_posts = query_posts(array('post_type'=>'main_image')); $main_image_posts = array();?>
+  <div id="SlideRow">
+    <ul id="MainImage">
+<?php if(!empty($main_image_posts)){ ?>
+	<?php foreach ($main_image_posts as $post) {
+
+		$image = wp_get_attachment_image_src(get_post_meta($post->ID,'メイン画像',true),"large");
+		if($image[1] > $image[2]){
+			if($image[2] <= 400){
+				$width = "auto";
+				$height = "auto";
+			}else{
+				$height = "auto";
+				$width = "auto";
+			}
+		}else{
+			$height = "auto";
+			$width = "auto";
+		}
+//var_dump($image);exit;
+//echo htmlspecialchars($image);exit;
+	?>
+      <li><img src="<?php echo $image[0]; ?>" style="width:<?php echo $width; ?>;height:<?php echo $height; ?>" alt="愛知大学野球連盟公式ウェブサイト" /></li>
+	<?php } ?>
+<?php }else{ ?>
+		<li><img src="<?php bloginfo('url'); ?>/img/mainimg.jpg" alt="愛知大学野球連盟公式ウェブサイト" /></li>
+<?php } ?>
+    </ul>
+
+    <div id="Lg01Info">
+      <div class="card-header">
+        <div><img src="<?php bloginfo('url'); ?>/common/img/ball.svg" alt="ボール" /></div>
+        <div><a href="<?php bloginfo('url'); ?>/lg01?mode=result">1部リーグ試合結果</a></div>
+      </div>
+      <div class="card-body">
+        <div class="game-date">2018年6月1日(金)</div>
+        <div class="game-box border-bottom">
+          <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第一試合</a></div>
+          <div class="game-box-body">
+            <div>中部大</div>
+            <div>
+              <div class="score">3 - 1</div>
+            </div>
+            <div>名城大</div>
+          </div>
+          <div class="game-box-footer end">試合終了</div>
+        </div>
+        <div class="game-box">
+          <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第二試合</a></div>
+          <div class="game-box-body">
+            <div>愛知大</div>
+            <div>
+              <div class="score">1 - 1</div>
+            </div>
+            <div>中京大</div>
+          </div>
+          <div class="game-box-footer now">
+            <div class="triangle-left"></div>
+            <div>3回裏</div>
+            <div class="triangle-right active"></div>
+          </div>
+        </div>
+        <div class="ranking">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>試合数</th>
+                <th>勝</th>
+                <th>負</th>
+                <th>分</th>
+                <th>勝点</th>
+                <th>順位</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>中京大学</td>
+                <td>6</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>3</td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td>名城大学</td>
+                <td>10</td>
+                <td>7</td>
+                <td>3</td>
+                <td>0</td>
+                <td>3</td>
+                <td>2</td>
+              </tr>
+              <tr>
+                <td>中部大学</td>
+                <td>8</td>
+                <td>5</td>
+                <td>3</td>
+                <td>0</td>
+                <td>2</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td>愛知大学</td>
+                <td>6</td>
+                <td>0</td>
+                <td>6</td>
+                <td>0</td>
+                <td>0</td>
+                <td>5</td>
+              </tr>
+              <tr>
+                <td>東海学園大学</td>
+                <td>6</td>
+                <td>0</td>
+                <td>6</td>
+                <td>0</td>
+                <td>0</td>
+                <td>6</td>
+              </tr>
+              <tr>
+                <td>愛知学院大学</td>
+                <td>10</td>
+                <td>5</td>
+                <td>5</td>
+                <td>0</td>
+                <td>2</td>
+                <td>4</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <ul id="InstaList">
+    <li><img src="<?php bloginfo('url'); ?>/common/img/insta_with_name.jpg"></li>
+    <li><img src="<?php bloginfo('url'); ?>/common/img/01.jpg"></li>
+    <li><img src="<?php bloginfo('url'); ?>/common/img/02.jpg"></li>
+    <li><img src="<?php bloginfo('url'); ?>/common/img/03.jpg"></li>
+    <li><img src="<?php bloginfo('url'); ?>/common/img/04.jpg"></li>
+    <li><img src="<?php bloginfo('url'); ?>/common/img/05.jpg"></li>
+    <li><img src="<?php bloginfo('url'); ?>/common/img/06.jpg"></li>
+    <li><img src="<?php bloginfo('url'); ?>/common/img/07.jpg"></li>
+    <li><img src="<?php bloginfo('url'); ?>/common/img/08.jpg"></li>
+  </ul>
+
+  <div id="InstaListSP">
+    <div id="InstaListSPIcon"><img src="<?php bloginfo('url'); ?>/common/img/insta_with_name.jpg"></div>
+    <ul>
+      <li><img src="<?php bloginfo('url'); ?>/common/img/01.jpg"></li>
+      <li><img src="<?php bloginfo('url'); ?>/common/img/02.jpg"></li>
+      <li><img src="<?php bloginfo('url'); ?>/common/img/03.jpg"></li>
+      <li><img src="<?php bloginfo('url'); ?>/common/img/04.jpg"></li>
+    </ul>
+    <ul>
+      <li><img src="<?php bloginfo('url'); ?>/common/img/05.jpg"></li>
+      <li><img src="<?php bloginfo('url'); ?>/common/img/06.jpg"></li>
+      <li><img src="<?php bloginfo('url'); ?>/common/img/07.jpg"></li>
+      <li><img src="<?php bloginfo('url'); ?>/common/img/08.jpg"></li>
+    </ul>
+  </div>
+
+  <div id="NewsBox">
+    <div id="NewsBoxHeader">
+      <div id="NewsLabel">NEWS</div>
+      <div id="PastLabel"><a href="<?php bloginfo('url'); ?>/category/news">> 過去の記事</a></div>
+    </div>
+    <div id="NewsBoxBody">
+<?php $myposts = query_posts(array('posts_per_page'=>5, 'orderby'=>'date','cat'=>1)); ?>
+<?php if($myposts){ ?>
+<?php $first_date = date("Y-m-d", strtotime($myposts[0]->post_date)); ?>
+<?php foreach($myposts as $post) : ?>
+<?php
+$title = '<a href="'.get_permalink($post->ID).'">'.$post->post_title.'</a>';
+$post_date = date("Y-m-d", strtotime($post->post_date));
+if($first_date == $post_date){
+  $title = '<span class="new">NEW</span>'.$title;
+}
+?>
+  <div><?php echo $post_date; ?>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br class="sp" /><?php echo $title; ?></div>
+<?php endforeach; ?>
+
+<?php }else{ ?>
+  ニュースはありません。
+<?php } ?>
+      </dl>
+    </div>
+  </div>
+
+  <div id="LeagueInfo">
+    <div id="LeagueInfoHeader">
+      <img src="<?php bloginfo('url'); ?>/common/img/batter.svg"><span>各リーグ情報</span>
+    </div>
+    <div id="LeagueInfoBody">
+      <div class="card">
+        <div class="card-header">
+          <div><img src="<?php bloginfo('url'); ?>/common/img/ball.svg" alt="ボール" /></div>
+          <div><a href="<?php bloginfo('url'); ?>/lg02?mode=result">2部Aリーグ試合結果</a></div>
+        </div>
+        <div class="card-body">
+          <div class="game-date">2018年6月1日(金)</div>
+          <div class="game-box border-bottom">
+            <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第一試合</a></div>
+            <div class="game-box-body">
+              <div>名古屋<br />大学</div>
+              <div>
+                <div class="score">2 - 3</div>
+              </div>
+              <div>星城<br />大学</div>
+            </div>
+            <div class="game-box-footer end">試合終了</div>
+          </div>
+          <div class="game-box">
+            <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第二試合</a></div>
+            <div class="game-box-body">
+              <div>名古屋<br />産業大学</div>
+              <div>
+                <div class="score">5 - 2</div>
+              </div>
+              <div>名古屋<br />学院大学</div>
+            </div>
+            <div class="game-box-footer now">
+              <div class="triangle-left active"></div>
+              <div>6回表</div>
+              <div class="triangle-right"></div>
+            </div>
+          </div>
+          <div class="ranking">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>試合数</th>
+                  <th>勝</th>
+                  <th>負</th>
+                  <th>分</th>
+                  <th>順位</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>名古屋商科大学</td>
+                  <td>10</td>
+                  <td>4</td>
+                  <td>6</td>
+                  <td>0</td>
+                  <td>4</td>
+                </tr>
+                <tr>
+                  <td>愛知工業大学</td>
+                  <td>10</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>0</td>
+                  <td>5</td>
+                </tr>
+                <tr>
+                  <td>名古屋産業大学</td>
+                  <td>10</td>
+                  <td>6</td>
+                  <td>4</td>
+                  <td>0</td>
+                  <td>3</td>
+                </tr>
+                <tr>
+                  <td>名古屋大学</td>
+                  <td>10</td>
+                  <td>1</td>
+                  <td>9</td>
+                  <td>0</td>
+                  <td>6</td>
+                </tr>
+                <tr>
+                  <td>星城大学</td>
+                  <td>10</td>
+                  <td>7</td>
+                  <td>3</td>
+                  <td>0</td>
+                  <td>1</td>
+                </tr>
+                <tr>
+                  <td>名古屋学院大学</td>
+                  <td>10</td>
+                  <td>7</td>
+                  <td>3</td>
+                  <td>0</td>
+                  <td>2</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div><img src="<?php bloginfo('url'); ?>/common/img/ball.svg" alt="ボール" /></div>
+          <div><a href="<?php bloginfo('url'); ?>/lg03?mode=result">2部Bリーグ試合結果</a></div>
+        </div>
+        <div class="card-body">
+          <div class="game-date">2018年6月1日(金)</div>
+          <div class="game-box border-bottom">
+            <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第一試合</a></div>
+            <div class="game-box-body">
+              <div>至学館<br />大学</div>
+              <div>
+                <div class="score">13 - 3</div>
+              </div>
+              <div>愛知<br />学泉大学</div>
+            </div>
+            <div class="game-box-footer end">試合終了</div>
+          </div>
+          <div class="game-box">
+            <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第二試合</a></div>
+            <div class="game-box-body">
+              <div>日本<br />福祉大学</div>
+              <div>
+                <div class="score">0 - 2</div>
+              </div>
+              <div>愛知<br />東邦大学</div>
+            </div>
+            <div class="game-box-footer now">
+              <div class="triangle-left active"></div>
+              <div>6回表</div>
+              <div class="triangle-right"></div>
+            </div>
+          </div>
+          <div class="ranking">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>試合数</th>
+                  <th>勝</th>
+                  <th>負</th>
+                  <th>分</th>
+                  <th>順位</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>愛知産業大学</td>
+                  <td>10</td>
+                  <td>7</td>
+                  <td>3</td>
+                  <td>0</td>
+                  <td>1</td>
+                </tr>
+                <tr>
+                  <td>日本福祉大学</td>
+                  <td>10</td>
+                  <td>4</td>
+                  <td>6</td>
+                  <td>0</td>
+                  <td>4</td>
+                </tr>
+                <tr>
+                  <td>愛知東邦大学</td>
+                  <td>10</td>
+                  <td>4</td>
+                  <td>6</td>
+                  <td>0</td>
+                  <td>6</td>
+                </tr>
+                <tr>
+                  <td>至学館大学</td>
+                  <td>10</td>
+                  <td>7</td>
+                  <td>3</td>
+                  <td>0</td>
+                  <td>2</td>
+                </tr>
+                <tr>
+                  <td>愛知学泉大学</td>
+                  <td>10</td>
+                  <td>3</td>
+                  <td>7</td>
+                  <td>0</td>
+                  <td>5</td>
+                </tr>
+                <tr>
+                  <td>同朋大学</td>
+                  <td>10</td>
+                  <td>5</td>
+                  <td>5</td>
+                  <td>0</td>
+                  <td>3</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div><img src="<?php bloginfo('url'); ?>/common/img/ball.svg" alt="ボール" /></div>
+          <div><a href="<?php bloginfo('url'); ?>/lg04?mode=result">3部Aリーグ試合結果</a></div>
+        </div>
+        <div class="card-body">
+          <div class="game-date">2018年6月1日(金)</div>
+          <div class="game-box border-bottom">
+            <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第一試合</a></div>
+            <div class="game-box-body">
+              <div>愛知<br />淑徳大学</div>
+              <div>
+                <div class="score">6 - 1</div>
+              </div>
+              <div>名古屋<br />経済大学</div>
+            </div>
+            <div class="game-box-footer end">試合終了</div>
+          </div>
+          <div class="game-box">
+            <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第二試合</a></div>
+            <div class="game-box-body">
+              <div>愛知<br />教育大学</div>
+              <div>
+                <div class="score">5 - 2</div>
+              </div>
+              <div>豊橋技術<br />科学大学</div>
+            </div>
+            <div class="game-box-footer end">試合終了</div>
+          </div>
+          <div class="ranking">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>試合数</th>
+                  <th>勝</th>
+                  <th>負</th>
+                  <th>分</th>
+                  <th>順位</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>名古屋経済大学</td>
+                  <td>6</td>
+                  <td>5</td>
+                  <td>1</td>
+                  <td>0</td>
+                  <td>1</td>
+                </tr>
+                <tr>
+                  <td>愛知淑徳大学</td>
+                  <td>6</td>
+                  <td>4</td>
+                  <td>2</td>
+                  <td>0</td>
+                  <td>2</td>
+                </tr>
+                <tr>
+                  <td>愛知教育大学</td>
+                  <td>6</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>0</td>
+                  <td>3</td>
+                </tr>
+                <tr>
+                  <td>豊橋技術科学大学</td>
+                  <td>6</td>
+                  <td>0</td>
+                  <td>6</td>
+                  <td>0</td>
+                  <td>4</td>
+                </tr>
+                <tr>
+                  <td>名古屋外国語大学</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>0</td>
+                  <td>5</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div><img src="<?php bloginfo('url'); ?>/common/img/ball.svg" alt="ボール" /></div>
+          <div><a href="<?php bloginfo('url'); ?>/lg05?mode=result">3部Bリーグ試合結果</a></div>
+        </div>
+        <div class="card-body">
+          <div class="game-date">2018年6月1日(金)</div>
+          <div class="game-box border-bottom">
+            <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第一試合</a></div>
+            <div class="game-box-body">
+              <div>名古屋<br />市立大学</div>
+              <div>
+                <div class="score">4 - 12</div>
+              </div>
+              <div>大同<br />大学</div>
+            </div>
+            <div class="game-box-footer end">試合終了</div>
+          </div>
+          <div class="game-box">
+            <div class="game-box-header"><img src="<?php bloginfo('url'); ?>/common/img/headline03.gif"><a href="<?php bloginfo('url'); ?>/record?id=">第二試合</a></div>
+            <div class="game-box-body">
+              <div>南山<br />大学</div>
+              <div>
+                <div class="score">6 - 8</div>
+              </div>
+              <div>名古屋<br />工業大学</div>
+            </div>
+            <div class="game-box-footer end">試合終了</div>
+          </div>
+          <div class="ranking">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>試合数</th>
+                  <th>勝</th>
+                  <th>負</th>
+                  <th>分</th>
+                  <th>順位</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>大同大学</td>
+                  <td>8</td>
+                  <td>7</td>
+                  <td>1</td>
+                  <td>0</td>
+                  <td>1</td>
+                </tr>
+                <tr>
+                  <td>名古屋工業大学</td>
+                  <td>8</td>
+                  <td>6</td>
+                  <td>2</td>
+                  <td>0</td>
+                  <td>2</td>
+                </tr>
+                <tr>
+                  <td>南山大学</td>
+                  <td>8</td>
+                  <td>3</td>
+                  <td>5</td>
+                  <td>0</td>
+                  <td>2</td>
+                </tr>
+                <tr>
+                  <td>名古屋市立大学</td>
+                  <td>8</td>
+                  <td>0</td>
+                  <td>8</td>
+                  <td>0</td>
+                  <td>4</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="banner clearfix">
+    <ul>
+      <li><a href="<?php bloginfo('url'); ?>/other/oth_replace"><img src="<?php bloginfo('url'); ?>/img/bnr_top03_off.gif" alt="入替戦" /></a></li>
+      <li><a href="<?php bloginfo('url'); ?>/other/oth_open"><img src="<?php bloginfo('url'); ?>/img/bnr_top02_off.gif" alt="王座決定戦" /></a></li>
+      <li><a href="<?php bloginfo('url'); ?>/other/oth_kansai6"><img src="<?php bloginfo('url'); ?>/img/bnr_top05_off.gif" alt="関西6大学対抗戦" /></a></li>
+      <li><a href="<?php bloginfo('url'); ?>/other/oth_rookie"><img src="<?php bloginfo('url'); ?>/img/bnr_top01_off.gif" alt="新人戦" /></a></li>
+      <li><a href="<?php bloginfo('url'); ?>/other/oth_toneup"><img src="<?php bloginfo('url'); ?>/img/bnr_top04_off.gif" alt="社会人対抗戦" /></a></li>
+    </ul>
+  </div>
+
+		<ul class="otherlink clearfix">
+			<li class="first"><a href="http://www.jubf.net/" title="全日本大学野球連盟" target="_blank"><img src="<?php bloginfo('url'); ?>/img/bnr_jubf.gif" alt="全日本大学野球連盟" /></a></li>
+			<li><a href="http://www.jaba.or.jp/" title="www.jaba.or.jp" target="_blank"><img src="<?php bloginfo('url'); ?>/common/img/bnr_jaba.gif" alt="jaba.or.jp" /></a></li>
+			<li><a href="http://www.student-baseball.or.jp/" title="www.student-baseball.or.jp" target="_blank"><img src="<?php bloginfo('url'); ?>/common/img/bnr_jsba.gif" alt="www.student-baseball.or.jp" /></a></li>
+			<li><a href="http://npb.jp/" title="npb.jp" target="_blank"><img src="<?php bloginfo('url'); ?>/common/img/bnr_npb.gif" alt="npb.jp" /></a></li>
+			<li class="pc"><img src="<?php bloginfo('url'); ?>/common/img/bnr_qr.gif" alt="QR" /></li>
+		</ul>
+		<ul class="otherlink clearfix">
+			<li><a href="http://minimini.jp/" title="minimini.jp" target="_blank"><img src="<?php bloginfo('url'); ?>/img/bnr_minimini2.png" alt="minimini.jp" /></a></li>
+		</ul>
+
+
+
+	</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="common/js/slick/slick.min.js"></script>
+<script type="text/javascript">
+  $new = jQuery;
+  $new(function($){
+    $('#MainImage').slick({
+      autoplay:true,
+      autoplaySpeed:10000,
+      dots:false,
+      pauseOnHover:true,
+      fade: true,
+      arrows:false
+    });
+
+    if($("#SlideRow").css("display") != "block"){
+      var main_slider_height = $("#MainImage").height();
+      var lg01_info_height = $("#Lg01Info").height();
+      var tall = main_slider_height;
+      if(tall < lg01_info_height){
+        tall = lg01_info_height; 
+      }
+      $("#MainImage").css({
+      "height":tall+"px",
+      }).find("li").css({
+      "height":tall+"px",
+      });
+      $("#Lg01Info").css({
+      "height":tall+"px", 
+      });
+    }else{
+      $(".slick-slide img").css({
+        "width":"100%" 
+      });
+    }
+
+    $("#Humberger").click(function(e){
+      $("#SPDropDownWrapper").slideToggle("slow"); 
+    });
+    $("#CloseIcon").click(function(e){
+      $("#SPDropDownWrapper").slideToggle("slow"); 
+    });
+  });
+</script>
+<?php get_footer(); ?>
+

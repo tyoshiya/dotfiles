@@ -1,0 +1,198 @@
+web
+ http://dev.pictbland.net
+ document-root:/home/dev.pictbland.net/httpdocs
+
+ftp
+ host:dev.pictbland.net
+ user:dev.pictbland.net
+ pass:いつもの
+
+ssh
+ host:dev.pictbland.net
+ user:root
+ pass:いつもの 
+
+cd /home/httpd/vhosts/sample-sys.net/subdomains/kinki2/httpdocs
+git --git-dir=.git pull
+
+SAクラウド
+7月にサーバーを立てる
+デモ用がつながるか
+要件書は8月中(３、４、５番)8/16日本番
+win10対応は9月〜12月
+サーバーOSは現状2008だが上げる16まで？SAクラウドが対応しているか？
+
+--仕様--
+CTSが15分に一回更新（エクセルのマクロで処理した結果をつながりやすさとして表示）エクセルはやめたい。
+交換機はmysql(一時間に一回)
+何か会った時に10分以内には更新したい
+交換機はクラウド(データベース直参照)サポセン用の専用サーバー?
+CTSは富士通のCRメイト
+
+優先のしきい値は100
+
+グラフは〜14時までの表記x軸
+
+CSVは
+半年一回置き換わる(dbにするかも)
+
+
+
+業務が4つある
+業務名はACDのパラメーター
+
+着信優先度が設定されている。
+しきい値が100より小さいスタッフは当該業務優先のヘルプデスク
+しきい値が100以上の時は受電可能ヘルプデスク
+
+
+おつかれ様です。開発環境を構築しました。
+
+git clone ssh://root@160.16.204.224/var/www/html/dev.git
+password:r8dHG0dht+
+
+でクローンして下さい。
+
+データベースはapp/config/database.phpを見て下さい。
+
+googledriveに表示項目一覧を作りました。
+各画面の表示項目をまとめたものです。
+*一覧というシートは一覧で表示する項目です。表示する項目を修正、追記お願いします。
+*検索というシートは検索条件です。項目と検索条件の修正、追記をお願いします。
+*入力というシートは入力が画面で表示する項目です。修正、追記をお願いします。
+
+質問事項は質問事項というファイルを作りました。
+回答お願い致します。
+
+会社概要
+お問い合わせフォーム
+簡単にする（カテゴリを選んでそれに応じたメッセージを出す
+買い取りの流れ
+ラインでお問い合わせ
+メインカラーは白とオレンジ
+ネットで査定と電話で査定
+問い合わせの前に誓約
+レスポ
+ハンバーガー
+24のロゴ
+速さが大事
+
+材料相殺はヤマグチ
+3/21-5/20の期間でやる
+
+空とネコ わんにゃん|愛犬、愛猫の写真共有SNS http://wannyan.localhost/posts/detail/UOf04AMhYNfheBf2Rml_B61itjvEuM_bQnvQnmlf8Kn0i5EINXmd95sOnPYAdL6eLFHk7oVP6cLOgM3zNwQggA== キレイな景色
+
+
+root:Ws14zjz9
+redadmin:2dHzSP08
+
+ページの洗い出し。
+
+
+・ホーム
+http://i.ytimg.com/vi/Vl742R1EiBA/1.jpg
+
+
+
+
+<!--Logo & Menu Section-->	
+<nav class="navbar navbar-default">
+    <div class="container">
+        <p style="text-align:center;;font-size:small;margin:0 0 0 0;">愛知県・岐阜県の深夜出張買取は出張買取23-7にお任せください。</p>
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+            <h1>
+                <a class="navbar-brand" href="http://test.localhost/wordpress/">
+                    <img src="img/top/logo.png">
+                </a>
+            </h1>
+                    
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+        </div>
+        
+        
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                <div class=""><ul class="nav navbar-nav navbar-right"><li class="page_item"><a href="." title="TOP">TOP</a></li><li class="page_item page-item-2"><a href="inquiry/index.php">お問合せ</a><li class="page_item page-item-3"><a href="company/index.php">会社情報</a></li></li></ul></div>
+        </div><!-- /.navbar-collapse -->
+    </div><!-- /.container-fluid -->
+</nav>	
+<!--/Logo & Menu Section-->	
+
+
+
+<style>
+div.prefCityArea h3 {
+    font-size: 18px;
+    font-weight: bold;
+    color: #ef6a05;
+}
+div.prefCityArea p {
+    font-size: 12px;
+    line-height: 1.5em;
+    color: #434343;
+    padding: 10px 10px 20px;
+}
+</style>
+<div class="prefCityArea container">
+    <h3>愛知県全域</h3>
+    <p><?php include("data/aichiCityArea.php");?></p>
+    <h3>岐阜県全域</h3>
+    <p><?php include("data/gifuCityArea.php");?></p>
+</div>
+
+<!-- /Footer Section -->
+<div class="clearfix"></div>
+<!-- Footer Copyright Section -->
+<div class="footer-copyright-section">
+	<div class="container">
+		<div class="row">
+			<div class="col-md-8">
+				<div class="footer-copyright">
+										No copyright information has been saved yet.					</a>
+									</div>
+			</div>
+							<div class="col-md-4">
+			<ul class="footer-contact-social">
+										<li class="facebook"><a href="#" target='_blank' ><i class="fa fa-facebook"></i></a></li>
+										<li class="twitter"><a href="#" target='_blank' ><i class="fa fa-twitter"></i></a></li>
+										<li class="linkedin"><a href="#" target='_blank' ><i class="fa fa-linkedin"></i></a></li>
+										<li class="googleplus"><a href="#" target='_blank' ><i class="fa fa-google-plus"></i></a></li>
+										<li class="skype"><a href="#" target='_blank' ><i class="fa fa-skype"></i></a></li>
+									</ul>
+			</div>
+					</div>
+	</div>
+</div>
+<!-- /Footer Copyright Section -->
+<!--Scroll To Top--> 
+<a href="#" class="hc_scrollup"><i class="fa fa-chevron-up"></i></a>
+<!--/Scroll To Top--> 
+	<!--[if lte IE 8]>
+		<script type="text/javascript">
+			document.body.className = document.body.className.replace( /(^|\s)(no-)?customize-support(?=\s|$)/, '' ) + ' no-customize-support';
+		</script>
+	<![endif]-->
+	<!--[if gte IE 9]><!-->
+		<script type="text/javascript">
+			(function() {
+				var request, b = document.body, c = 'className', cs = 'customize-support', rcs = new RegExp('(^|\\s+)(no-)?'+cs+'(\\s+|$)');
+
+						request = true;
+		
+				b[c] = b[c].replace( rcs, ' ' );
+				// The customizer requires postMessage and CORS (if the site is cross domain)
+				b[c] += ( window.postMessage && request ? ' ' : ' no-' ) + cs;
+			}());
+		</script>
+	<!--<![endif]-->
+
+
+お疲れ様です。
+近畿の保守の請求書ですが、
+明細の名前を2

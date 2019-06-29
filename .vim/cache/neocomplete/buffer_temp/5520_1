@@ -1,0 +1,74 @@
+<link rel="stylesheet" href="/vendors/bower_components/remodal/dist/remodal.css">
+<link rel="stylesheet" href="/vendors/bower_components/remodal/dist/remodal-default-theme.css">
+
+<header>
+    <div>
+        <div id="logo">
+            <a href="/users/index"><img class="hide-sp" src="/images/ic_nav_logo_01.svg"><img src="/images/ic_nav_title_01.svg" ></a>
+        </div>
+        <div class="hide-sp">
+            <input type="text" placeholder="検索ワードを入力" class="search" value="<?php echo @$_POST["s"]; ?>">
+        </div>
+
+        <div class="hide-pc" style="width:35px;"><a class="toggle-sp-search"><img src="/images/ic_nav_search_sp.svg"></a></div>
+
+<?php $url = "/users/search_follow_users";
+if(isset($_SESSION["user"]) === false){
+    $url = "#LoginModal";
+} ?>
+        <div><a href="<?php echo $url; ?>"><img src="/images/btn_nav_search_follower.svg"></a></div>
+
+<?php 
+if(isset($_SESSION["user"]) === false){
+    $url = "#LoginModal";
+}else{
+    $url = "/users/mypage/".$_SESSION["user"]->id; 
+} ?>
+        <div><a href="<?php echo $url; ?>"><img src="/images/btn_nav_mypage.svg"></a></div>
+
+<?php $url = "#PostModal";
+if(isset($_SESSION["user"]) === false){
+    $url = "#LoginModal";
+} ?>
+        <div><a href="<?php echo $url; ?>"><img src="/images/btn_nav_post.svg"></a></div>
+    </div>
+    <div class="search-sp hide">
+        <input type="text" placeholder="検索ワードを入力" class="search" value="<?php echo @$_POST["s"]; ?>">
+    </div>
+</header>
+
+<div class="remodal-bg"></div>
+<?php if(isset($_SESSION["user"]) === false){ ?>
+<div class="remodal" data-remodal-id="LoginModal" id="LoginModal">
+  <button data-remodal-action="close" class="remodal-close"></button>
+    <iframe src='/users/signup' frameborder='0' width="100%"></iframe>
+</div>
+<?php }else{ ?>
+<div class="remodal" data-remodal-id="PostModal" id="PostModal">
+  <button data-remodal-action="close" class="remodal-close"></button>
+    <iframe src='/posts/add' frameborder='0' width="100%"></iframe>
+</div>
+<?php } ?>
+
+<?php echo hidden("s"); ?>
+<?php echo hidden("m"); ?>
+
+<script src="/vendors/bower_components/remodal/dist/remodal.min.js"></script>
+
+<script>
+$(function(){
+    $(document).on('opened', '.remodal', function () {
+        var iframe_height = $(this).find("iframe").contents().find('body').innerHeight();
+        $(this).find("iframe").css('height', iframe_height + 'px');
+    });
+
+    $(".search").on("change",function(e){
+        $("#s").val($(this).val());
+        $("#m").val("");
+        $(this).closest("form").attr("action","/users/index").submit();
+    });
+    $(".toggle-sp-search").on("click",function(e){
+        $(".search-sp").slideToggle(300);
+    });
+});
+</script>

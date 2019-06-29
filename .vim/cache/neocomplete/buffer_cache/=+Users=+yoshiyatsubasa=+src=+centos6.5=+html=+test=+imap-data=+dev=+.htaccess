@@ -1,0 +1,1 @@
+{'IfModule', 'mod_rewrite', 'RewriteEngine', 'RewriteCond', 'REQUEST_FILENAME', 'RewriteRule', 'index', 'php_value', 'session', 'gc_probability', 'gc_divisor', 'gc_maxlifetime', 'memory_limit', 'max_execution_time', 'post_max_size', 'upload_max_filesize'}

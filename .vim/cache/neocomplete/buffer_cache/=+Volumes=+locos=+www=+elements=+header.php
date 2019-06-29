@@ -1,0 +1,1 @@
+{'<div ', 'header', 'class', 'clearfix', '<dl ', 'h_contact_box', '<dt>', '<img ', 'images', 'common', 'contact', 'width', 'height', '</dt>', '<dd ', 'tel_text', '</dd>', 'time_text', 'time', '</dl>', '<ul ', 'hover2', 'head_bt', '<li ', 'bt_contact', 'href', '</a>', '</li>', '<li>', 'convention', 'convention_form', 'bt_conve', 'reserve', 'bt_reserve', '</ul>', '</div>'}

@@ -1,0 +1,1 @@
+{'class', 'Clients_model', 'extends', 'MY_Model', 'public', '$table', 'clients', 'function', '__construct', 'parent::__construct', '$pref', 'array', '$validate_add', 'field', 'name', 'label', 'rules', 'required', 'max_length', 'attentions', 'valid_zip', 'xxxx', 'addr1', 'addr2', '$validate_edit'}

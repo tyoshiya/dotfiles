@@ -1,0 +1,1 @@
+{'class', 'InvoiceAdjust', 'extends', 'AppModel', '$name', '$types', 'array', '$validate_add', 'date', 'rule1', 'method', 'isNotNull', 'message', 'attention', 'rule2', 'isPattern', 'yyyy', 'parameters', 'pattern', 'type'}

@@ -1,0 +1,1 @@
+{'IfModule', 'mod_rewrite', 'RewriteEngine', 'RewriteRule', 'webroot', 'php_flag', 'short_open_tag'}

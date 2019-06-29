@@ -1,0 +1,1 @@
+{'Ospinto', 'dBug', 'dbug', 'class', 'Labels_model', 'extends', 'MY_Model', 'public', 'function', '__construct', 'parent', '$validate_form', 'array', 'field', 'product_code', 'label', 'rules', 'required', 'amount', 'is_natural_no_zero'}

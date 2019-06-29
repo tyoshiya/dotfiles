@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'class', 'Admin_news', 'extends', 'MY_Controller', 'function', '__construct', 'parent', '$this', 'page_title', 'index', 'data', 'test', 'view', 'rsegments', 'admin'}

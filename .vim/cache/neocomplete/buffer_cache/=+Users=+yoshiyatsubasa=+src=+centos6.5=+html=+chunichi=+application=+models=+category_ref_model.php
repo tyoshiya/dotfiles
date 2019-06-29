@@ -1,0 +1,1 @@
+{'class', 'Category_ref_model', 'extends', 'MY_Model', '$table', 'category_ref', 'function', '__construct', 'parent', 'getList', '$table_name', 'top_news', '$news_id', '$sql', 'select', '$this', 'table', 'model', 'category', 'selectAlias', 'from', 'inner', 'join', 'category_id', 'where', 'target_table', 'target_id', 'return', 'query', 'result'}

@@ -1,0 +1,280 @@
+<?php 
+use \Ospinto\dBug as dbug;
+class Invoice_casts_model extends MY_Model {
+    public $table = "invoice_casts";
+
+    public function __construct() {
+        parent::__construct();
+    }
+
+    public $validate_add = array(
+        "hourly_wage" => array(
+            "label" => "時給",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+        "total_hour" => array(
+            "label" => "合計勤務時間",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+        "total_traffic_fee" => array(
+            "label" => "合計交通費",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+        "total_daily_salary" => array(
+            "label" => "合計日給",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+        "total" => array(
+            "label" => "給料合計",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+    );
+    public $validate_edit = array(
+        "hourly_wage" => array(
+            "label" => "時給",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+        "total_hour" => array(
+            "label" => "合計勤務時間",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+        "total_traffic_fee" => array(
+            "label" => "合計交通費",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+        "total_daily_salary" => array(
+            "label" => "合計日給",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+        "total" => array(
+            "label" => "給料合計",
+            "rules" => array(
+                "numeric" => "数値",
+            )
+        ),
+    );
+
+    public function pdf($id){
+        $invoice_casts = $this->model("Invoice_casts")->findById($id);
+        //請求書情報を取得
+        $invoice = $this->model("Invoices")->findById($invoice_casts->invoice_id);
+
+        if(!empty($invoice)){
+
+            if(!empty($invoice_casts)){
+                $row = $invoice_casts;
+
+                $CI =& get_instance();
+                $thid_party_path = $CI->config->_config_paths[0];
+                $thid_party_path.= "/third_party/fpdf/japanese.php";
+                include_once($thid_party_path);
+
+                if(!defined("SC_CHAR")){define("SC_CHAR", "UTF8");}
+                $pdf = new PDF_Japanese('L','mm','A4');
+                $pdf->AddSJISFont(); //横書きフォント
+
+                //納品書
+                $page = 1;
+                $cast = $this->model("Casts")->findById($row->cast_id,array(),false,"ID");
+
+                $this->addPage($pdf,$page,$invoice,$cast,$row);
+
+                //明細
+                $invoice_cast_details = $this->model("Invoice_cast_details")->findAll(
+                    array("invoice_cast_id" => $row->id)
+                );
+                $traffic_cnt = count($invoice_cast_details);
+                $invoice_cast_allowances = $this->model("Invoice_cast_allowances")->findAll(
+                    array("invoice_cast_id" => $row->id)
+                );
+                if(!empty($invoice_cast_allowances)){
+                    foreach($invoice_cast_allowances as $key2 => $row2){
+                        if($row2->name != "" || $row2->price > 0){
+                            $row2->course = $row2->name;
+                            $row2->memo = "";
+                            $row2->hour = "";
+                            $row2->daily_salary = $row2->price;
+                            $invoice_cast_details[] = $row2;
+                        }
+                    }
+                }
+
+                if(!empty($invoice_cast_details)){
+                    $add_y = 88.5;
+                    $cnt = 1;
+                    $total = 0;
+
+                    foreach($invoice_cast_details as $key2 => $row2){
+                        if(isset($row2->start_datetime)){
+                            $date = date("n/j",strtotime($row2->start_datetime));
+                            //日付
+                            $pdf->SetFont('SJIS', '', 8);
+                            $pdf->SetXY(19.5,$add_y);
+                            $pdf->Write(4,sjis_conv($date));
+                        }
+
+                        //顧客名/交通費
+                        $pdf->SetFont('SJIS', '', 8);
+                        $pdf->SetXY(30,$add_y);
+                        $foo = array();
+                        if($row2->name != ""){
+                            $foo[] = $row2->name;
+                        }
+                        $str = $row2->course;
+                        if($row2->memo != ""){
+                            $str.= "(".$row2->memo.")";
+                        }
+                        $foo[] = $str;
+                        $str = implode(" / ",$foo);
+                        $pdf->Write(4,sjis_conv($str));
+
+                        //数量
+                        $pdf->SetFont('SJIS', '', 8);
+                        $pdf->SetXY(98,$add_y);
+                        $pdf->Write(4,sjis_conv($row2->hour));
+
+                        //単価
+                        if(isset($row2->hourly_wage)){
+                            $pdf->SetFont('SJIS', '', 8);
+                            $pdf->SetXY(115,$add_y);
+                            $pdf->Write(4,sjis_conv(number_format($row2->hourly_wage)));
+                        }
+
+                        //金額
+                        $pdf->SetXY(140,$add_y);
+                        $pdf->Write(4,sjis_conv(number_format($row2->daily_salary)));
+                        $total += $row2->daily_salary;
+
+                        $add_y += 6.8;
+                        $cnt++;
+
+                        if($cnt == 11){
+                            //小計
+                            $pdf->SetXY(140,$add_y);
+                            $pdf->Write(4,sjis_conv($total));
+                            $pdf->SetFont('SJIS', '', 10);
+                            $pdf->SetXY(30,156);
+                            $pdf->Write(4,sjis_conv("小計"));
+
+                            $page++;
+                            $this->addPage($pdf,$page,$invoice,$cast,$row);
+
+                            $add_y = 88.5;
+                            $cnt = 1;
+                            $total = 0;
+                        }
+                    }
+
+                    //総交通費
+                    if($cnt == 11){
+                        $page++;
+                        $this->addPage($pdf,$page,$invoice,$cast,$row);
+                    }
+
+                    $pdf->SetFont('SJIS', '', 8);
+                    $pdf->SetXY(30,$add_y);
+                    $pdf->Write(4,sjis_conv("交通費合計"));
+                    $pdf->SetXY(98,$add_y);
+                    $pdf->Write(4,sjis_conv($traffic_cnt));
+                    $pdf->SetXY(140,$add_y);
+                    $pdf->Write(4,sjis_conv(number_format($row->total_traffic_fee)));
+                    $total += $row->total_traffic_fee;
+
+                    $pdf->SetFont('SJIS', '', 10);
+                    $pdf->SetXY(30,156);
+                    $pdf->Write(4,sjis_conv("総合計"));
+                    $pdf->SetXY(140,156);
+                    $pdf->Write(4,sjis_conv(number_format($total)));
+
+                    //連絡事項
+                    $pdf->SetFont('SJIS', '', 10);
+                    $pdf->SetXY(28,172);
+                    $year = date("Y",strtotime($invoice->year."-".$invoice->month."-".$invoice->day));
+                    $month = date("n",strtotime($invoice->year."-".$invoice->month."-".$invoice->day." +1 month"));
+                    $pdf->Write(4,sjis_conv("上記金額を、".$year."年".$month."月25日までに下記指定口座にお振込み致します。"));
+
+                    //振込先
+                    $pdf->SetFont('SJIS', '', 10);
+                    $pdf->SetXY(28,207);
+                    $account_type = $this->model("Casts")->account_type;
+                    $account = $cast->bank."      ".$cast->branch."      ".$account_type[$cast->account_type]."      ".$cast->account_number."      ".$cast->account_name;
+                    $pdf->Write(4,sjis_conv($account));
+                }
+
+                error_reporting(0);
+                $pdf->Output();
+            }else{
+                echo "請求書に女の子のデータがありません。";
+            }
+        }else{
+            echo "請求書情報の取得に失敗しました。";
+        }
+    }
+
+    private function addPage(&$pdf,&$page,$invoice,$cast,$row){
+        $pdf->setSourceFile($_SERVER['DOCUMENT_ROOT'].'/pdf/meisai.pdf');
+        $importPage = $pdf->importPage(1);
+        $pdf->addPage('P','A4');
+        $pdf->useTemplate($importPage, 0, 0);
+        $pdf->SetMargins(0,0,0,0);
+        $pdf->SetAutoPageBreak(false);
+
+        //会社名
+        $pdf->SetFont('SJIS', '', 10);
+        $pdf->SetXY(19,34);
+        $pdf->Write(4,sjis_conv(_COMPANY_ZIP));
+        $pdf->SetXY(19,39);
+        $pdf->Write(4,sjis_conv(_COMPANY_ADDR));
+        $pdf->SetXY(19,44);
+        $pdf->Write(4,sjis_conv(_COMPANY_ADDR2));
+        $pdf->SetXY(19,49);
+        $pdf->Write(4,sjis_conv(_COMPANY));
+
+        //発行日付
+        $pdf->SetFont('SJIS', '', 10);
+        $pdf->SetXY(190,10);
+        $pdf->Write(4,sjis_conv("No:".$page));
+
+        //請求年月
+        $pdf->SetXY(125,45);
+        $pdf->Write(4,sjis_conv($invoice->year."年".$invoice->month."月".$invoice->day."日"));
+
+        //住所
+        //
+        $pdf->SetFont('SJIS', '', 10);
+        $pdf->SetXY(95,52);
+        $pdf->Write(4,sjis_conv("〒".$cast->zip));
+        $pdf->SetXY(95,57);
+        $pdf->Write(4,sjis_conv($cast->addr));
+        $pdf->SetXY(95,62);
+        $pdf->Write(4,sjis_conv($cast->addr2));
+
+        //キャスト名
+        $pdf->SetFont('SJIS', '', 14);
+        $pdf->SetXY(95,69);
+        $pdf->Write(4,sjis_conv($cast->real_name."      様"));
+
+        $pdf->SetXY(0,275);
+        $pdf->SetFillColor(255, 255, 255);
+        $pdf->Cell(0, 8, '', 0, 1, 'L', 1);
+
+    }
+}

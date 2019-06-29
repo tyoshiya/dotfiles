@@ -1,0 +1,1 @@
+{'class', 'Customer_ranks_model', 'extends', 'MY_Model', '$table', 'customer_ranks', 'function', '__construct', 'parent::__construct', '$validate', 'array', 'field', 'name', 'label', 'rules', 'required', 'max_length', 'public', 'getCustomerRanks', '$sql', 'select', 'from', 'where', 'del_flg', 'order', 'rank', '$customer_ranks', '$this', 'query', 'implode', 'return'}

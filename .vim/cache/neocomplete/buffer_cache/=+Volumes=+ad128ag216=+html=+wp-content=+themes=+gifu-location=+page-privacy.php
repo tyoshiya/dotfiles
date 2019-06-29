@@ -1,0 +1,1 @@
+{'get_header', '<div ', 'class', '<h2 ', 'maintitle', '<img ', 'echo', 'get_template_directory_uri', 'images', 'privacy', 'title', 'srcset', '</h2>', 'box_in', '</p>', '<dl ', 'privacy_dl', '<dt>', '</dt>', '<dd>', '</dd>', '</dl>', 'privacy_dl_cotact', '<br />', '<dd ', 'about_dl_dd', 'href', '</a>', 'mail', 'mailto', 'c11122', 'pref', 'gifu', '</div>', 'get_footer'}

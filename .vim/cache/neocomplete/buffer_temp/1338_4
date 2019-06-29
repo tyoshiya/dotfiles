@@ -1,0 +1,21 @@
+//breakpoints
+$tb-min-width: 769px;
+$pc-min-width: 980px;
+$wide-min-width: 1180px;
+$sp-max-width:$tb-min-width - 1;
+$tb-max-width:$pc-min-width - 1;
+$pc-max-width:$wide-min-width - 1;
+$breakpoints: (
+    'sp': 'screen and (max-width:#{$sp-max-width})',
+    'tb': 'screen and (min-width:#{$tb-min-width})',
+    'pc': 'screen and (min-width:#{$pc-min-width})',
+    'wide': 'screen and (min-width:#{$wide-min-width})',
+    'tb-only': 'screen and (min-width:#{$tb-min-width} and (max-width:#{$tb-max-width})',
+    'pc-only': 'screen and (min-width:#{$pc-min-width}) and (max-width:#{$pc-max-width})',
+    'touch': 'screen and (max-width:#{$tb-max-width})',
+) !default;
+$
+
+
+//column
+$max-column: 16;

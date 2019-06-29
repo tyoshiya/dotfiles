@@ -1,0 +1,1 @@
+{'using', 'Xamarin', 'Forms', 'namespace', 'LoginNavigation', 'public', 'class', 'Application', 'static', 'bool', 'IsUserLoggedIn', 'MainPage', 'NavigationPage', 'LoginPage', 'else', 'protected', 'override', 'void', 'OnStart', 'Handle', 'when', 'your', 'starts', 'OnSleep', 'sleeps', 'OnResume', 'resumes'}

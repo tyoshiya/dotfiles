@@ -1,0 +1,1 @@
+{'class', 'Copy_taku_details_model', 'extends', 'MY_Model', '$table', 'copy_taku_details', 'function', '__construct', 'parent::__construct', 'saveCopy', '$base_data', 'taku_detail_id', 'unset', '$data', '$this', 'model', 'changeArr', 'save'}

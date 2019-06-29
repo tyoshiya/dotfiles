@@ -1,0 +1,1 @@
+{'IfModule', 'mod_rewrite', 'RewriteEngine', 'RewriteCond', 'HTTPS', 'HTTP_HOST', 'wannyan', 'social', 'RewriteRule', 'https', 'REQUEST_URI', 'REQUEST_FILENAME', 'index', 'php_value', 'upload_max_filesize', 'post_max_size', 'memory_limit', 'AddType', 'video', 'audio', 'application'}

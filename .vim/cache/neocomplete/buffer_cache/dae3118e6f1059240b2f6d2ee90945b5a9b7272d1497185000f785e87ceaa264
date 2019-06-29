@@ -1,0 +1,1 @@
+{'template', 'displaying', 'title', 'each', 'pages', 'since', 'package', 'coldbox', 'is_single', 'is_attachment', '<header ', 'class', '<div ', 'inner', 'container', 'style', 'padding', 'bottom', 'breadcrumb', 'cd_breadcrumb', '</div>', '<h1 ', 'post', 'the_title', '</h1>', '</header>', 'elseif', 'is_archive', 'get_template_part', 'parts', 'page', 'is_search', 'is_404'}

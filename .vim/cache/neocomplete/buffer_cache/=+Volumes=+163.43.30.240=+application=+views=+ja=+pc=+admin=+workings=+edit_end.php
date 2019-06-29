@@ -1,0 +1,1 @@
+{'<div ', 'class', 'container', 'contents', '$this', 'element', 'admin_menu', '<legend ', 'blue_title', 'echo', '</legend>', 'alert', 'text', 'muted', '</div>', 'center', 'href', 'admin', 'users', 'btn_gray', '</a>'}

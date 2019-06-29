@@ -1,0 +1,342 @@
+##########################################################
+### パスワード変更
+##########################################################
+set password for root@localhost=password('FdDfie4wIsGk');
+
+##########################################################
+### create database
+##########################################################
+create database aubl;
+
+##########################################################
+### create user
+##########################################################
+CREATE USER 'aubl'@'%' IDENTIFIED BY '9THAxpLipIRE';
+GRANT ALL PRIVILEGES ON aubl.* TO 'aubl'@'%';
+FLUSH PRIVILEGES;
+
+##########################################################
+### select user
+##########################################################
+select User,Host from mysql.user;
+
+
+##########################################################
+### create table
+##########################################################
+create table saleorders(
+id int(11) not null primary key auto_increment,
+board_id int(11),
+customer_id int(11),
+import_number varchar(255),
+order_date date,
+delivery_date date,
+delivery varchar(255),
+order_number varchar(255),
+delivery_customer_id int(11),
+acceptance_number varchar(255),
+del_flg tinyint(1) default 0,
+created datetime,
+modified datetime
+);
+
+create table saleorder_details(
+id int(11) not null primary key auto_increment,
+saleorder_id int(11),
+customer_id int(11),
+import_number varchar(255),
+order_date date,
+delivery_date date,
+delivery varchar(255),
+order_number varchar(255),
+delivery_customer_id int(11),
+acceptance_number varchar(255),
+del_flg tinyint(1) default 0,
+created datetime,
+modified datetime
+);
+create table todo_members(
+id int(11) not null primary key auto_increment,
+todo_id int(11),
+user_id int(11),
+del_flg tinyint(1) default 0,
+created datetime,
+modified datetime
+);
+create table todo_images(
+id int(11) not null primary key auto_increment,
+todo_id int(11),
+del_flg tinyint(1) default 0,
+created datetime,
+modified datetime
+);
+create table todo_step_checks(
+id int(11) not null primary key auto_increment,
+todo_step_id int(11),
+rank int(11),
+body varchar(255),
+del_flg tinyint(1) default 0,
+created datetime,
+modified datetime
+);
+CREATE TABLE `wp_aubl_rec_scorebook` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `league_id` int(11) DEFAULT NULL COMMENT 'リーグID',
+  `game_id` int(11) DEFAULT NULL COMMENT 'ゲームID',
+  `inning` tinyint(2) NOT NULL DEFAULT '1' COMMENT '現在のイニング',
+  `top_or_bottom` tinyint(1) NOT NULL DEFAULT '0' COMMENT '表か裏か',
+  `strike` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'ストライクカウント',
+  `ball` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'ボールカウント',
+  `out` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'アウトカウント',
+  `del_flg` tinyint(1) NOT NULL DEFAULT '0',
+  `created` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `modified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM AUTO_INCREMENT=36 DEFAULT CHARSET=utf8;
+
+CREATE TABLE `wp_aubl_rec_scorebook_detail` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `scorebook_id` int(11) DEFAULT NULL COMMENT 'スコアブックID',
+  `univ_id` int(11) DEFAULT NULL COMMENT '大学ID',
+  `p` text DEFAULT NULL COMMENT 'ピッチャー',
+  `c` text DEFAULT NULL COMMENT 'キャッチャー',
+  `1b` text DEFAULT NULL COMMENT 'ファースト',
+  `2b` text DEFAULT NULL COMMENT 'セカンド',
+  `3b` text DEFAULT NULL COMMENT 'サード',
+  `ss` text DEFAULT NULL COMMENT 'ショート',
+  `lf` text DEFAULT NULL COMMENT 'レフト',
+  `cf` text DEFAULT NULL COMMENT 'センター',
+  `rf` text DEFAULT NULL COMMENT 'ライト',
+  `ph` text DEFAULT NULL COMMENT '代打',
+  `pr` text DEFAULT NULL COMMENT '代走',
+  `reserver` text NOT NULL COMMENT '先攻大学控え打者選手ID(カンマ区切り)',
+  `no` tinyint(1) NOT NULL DEFAULT '1' COMMENT '打順のポインタ',
+  `del_flg` tinyint(1) NOT NULL DEFAULT '0',
+  `created` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `modified` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM AUTO_INCREMENT=36 DEFAULT CHARSET=utf8;
+
+##########################################################
+### select columns
+##########################################################
+DESCRIBE sales;
+
+##########################################################
+### select
+##########################################################
+select
+*
+from
+customers left outer join clients on dc_sections.client_id = clients.idcj
+group by dc_sections.client_id
+having count(*) > 1
+
+select
+*
+from
+manufacture_work_result_warehousings
+where 1=1 
+and exists(
+select * from product_components where product_components.part_product_id = products.id
+)
+
+select
+*
+from
+customers
+where 1=1 
+and account_type = 2
+and name like '%近畿%'
+
+select 
+takus.id,concat(takus.start_date,' ',takus.start_time),concat(takus.end_date,' ',takus.end_time),takus.customer_num,takus.status,takus.set_num,
+taku_details.sum_price,
+desks.name
+from 
+takus 
+inner join ( 
+    select 
+    taku_details.taku_id,
+    sum(items.price) as sum_price 
+    from taku_details 
+    inner join taku_detail_items on taku_details.id = taku_detail_items.taku_detail_id 
+    inner join items on taku_detail_items.item_id = items.id 
+    group by taku_details.taku_id 
+) as taku_details on takus.id = taku_details.taku_id 
+left outer join desks on takus.desk_id = desks.id
+where 1=1 
+and takus.del_flg = 0 
+and takus.shop_id = 13 
+and not exists(select * from sales where sales.taku_id = takus.id)
+order by 
+takus.start_date desc, takus.start_time desc
+
+select * 
+from 
+sales 
+where 1=1 
+and sales.del_flg = 0 
+and sales.shop != 8 
+and manufactures.factory_id = 10 
+#and (manufacture_work_result_warehousing_details.sum_quantity is null or manufacture_work_results.sum_quantity != manufactu#re_work_result_warehousing_details.sum_quantity) 
+and (manufactures.supplier_id = '' or manufactures.supplier_id is null) 
+order by cast(users.code as SIGNED) asc,cast(customers.code as SIGNED) asc, cast(products.code as SIGNED) asc, products.image_number asc,manufactures.id asc
+
+
+select
+nenngas.client_id,nenngas.class,count(*)
+from
+nenngas
+inner join clients on nenngas.client_id = clients.id
+where
+clients.del_flag = 0
+group by
+client_id,class
+having count(*) > 1
+
+##########################################################
+### union
+##########################################################
+(
+    SELECT
+            owners.id AS owner_id
+            ,owners.name AS owner_name
+            ,sum_payments. *
+            ,parkings.id AS park_id
+            ,parkings.name AS park_name
+        FROM
+            sum_payments LEFT OUTER JOIN owners
+                ON owners.id = sum_payments.owner_id LEFT OUTER JOIN parkings
+                ON parkings.id = sum_payments.park_id
+        WHERE
+            1 = 1
+            AND sum_payments.created >= '2016-09-01 00:00:00'
+            AND sum_payments.created <= '2016-09-30 23:59:59'
+            AND sum_payments.payment_flg = 0
+)
+UNION
+(
+SELECT
+    owners.id AS owner_id
+    ,owners.name AS owner_name
+    ,sum_payments. *
+    ,parkings.id AS park_id
+    ,parkings.name AS park_name
+FROM
+    sum_payments LEFT OUTER JOIN owners
+        ON owners.id = sum_payments.owner_id LEFT OUTER JOIN parkings
+        ON parkings.id = sum_payments.park_id
+WHERE
+    1 = 1
+    AND sum_payments.created >= '2016-09-01 00:00:00'
+    AND sum_payments.created <= '2016-09-30 23:59:59'
+    AND sum_payments.payment_flg = 1
+)
+UNION
+(
+SELECT
+owners.id AS owner_id
+,owners.name AS owner_name
+,sum_payments. *
+,parkings.id AS park_id
+,parkings.name AS park_name
+FROM
+sum_payments LEFT OUTER JOIN owners
+ON owners.id = sum_payments.owner_id LEFT OUTER JOIN parkings
+ON parkings.id = sum_payments.park_id
+WHERE
+1 = 1
+AND (
+        (
+            sum_payments.modified >= '2016-09-30 23:59:59'
+            AND sum_payments.created <= '2016-09-30 23:59:59'
+            AND sum_payments.payment_flg = 1
+        )
+        OR (
+            sum_payments.created <= '2016-09-30 23:59:59'
+            AND sum_payments.payment_flg = 0
+        )
+    )
+)
+select
+sum(total_charge + credit) as uriage
+from sales
+where 1=1
+and sales.del_flg = 0
+and sales.shop_id = 13 
+and sales.start_datetime between '2017/02/10 17:00' and '2017/02/11 06:00'
+
+##########################################################
+### update
+##########################################################
+update sum_payments set modified = date_format(DATE_ADD(created,INTERVAL 1 MONTH),'%Y-%m-10 15:00:00') where payment_flg = 1
+update products set last_supplier_id = 298,last_manufacture_price = 0,last_manufacture_quantity = null where last_supplier_id = 428
+
+#前後の空白を削除して更新
+UPDATE wp_aubl_rec_scorebook_detail SET score_2 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_3 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_4 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_5 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_6 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_7 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_8 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_9 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_10 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_11 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_12 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_13 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_14 = null where scorebook_id = 56;
+UPDATE wp_aubl_rec_scorebook_detail SET score_15 = null where scorebook_id = 56;
+
+##########################################################
+### insert
+##########################################################
+INSERT INTO `items` (`code`, `name`, `item_type_id`, `sale_type_id`, `price`, `receipt_flg`, `created`, `modified`, `shop_id`, `del_flg`, `default_flg`, `split`, `point`, `back`, `simei_flg`, `item_category_id`, `jounai_simei_flg`, `half_simei_flg`)
+VALUES
+	('30', 'タリスカー18年', 2, NULL, 40000, 0, '2017-01-23 20:30:06', '2017-01-23 20:30:06', 8, 0, 0, 1, 4.00, 8000, 0, 5, 0, 0),
+	('29', '山崎25年', 2, NULL, 400000, 0, '2017-01-23 20:29:22', '2017-01-23 20:29:22', 8, 0, 0, 1, 40.00, 80000, 0, 6, 0, 0);
+
+##########################################################
+### wordpress
+##########################################################
+#サイトURL更新
+UPDATE wp_options SET option_value=REPLACE(option_value,"http://aubl.biz/wordpress","http://aubl.ty-systems.com/wordpress");
+UPDATE wp_posts SET post_content=REPLACE(post_content,"http://aubl.biz/wordpress","http://aubl.ty-systems.com/wordpress");
+UPDATE wp_posts SET guid=REPLACE(guid,"http://aubl.biz/wordpress","");
+UPDATE wp_postmeta SET meta_value=REPLACE(meta_value,"http://aubl.biz/wordpress","http://aubl.ty-systems.com/wordpress");
+
+
+##########################################################
+### delete
+##########################################################
+#サブクエリで削除
+delete 
+from
+user_orders
+where
+id IN(2338,2339,2340)
+
+##########################################################
+### mysqldump
+##########################################################
+mysql -u ユーザー名 -p パスワード データベース名 < ファイル名
+
+##########################################################
+### alter table add column
+##########################################################
+alter table wp_aubl_rec_scorebook_detail add column score_1 tinyint(2) default null comment "1回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_2 tinyint(2) default null comment "2回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_3 tinyint(2) default null comment "3回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_4 tinyint(2) default null comment "4回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_5 tinyint(2) default null comment "5回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_6 tinyint(2) default null comment "6回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_7 tinyint(2) default null comment "7回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_8 tinyint(2) default null comment "8回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_9 tinyint(2) default null comment "9回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_10 tinyint(2) default null comment "10回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_11 tinyint(2) default null comment "11回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_12 tinyint(2) default null comment "12回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_13 tinyint(2) default null comment "13回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_14 tinyint(2) default null comment "14回スコア"; 
+alter table wp_aubl_rec_scorebook_detail add column score_15 tinyint(2) default null comment "15回スコア"; 

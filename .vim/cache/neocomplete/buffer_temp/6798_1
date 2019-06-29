@@ -1,0 +1,103 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+//名前区間のエイリアス
+use \Ospinto\dBug as dbug;
+
+class Clients extends MY_Controller {
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->check->isLogin();
+        $this->page_title = "クライアント";
+
+        $this->data["pref"] = $this->model("clients")->pref;
+    }
+
+    public function index()
+    {
+        $clients = $this->model("Clients")->findAll(array(
+            "where" => array("group_id" => $_SESSION["group"]->id),
+            "order" => array("id" => "asc"),
+        ));
+        $this->set("clients",$clients);
+
+        $this->layout->render();
+    }
+
+    public function add(){
+        if($this->check->isExe()){
+            //バリデーション
+            //
+            $_POST["zip"] = $this->input->post("zip1")."-".$this->input->post("zip2");
+            $this->form_validation->set_rules($this->model("clients")->{"validate_".$this->router->method});
+            if($this->form_validation->run()){
+                $_POST["group_id"] = $_SESSION["group"]->id;
+                $this->model("Clients")->save($_POST);
+                redirect("/clients/index");
+            }
+        }
+
+        $this->data["validate"] = $this->model("clients")->{"validate_".$this->router->method};
+        $this->layout->render();
+    }
+
+    public function edit($id = null){
+        $this->isLogin();
+
+        $this->isVal($id);
+        $client = $this->model("Clients")->findById($id);
+        $this->isVal($client);
+
+        if($this->isExe()){
+            //バリデーション
+            $valid = true;
+            $this->model("Clients")->validate = $this->model("Clients")->{"validate_".$this->router->method};
+            if($this->model("Clients")->validates($_POST) === false){
+                $valid = false;
+            }
+
+            if($valid){
+                $_POST["id"] = $id;
+                $id = $this->model("Clients")->save($_POST);
+
+                $url = "/clients/index";
+                $this->redirect($url);
+            }
+        }else{
+            $_POST = (array)$client;
+        }
+
+        $this->set("id",$id);
+        $this->set("validate",$this->model("Clients")->{"validate_".$this->router->method});
+        $this->render();
+    }
+
+    public function del($id = null){
+        $this->isLogin();
+
+        $this->isVal($id);
+        $client = $this->model("Clients")->findById($id);
+        $this->isVal($client);
+
+        $this->model("Clients")->del($id);
+
+        $url = "/clients/index";
+        $this->redirect($url);
+        exit;
+    }
+
+    //詳細
+    public function detail($id = null){
+        $this->check->isVal($id);
+        $this->data["id"] = $id;
+
+        $client = $this->model("clients")->findById($id,array(
+        ));
+        $this->check->isVal($client);
+        $this->data["client"] = $client;
+
+		$this->layout->render();
+    }
+}

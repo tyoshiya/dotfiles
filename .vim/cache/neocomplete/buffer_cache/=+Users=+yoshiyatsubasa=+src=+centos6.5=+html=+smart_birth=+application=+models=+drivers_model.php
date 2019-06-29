@@ -1,0 +1,1 @@
+{'class', 'Drivers_model', 'extends', 'MY_Model', '$table', 'drivers', '$validate', 'array', 'field', 'name', 'label', 'rules', 'required', 'max_length', 'password', 'min_length', 'alpha_numeric', 'function', '__construct', 'parent'}

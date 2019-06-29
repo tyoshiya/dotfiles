@@ -1,0 +1,1 @@
+{'class', 'Item_types_model', 'extends', 'MY_Model', '$table', 'item_types', '$validate', 'array', 'field', 'name', 'label', 'rules', 'required', 'function', '__construct', 'parent::__construct', 'getCode', '$sql', 'select', 'from', 'where', 'shop_id', '$_SESSION', 'user', '$dat', '$this', 'query', '$code_arr', 'foreach', '$val', 'return'}

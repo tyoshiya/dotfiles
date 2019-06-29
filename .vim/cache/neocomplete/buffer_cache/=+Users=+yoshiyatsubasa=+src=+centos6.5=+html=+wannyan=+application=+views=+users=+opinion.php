@@ -1,0 +1,1 @@
+{'$complete', '<script>', 'parent', 'location', 'href', 'users', 'index', 'message', 'send_opinion', '</script>', '<div ', 'class', 'remodal', 'wrapper', 'opinion', '<h1>', '</h1>', 'body', '<div>', 'textarea', 'array', 'style', 'width', 'echo', 'form_error', '</div>', 'submit', '<button ', 'type', 'button', 'blue', 'data', 'confirm', '</button>'}

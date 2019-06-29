@@ -1,0 +1,101 @@
+<?php
+require_once (dirname(__FILE__) . "/modules/Auth.class.php");
+require_once (dirname(__FILE__) . "/modules/Admin.class.php");
+require_once (dirname(__FILE__) . "/modules/Cancel.class.php");
+require_once (dirname(__FILE__) . "/modules/EquipmentFee.class.php");
+require_once (dirname(__FILE__) . "/modules/Reserve.class.php");
+require_once (dirname(__FILE__) . "/modules/RoomFee.class.php");
+require_once (dirname(__FILE__) . "/modules/Task.class.php");
+require_once (dirname(__FILE__) . "/modules/LineFeedCodeFilter.class.php");
+require_once (dirname(__FILE__) . "/../../Smarty/Smarty.class.php");
+require_once (dirname(__FILE__) . "/../conf/Common.conf.php");
+require_once (dirname(__FILE__) . "/../../adodb5/adodb.inc.php");
+require_once(dirname(__FILE__)."/../../public/sys/modules/dBug.php");
+
+function init()
+{
+  global $smarty;
+  $smarty= new Smarty();
+  $smarty->template_dir = dirname(__FILE__) . "/../templates/";
+  $smarty->compile_dir  = dirname(__FILE__) . "/../templates_c/";
+  $smarty->cache_dir  = dirname(__FILE__) . "/../cache_/";
+}
+
+function connectDB() {
+  global $db;
+  try {
+    $db = NewADOConnection(DB_DRIVER . "://" . DB_USER . ":" . DB_PASS . "@" . DB_HOST . ":" . DB_PORT . "/" . DB_DATABASE);
+    $dbSchema = 'public';
+    $db->Execute('SET search_path = '.$dbSchema);
+    return true;
+  } catch (PDOException $e) {
+    return false;
+    exit('データベースに接続できませんでした。' . $e->getMessage());
+  }
+}
+
+function dbGetPropertyItem($value, $category) {
+  global $db;
+  $db->SetFetchMode(ADODB_FETCH_ASSOC);
+  $where_clause = sprintf("AND a.category = '%s' AND a.item_id = %s", $category, $value);
+
+  $sSQL = "
+			SELECT
+				a.item_nm
+			FROM
+				t_プロパティ a
+			WHERE
+				a.disable_flg = '0'
+				{$where_clause}
+		";
+
+  return $db->cacheGetRow(3600, $sSQL);
+}
+
+function getPathInfo($index) {
+  //$path = $_SERVER['REQUEST_URI'];
+  $path=strtok($_SERVER["REQUEST_URI"],'?');
+  $paths = explode("/" , $path);
+  //print_r($paths);
+  $info = $paths[$index + 4]; // pathに応じてoffsetを変更する 「/gasbldg/html/admin/task/」のtaskを取る関数
+  //print $info;
+  return $info;
+}
+
+
+function defineSmartyConfig($path) {
+  $configs = parse_ini_file(dirname(__FILE__) . "/../configs/" . $path);
+  foreach($configs as $key => $val) {
+    if(!defined($key)) {
+      define($key, $val);
+    }
+  }
+  global $smarty;
+  $smarty->config_load(dirname(__FILE__) . "/../configs/" . $path);
+}
+
+function isNaturalNumber($num) {
+  return (is_numeric($num) && $num > 0);
+}
+
+/********************************************
+*
+* 日付がyyyy/mm/ddになっているかチェック
+*
+* @param $date string 日付
+* @return bool
+*
+********************************************/
+function isDate($date) {
+  return preg_match("(^\d{4}/\d{2}/\d{2}$)",$date) == 1 ? true : false;
+}
+
+/********************************************
+*
+* バリデーションエラーになっているかどうか
+*
+* @return bool
+*
+********************************************/
+function isValidForm() {
+}

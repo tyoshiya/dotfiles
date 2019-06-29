@@ -1,0 +1,1 @@
+{'class', 'image_point_works_model', 'extends', 'MY_Model', 'public', '$table', 'image_point_works', 'function', '__construct', 'parent'}

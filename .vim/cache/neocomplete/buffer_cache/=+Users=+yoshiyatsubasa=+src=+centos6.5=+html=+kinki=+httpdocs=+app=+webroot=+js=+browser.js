@@ -1,0 +1,1 @@
+{'function', 'BrowserCSS', 'path', 'navigator', 'userAgent', 'indexOf', 'MSIE', 'document', 'write', 'link', 'stylesheet', 'type', 'text', 'href', 'style', 'import', 'else', 'Firefox', 'firefox', 'Opera', 'opera', 'Safari', 'safari'}

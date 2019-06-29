@@ -1,0 +1,138 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+class Estimates extends MY_Controller {
+    function __construct() {
+        parent::__construct();
+    }
+
+	function index(){
+		//セッションチェック
+		$this->library("checker")->hasSession($this->library("session"));
+		$this->model("manager_permissions")->checkPermission();
+		//現在のページを取得
+		$page = $this->pagenate->getPage();
+		$campaigns_all = $this->model("campaigns")->getList($this->input->get());
+		$campaigns = $this->pagenate->getPageData($campaigns_all,_def_detail_listnum ,$page);
+		$this->set("campaigns",$campaigns);
+		$this->set("page", $page);
+		$this->set("total", count($campaigns_all));
+		$this->view("/admin/campaigns/index");
+	}	
+
+	function add(){
+		//セッションチェック
+		$this->library("checker")->hasSession($this->library("session"));
+		if($this->input->post("execute")){
+			//バリデートチェック
+			if($this->model("estimates")->validates($this->input->post())){
+				$dat = $this->model("campaigns")->find("campaign_code ='".$_POST["campaign_code"]."'");
+				if(!$dat){
+					$this->model("campaigns")->save($this->input->post());
+					$id = $this->model("campaigns")->getLastInsertId();
+					//リダイレクト	
+					$this->redirect("/admin/estimates/index?message=add&href=/admin/estimates/detail/".$id);
+				}else{
+					$this->set("code_err","既に使用しているコードです");
+				}
+								
+			}
+		} else {
+			$_POST["type"] = 1;
+		}
+
+        $
+		//表示
+		$this->view("/admin/estimates/add");
+	}
+	function detail($id = null){
+		//セッションチェック
+		$this->library("checker")->hasAdminSession($this->library("session"));
+		//引数をチェック
+		$this->checker->checkId($id);
+		//該当のデータを取得
+		$campaign = $this->model("campaigns")->findById($id);
+		if($campaign){
+			$this->set("campaign",$campaign);
+			//ビュー表示
+			$this->view("/admin/campaigns/detail");
+		} else {
+			//redirect
+			$this->view("/admin/statics/error");
+		}
+	}
+	function del($id = null){
+		//セッションチェック
+		$this->library("checker")->hasAdminSession($this->library("session"));
+		//該当のデータを取得
+		$campaign = $this->model("campaigns")->findById($id);
+		if($campaign){
+			$this->set("campaign",$campaign);
+			//バリデートチェック
+			$this->model("campaigns")->del($id);
+
+			//リダイレクト	
+			$this->redirect("/admin/campaigns/index?message=del");
+		} else {
+			//redirect
+			$this->view("/admin/statics/error");
+		}
+	}
+
+	function edit($id = null){
+		//セッションチェック
+		$this->library("checker")->hasAdminSession($this->library("session"));
+		//引数をチェック
+		$this->checker->checkId($id);
+		//該当のデータを取得
+		$campaign = $this->model("campaigns")->findById($id);
+		if($campaign){
+			$this->set("campaign",$campaign);
+			if(!$this->input->post("execute")){
+				foreach($campaign as $key => $val){
+					$_POST[$key] = $val;
+				}
+				$_POST["start_dtime"] = date("Y-m-d H:i",strtotime($campaign->start_dtime));
+				$_POST["end_dtime"] = date("Y-m-d H:i",strtotime($campaign->end_dtime));
+
+			} else {
+				if($this->input->post("type") == 3){
+					unset($this->model("campaigns")->validate[2]);
+				}
+				//バリデートチェック
+				if($this->model("campaigns")->validates($this->input->post())){
+					$dat = $this->model("campaigns")->find("campaign_code ='".$_POST["campaign_code"]."' and id !=".$id);
+					if(!$dat){
+						$_POST["id"] = $id;
+						$this->model("campaigns")->save($this->input->post());
+						//リダイレクト	
+						$this->redirect("/admin/campaigns/index?message=edit&href=/admin/campaigns/detail/".$id);
+					}else{
+						$this->set("code_err","既に使用しているコードです");
+					}
+				}	
+			}
+			//ビュー表示
+			$this->view("/admin/campaigns/edit");
+		} else {
+			//redirect
+			$this->view("/admin/statics/error");
+		}
+	}
+
+
+	function qr_image($code){
+		vendor ('ImageQRCode//Image/QRCode');
+
+		//セッションチェック
+		$this->library("checker")->hasAdminSession($this->library("session"));
+
+		$url = _def_domain.'users/signup?c='.$code;
+		// QRコードを生成
+		$qr = new Image_QRCode();
+		$qr->makeCode(htmlspecialchars($url, ENT_QUOTES),array("output_type"=>"display"));
+		exit;
+	}
+
+	function event_add(){
+		$this->view("/admin/campaigns/event_add");
+	}
+}

@@ -1,0 +1,1 @@
+{'<div ', 'class', 'remodal', 'wrapper', 'post', '<h1>', '</h1>', 'body', '<button ', 'blue', 'type', 'button', '</button>', 'ifile', 'content', 'array', 'style', 'display', 'none', '<div>', 'nbsp', '</div>', 'submit', 'hide', 'data', 'action', 'posts', 'test', '<script>', 'function', 'click', 'change', '</script>'}

@@ -1,0 +1,1 @@
+{'Ospinto\\dBug', 'dbug', 'function', 'projectDetailStatusLabel', '$status', '$array_status', '$options', 'array', '$html', '$defaults', 'class', 'array_merge', '$class', 'explode', 'label', 'warning', 'crocus', 'purple', 'aero', 'info', 'marin', 'blue', 'primary', 'summer', 'green', 'success', 'default', '<span ', 'project', 'item', 'status', 'implode', '</span>', 'return'}

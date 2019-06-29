@@ -1,0 +1,1 @@
+{'class', 'CsvsController', 'extends', 'AppController', '$name', 'Csvs', 'function', 'beforeFilter', 'parent', 'vendor', 'dBug', '$this', 'layout', 'dump', '$table_name', 'Checker', 'checkId', '$foo', 'model', 'table_name'}

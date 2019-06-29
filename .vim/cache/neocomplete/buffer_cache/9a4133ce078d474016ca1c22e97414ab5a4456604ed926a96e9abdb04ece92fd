@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto', 'dBug', 'dbug', 'class', 'MY_Pagination', 'extends', 'CI_Pagination', 'public', 'function', '__construct', 'parent', 'total_page', 'get_instance', '$total_page', 'config', 'pagination', 'total_rows', 'per_page', 'ceil', 'return'}

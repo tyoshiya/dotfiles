@@ -1,0 +1,1 @@
+{'calcAverage', 'function', 'very_like', 'like', 'neither', 'dislike', 'number', 'left', 'right', 'return', 'setWordCloud', 'graph_data', 'data', 'delete', 'Country', 'Year', 'each', 'words', 'word', 'total', 'eval', 'db_column', 'average', 'name', 'label', 'weight', 'push', 'Highcharts', 'chart', 'container', 'series', 'type', 'wordcloud', 'title', 'text'}

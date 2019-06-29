@@ -1,0 +1,1 @@
+{'Ospinto', 'dBug', 'dbug', 'function_exists', 'title', 'false', 'function', 'get_instance', '$title', '<title>', '_SITE_NAME', 'page_title', '</title>', 'return', 'uri_string', '$action', '$category', '$uri_string', '$segments', 'segments', 'var_dump', 'exit', 'unset', 'count', 'implode', 'escape_password', '$str', '$escape', '$ret', '$length', 'mb_strlen', 'UTF8'}

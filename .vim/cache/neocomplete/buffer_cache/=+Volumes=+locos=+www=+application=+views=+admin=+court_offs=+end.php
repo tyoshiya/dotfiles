@@ -1,0 +1,1 @@
+{'<h2>', '</h2>', 'class', 'fontbig', '</p>', '<ul ', 'bt_2box_365_2', 'clearfix', '<li ', 'Left', 'href', 'admin', 'court_offs', 'edit', '<img ', 'images', 'bt_reserve_change', 'height', 'width', '</a>', '</li>', 'Right', 'reserve', 'index', 'echo', '$start_date', '$table_start_date', '$choice_date', 'target', '_blank', 'bt_confirm_site', '</ul>'}

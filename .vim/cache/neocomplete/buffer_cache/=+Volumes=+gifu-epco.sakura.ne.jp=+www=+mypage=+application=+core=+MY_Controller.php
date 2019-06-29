@@ -1,0 +1,1 @@
+{'defined', 'BASEPATH', 'exit', 'direct', 'script', 'access', 'allowed', 'Ospinto', 'dBug', 'dbug', 'class', 'MY_Controller', 'extends', 'CI_Controller', 'public', 'function', '__construct', 'parent', '$this', 'form_validation', 'set_error_delimiters', '<div ', 'validation', 'error', '<span>', '</span>', '</div>'}

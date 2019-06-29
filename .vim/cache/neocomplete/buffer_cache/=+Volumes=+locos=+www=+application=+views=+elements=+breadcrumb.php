@@ -1,0 +1,1 @@
+{'<div ', 'contents', 'InstanceBeginEditable', 'name', 'EditRegion4', 'breadcrumb', '<ul ', 'class', 'clearfix', '<li ', 'bread1', 'href', '</a>', '</li>', '$this', 'rsegments', 'guide', '<li>', 'price', 'reserve', 'convention', 'individual', 'privacy', 'sitemap', 'voice', 'staff', 'classroom', 'contact', 'news', 'News', 'Topics', '</ul>', '</div>'}

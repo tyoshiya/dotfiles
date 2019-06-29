@@ -1,0 +1,1 @@
+{'<table ', 'width', '<tr>', '<td ', 'class', 'head', 'colspan', '</td>', '</tr>', 'empty', '$material_revisions', 'foreach', '$key', '$material_revision', 'style', 'echo', 'plane_body', 'w100', 'number_format', 'MaterialRevision', 'price', 'created', 'else', '</table>'}

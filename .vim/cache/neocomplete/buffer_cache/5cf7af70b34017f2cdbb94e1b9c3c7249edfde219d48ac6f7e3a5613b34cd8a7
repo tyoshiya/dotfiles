@@ -1,0 +1,1 @@
+{'stylelint-disable', 'declaration-no-important', '@each', 'color', 'value', 'theme-colors', '@include', 'bg-variant', '.bg-', 'enable-gradients', 'bg-gradient-variant', '.bg-gradient-', '.bg-white', 'background-color:', 'white', 'important', '.bg-transparent', 'transparent'}

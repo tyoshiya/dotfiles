@@ -1,0 +1,4270 @@
+<?php
+/*
+ * 東邦不動産様 ガスビル会議室予約システム
+ *
+ * @author		kanetsuki@conextivo.co.jp
+ * @copyright	2010 CONEXTIVO Inc.
+ */
+class Reserve {
+
+	public	$calendar			= null;
+	public	$room				= null;
+	public	$reserve			= null;
+	public	$equipment			= null;
+	public	$tax_ratio			= null;
+	public	$property			= null;
+	public	$warning			= null;
+
+	function __construct() {
+		global $smarty;
+
+		$smarty->assign_by_ref('o', $this);
+
+		defineSmartyConfig("reserve.conf");
+    require_once(dirname(__FILE__)."/../../../public/sys/modules/dBug.php");
+	}
+
+	/**
+	 * 予約台帳(日別予約状況)
+	 */
+	public function displayReserveList() {
+		global $smarty;
+
+		if ($_SERVER['REQUEST_METHOD'] == "GET" && isDate($_GET['date'])) {
+			$_POST['target_month']	= substr($_GET['date'], 0, 6);
+			$_POST['target_date']	= $_GET['date'];
+		} elseif (! isDate(sprintf("%s01", $_POST['target_month']))
+			|| ! isDate($_POST['target_date'])
+			|| ! preg_match("/\A{$_POST['target_month']}/", $_POST['target_date'])) {
+			$_POST['target_month']	= date('Ym');
+			$_POST['target_date']	= date('Ymd');
+		} elseif ($_POST['target_month'] == date('Ym')) {
+			$_POST['target_date'] = date('Ymd');
+		}
+
+		$target_month	= strtotime(sprintf("%s01", $_POST['target_month']));
+		$days_of_month	= date("t", $target_month);
+		$wday_of_1st	= date("N", $target_month);	// 月曜始まり対応
+		$day			= 1;
+		for ($i=0; $i<6; $i++) {		// 最大6週
+			for ($j=1; $j<=7; $j++) {	// 1週7日
+				if ($i == 0 && $j < $wday_of_1st || $day > $days_of_month) {
+					$this->calendar[$i][$j] = '';
+					continue;
+				}
+
+				$this->calendar[$i][$j] = $day;
+				$day++;
+			}
+
+			if ($day > $days_of_month) {
+				break;
+			}
+		}
+
+		$this->reserve = $this->_getDailyReserveList();
+
+		$smarty->display('reserve/list.html');
+	}
+
+	/**
+	 * 予約台帳(部屋別月間予約状況)
+	 */
+	public function displayReserveListMonthly() {
+		global $smarty;
+
+		if ($_SERVER['REQUEST_METHOD'] == "GET" && isDate($_GET['month'] . '01')) {
+			$_POST['target_month']	= $_GET['month'];
+		} elseif (! isDate($_POST['target_month'] . '01')) {
+			$_POST['target_month']	= date('Ym');
+		}
+
+		if ($_SERVER['REQUEST_METHOD'] == "GET"
+			&& isNaturalNumber($_GET['room'], false)) {
+			$_POST['room_id'] = $_GET['room'];
+		}
+
+		$this->reserve = $this->_getRoomReserveList();
+
+		$smarty->display('reserve/list_monthly.html');
+	}
+
+	/**
+	 * 予約詳細
+	 */
+	public function displayReserveDetail() {
+		global $smarty;
+
+		$reserve_id = getPathInfo(2);
+		if (! isNaturalNumber($reserve_id)) {
+			displayNotFound();
+		}
+
+		try {
+			$this->reserve	=& $data;
+			$data			= $this->_dbGetReserveDetail($reserve_id);
+			if (empty($this->reserve)) {
+				displayNotFound();
+			}
+
+			$data['brown_equipment']	= $this->_bit2Array($data['brown_equipment']);
+			$data['display_event_info']	= $this->_bit2Array($data['display_event_info']);
+
+			$this->tax_ratio = $this->getTaxRatio($data['use_date']);
+
+			if (($this->property = $this->_getPropertyList()) === false) {
+				throw new Exception();
+			}
+		} catch (Exception $e) {
+			trigger_error('データの取得に失敗しました。', WARNING);
+		}
+
+		$smarty->display('reserve/detail.html');
+	}
+
+	/**
+	 * 予約登録
+	 */
+	public function displayReserveRegist() {
+		global $smarty;
+
+		if (! isDate($_GET['date']) || ! isNaturalNumber($_GET['room'])) {
+			displayNotFound();
+		}
+
+		$this->reserve = array(
+			'use_date'	=> date('Y/m/d', strtotime($_GET['date'])),
+			'room_id'	=> $_GET['room'],
+			'use_type'	=> USE_TYPE_BASIC
+		);
+
+		try {
+			$this->reserve['building_kn'] = $this->_dbGetBuildingKubun($_GET['room']);
+			if (empty($this->reserve['building_kn'])) {
+				displayNotFound();
+			}
+
+			$this->tax_ratio = $this->getTaxRatio($this->reserve['use_date']);
+			$this->room = $this->_dbGetRoomList();
+
+			$use_date = date('Y/m/d', strtotime($_GET['date']));
+			$this->equipment = $this->_dbGetEquipmentList($_GET['room'], $use_date);
+
+			if (($this->property = $this->_getPropertyList()) === false) {
+				throw new Exception();
+			}
+		} catch (Exception $e) {
+			trigger_error('データの取得に失敗しました。', WARNING);
+		}
+
+		$smarty->display('reserve/regist.html');
+	}
+
+	/**
+	 * 予約編集
+	 */
+	public function displayReserveEdit() {
+		global $smarty;
+
+		$reserve_id = getPathInfo(2);
+		if (! isNaturalNumber($reserve_id)) {
+			displayNotFound();
+		}
+
+		try {
+			$this->reserve	=& $data;
+			$data			= $this->_dbGetReserveDetail($reserve_id);
+			if (empty($this->reserve)) {
+				displayNotFound();
+			}
+
+			$data['contact_tel']			= explode('-', $data['contact_tel']);
+			$data['contact_fax']			= explode('-', $data['contact_fax']);
+			$data['contact_mobile_phone']	= explode('-', $data['contact_mobile_phone']);
+			$data['host_tel']				= explode('-', $data['host_tel']);
+			$data['supervisor_tel']			= explode('-', $data['supervisor_tel']);
+			$data['brown_equipment']		= $this->_bit2Array($data['brown_equipment']);
+			$data['display_event_info']		= $this->_bit2Array($data['display_event_info']);
+
+			$this->tax_ratio = $this->getTaxRatio(str_replace('-', '/', $data['use_date']));
+			$this->room = $this->_dbGetRoomList();
+
+			$use_date = date('Y/m/d', strtotime($data['use_date']));
+			$this->equipment = $this->_dbGetEquipmentList($this->reserve['room_id'], $use_date);
+
+			if ($this->reserve['equipment_flg'] == '1') {
+				foreach ($this->reserve['equipment'] as $v) {
+					$this->reserve['equipment'][$v['equipment_id']] = array(
+						'tax_included_fee'	=> $v['equipment_fee'],
+						'count'				=> $v['reserve_count']
+					);
+				}
+			}
+
+			if (($this->property = $this->_getPropertyList()) === false) {
+				throw new Exception();
+			}
+		} catch (Exception $e) {
+			trigger_error('データの取得に失敗しました。', WARNING);
+		}
+
+		$smarty->display('reserve/edit.html');
+	}
+
+	/**
+	 * 予約複製
+	 */
+	public function displayReserveCopy() {
+		global $smarty;
+
+		$reserve_id = getPathInfo(2);
+		if (! isNaturalNumber($reserve_id)) {
+			displayNotFound();
+		}
+
+		$equipment_flg = ($_GET['equipment'] == '1') ? true : false;
+
+		try {
+			$this->reserve	=& $data;
+			$data			= $this->_dbGetReserveDetail($reserve_id, true, $equipment_flg);
+			if (empty($this->reserve)) {
+				displayNotFound();
+			}
+
+			$data['contact_tel']			= explode('-', $data['contact_tel']);
+			$data['contact_fax']			= explode('-', $data['contact_fax']);
+			$data['contact_mobile_phone']	= explode('-', $data['contact_mobile_phone']);
+			$data['host_tel']				= explode('-', $data['host_tel']);
+			$data['supervisor_tel']			= explode('-', $data['supervisor_tel']);
+			$data['display_event_info']		= $this->_bit2Array($data['display_event_info']);
+
+			$this->room = $this->_dbGetRoomList();
+
+			if ($equipment_flg && $this->reserve['equipment_flg'] == '1') {
+				$data['brown_equipment'] = $this->_bit2Array($data['brown_equipment']);
+
+				$use_date = date('Y/m/d');
+				$this->equipment = $this->_dbGetEquipmentList($data['room_id'], $use_date);
+				foreach ($this->reserve['equipment'] as $v) {
+					$this->reserve['equipment'][$v['equipment_id']] = array(
+						'tax_included_fee'	=> $v['equipment_fee'],
+						'count'				=> $v['reserve_count']
+					);
+				}
+			}
+
+			if (! $equipment_flg) {
+				$data['room_id'] = null;
+			}
+
+			$data['use_date'] = null;
+
+			if (($this->property = $this->_getPropertyList()) === false) {
+				throw new Exception();
+			}
+		} catch (Exception $e) {
+			trigger_error('データの取得に失敗しました。', WARNING);
+		}
+
+		$smarty->assign('mode', 'copy');
+		$smarty->display('reserve/edit.html');
+	}
+
+	/**
+	 * 請求書表示
+	 */
+	public function displayReserveInvoice() {
+		global $smarty;
+
+		$reserve_id = getPathInfo(2);
+		if (! isNaturalNumber($reserve_id)) {
+			displayNotFound();
+		}
+
+		try {
+			$this->reserve = $this->_dbGetReserveDetail($reserve_id);
+			if (empty($this->reserve)
+				|| $this->reserve['disable_flg'] == '1'	// 休室
+				|| $this->reserve['status_kn'] != STATUS_ACCEPTED) {
+				displayNotFound();
+			}
+
+			if (($this->property = $this->_getPropertyList()) === false) {
+				throw new Exception();
+			}
+		} catch (Exception $e) {
+			trigger_error('データの取得に失敗しました。', WARNING);
+		}
+
+		$smarty->display('reserve/invoice.html');
+	}
+
+	/**
+	 * 予約データCSVダウンロード
+	 */
+	public function displayDownloadCSV() {
+		global $smarty;
+
+		$smarty->display('reserve/download.html');
+	}
+
+	/**
+	 * 過去予約データ削除画面
+	 */
+	public function displayReserveDelete() {
+		global $smarty;
+
+		$smarty->display('reserve/delete.html');
+	}
+
+	/**
+	 * 予約登録
+	 */
+	public function registReserve() {
+		global $smarty, $smarty_mail;
+
+		try {
+			foreach ($this->_dbGetRoomList() as $k => $v) {
+				$this->room[$v['room_id']] = array(
+					'room_nm'		=> $v['room_nm'],
+					'building_kn'	=> $v['building_kn'],
+					'building_nm'	=> $v['building_nm'],
+					'capacity'		=> $v['capacity'],
+					'use_type'		=> $this->_dbGetUseType($v['room_id']),
+					'use_time'		=> $this->_dbGetUseTime($v['room_id'])
+				);
+			}
+
+			if (is_array($this->room[$_POST['room_id']])) {
+				$this->equipment = $this->_dbGetEquipmentList($_POST['room_id'], $_POST['use_date']);
+			}
+
+			if (($this->property = $this->_getPropertyList()) === false) {
+				throw new Exception();
+			}
+
+			$data = $this->_formatReserveFormStrings($_POST);
+
+			if ($this->_isValidReserve($data) === false) {
+				$smarty->assign('reserve_warning', true);
+				throw new Exception();
+			}
+
+			$this->_dbRegistReserve($data);
+
+			$data['room_nm'] = sprintf(
+				"%s %s",
+				$this->room[$data['room_id']]['building_nm'],
+				$this->room[$data['room_id']]['room_nm']
+			);
+
+			$recipients = ($this->room[$data['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL)
+				? ADMIN_MAIL_ADDR . ',' . IMAIKEHALL_MAIL_ADDR
+				: ADMIN_MAIL_ADDR;
+
+			if (sendMail(
+				$recipients,
+				MAIL_SUBJECT_REGIST_RESERVE,
+				'reserve/mail/regist_reserve.tpl',
+					$data,
+					array('From' => SYS_MAIL_FROM)
+				) === false) {
+				trigger_error('管理者宛メールの送信に失敗しました。', WARNING);
+				throw new Exception();
+			}
+
+			$_SESSION['admin']['message']	= '予約の登録が完了しました。';
+			if (isset($_GET['month']) && isset($_GET['room'])) {
+				$redirect = sprintf(
+					'%sreserve/monthly/?room=%s&month=%s',
+					BASE_URL,
+					$data['room_id'],
+					substr(str_replace('/', '', $data['use_date']), 0, 6)
+				);
+			} else {
+				$redirect = sprintf(
+					'%sreserve/?date=%s',
+					BASE_URL,
+					str_replace('/', '', $data['use_date'])
+				);
+			}
+
+		} catch (Exception $e) {
+			if (! is_array($smarty->get_template_vars('warning'))
+				&& ! is_array($this->warning)) {
+				trigger_error('データの取得に失敗しました。', WARNING);
+			}
+		}
+
+		@header('Content-type: application/json; charset=UTF-8');
+		echo json_encode(array(
+			'sysmessage'	=> $smarty->fetch('sysmessage.tpl'),
+			'warning'		=> $this->warning,
+			'ferr'			=> $smarty->get_template_vars('warning_form'),
+			'redirect'		=> $redirect
+		));
+		exit;
+	}
+
+	/**
+	 * 予約編集
+	 */
+	public function editReserve() {
+		global $smarty, $smarty_mail;
+
+		$reserve_id = getPathInfo(2);
+		if (! isNaturalNumber($reserve_id)) {
+			displayNotFound();
+		}
+
+		try {
+			$tmp = $this->_dbGetRoomList();
+			foreach ($tmp as $k => $v) {
+				$this->room[$v['room_id']] = array(
+					'room_nm'		=> $v['room_nm'],
+					'building_kn'	=> $v['building_kn'],
+					'building_nm'	=> $v['building_nm'],
+					'capacity'		=> $v['capacity'],
+					'use_type'		=> $this->_dbGetUseType($v['room_id']),
+					'use_time'		=> $this->_dbGetUseTime($v['room_id'])
+				);
+			}
+
+			if (is_array($this->room[$_POST['room_id']])) {
+				$this->equipment = $this->_dbGetEquipmentList($_POST['room_id'], $_POST['use_date']);
+			}
+
+			if (($this->property = $this->_getPropertyList()) === false) {
+				throw new Exception();
+			}
+
+			$data = $this->_formatReserveFormStrings($_POST);
+
+			if ($this->_isValidReserve($data) === false) {
+				$smarty->assign('reserve_warning', true);
+				throw new Exception();
+			}
+
+			$this->_dbUpdateReserve($data, $reserve_id);
+
+			$data['room_nm'] = sprintf(
+				"%s %s",
+				$this->room[$data['room_id']]['building_nm'],
+				$this->room[$data['room_id']]['room_nm']
+			);
+
+			$data['reserve_no'] = decrypt($data['r_no']);
+
+			$header = array(
+				'From'	=> SYS_MAIL_FROM
+			);
+
+			if ($data['st'] == '1') {
+				$mail_flg_user	= ($data['mail_flg_user'] == '1') ? true :false;
+				$mail_flg		= ($data['mail_flg_admin'] == '1') ? true :false;
+
+				if ($mail_flg_user || $mail_flg) {
+					if ($this->room[$data['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL) {
+						$subject	= MAIL_SUBJECT_ACCEPT_IMAIKEHALL;
+						$tpl		= 'reserve/mail/accept_imaikehall.tpl';
+					} else {
+						$subject	= MAIL_SUBJECT_ACCEPT;
+						$tpl		= 'reserve/mail/accept.tpl';
+
+						$data['equipment'] = null;
+						foreach ($this->equipment as $v) {
+							if ($data['reserve_count'][$v['equipment_id']] > 0) {
+								$data['equipment'][] = array(
+									'name'	=> $v['equipment_nm'],
+									'count'	=> $data['reserve_count'][$v['equipment_id']]
+								);
+							}
+						}
+						foreach ($data['equipment_admin'] as $k => $v) {
+							if ($data['equipment_admin_count'][$k] > 0) {
+								$data['equipment'][] = array(
+									'name'	=> $v,
+									'count'	=> $data['equipment_admin_count'][$k]
+								);
+							}
+						}
+					}
+
+					$admin_mail = ($this->room[$data['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL)
+						? ADMIN_MAIL_ADDR . ',' . IMAIKEHALL_MAIL_ADDR
+						: ADMIN_MAIL_ADDR;
+
+					if ($mail_flg_user && $data['contact_mail']) {
+						$recipients	= $data['contact_mail'];
+						if ($mail_flg) {
+							$header['Bcc']	= $admin_mail;
+						}
+					} elseif ($mail_flg) {
+						$recipients	= $admin_mail;
+					}
+
+					if (sendMail($recipients, $subject, $tpl, $data, $header) === false) {
+						trigger_error('本受付完了メールの送信に失敗しました。', WARNING);
+						throw new Exception();
+					}
+
+					try {
+						$this->_dbUpdateMailSendDate($reserve_id);
+					} catch (Exception $e) {
+						trigger_error('メール送信日時の更新に失敗しました。', WARNING);
+						throw $e;
+					}
+				}
+
+			} elseif ($data['st'] != '1') {
+				$mail_flg_user	= ($data['mail_flg_user'] == '1') ? true :false;
+				$mail_flg		= ($data['mail_flg_admin'] == '1') ? true :false;
+
+				$admin_mail = ($this->room[$data['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL)
+						? ADMIN_MAIL_ADDR . ',' . IMAIKEHALL_MAIL_ADDR
+						: ADMIN_MAIL_ADDR;
+
+				if ($mail_flg_user && $data['contact_mail']) {
+					$recipients	= $data['contact_mail'];
+					if ($mail_flg) {
+						$header['Bcc']	= $admin_mail;
+					}
+				} elseif ($mail_flg) {
+					$recipients	= $admin_mail;
+				}
+
+				if ($mail_flg_user || $mail_flg) {
+					$subject	= MAIL_SUBJECT_EDIT_RESERVE;
+					$tpl		= 'reserve/mail/edit_reserve.tpl';
+					if (sendMail($recipients, $subject, $tpl, $data, $header) === false) {
+						trigger_error('予約変更メールの送信に失敗しました。', WARNING);
+						throw new Exception();
+					}
+				}
+			}
+
+			$_SESSION['admin']['message']	= '予約の更新が完了しました。';
+			if (isset($_GET['month']) && isset($_GET['room'])) {
+				$redirect = sprintf(
+					'%sreserve/monthly/?room=%s&month=%s',
+					BASE_URL,
+					$data['room_id'],
+					substr(str_replace('/', '', $data['use_date']), 0, 6)
+				);
+			} else {
+				$redirect = sprintf(
+					'%sreserve/?date=%s',
+					BASE_URL,
+					str_replace('/', '', $data['use_date'])
+				);
+			}
+		} catch (Exception $e) {
+			if (! is_array($smarty->get_template_vars('warning'))
+				&& ! is_array($this->warning)) {
+				trigger_error('データの取得に失敗しました。', WARNING);
+			}
+		}
+
+		@header('Content-type: application/json; charset=UTF-8');
+		echo json_encode(array(
+			'sysmessage'	=> $smarty->fetch('sysmessage.tpl'),
+			'warning'		=> $this->warning,
+			'ferr'			=> $smarty->get_template_vars('warning_form'),
+			'redirect'		=> $redirect
+		));
+		exit;
+	}
+
+	/**
+	 * 予約ステータス更新
+	 */
+	public function updateReserveStatus() {
+		global $smarty_mail;
+
+		$reserve_id = getPathInfo(2);
+		if (! isNaturalNumber($reserve_id)) {
+			displayNotFound();
+		}
+
+		try {
+			$data = $this->_dbGetReserveDetail($reserve_id);
+		} catch (Exception $e) {
+			trigger_error('予約ステータスの更新に失敗しました。', WARNING);
+			throw $e;
+		}
+
+		$mail_flg		= false;
+		$user_mail_flg	= false;
+		$admin_mail = ($data['building_kn'] == BUILDING_KN_IMAIKE_HALL)
+				? ADMIN_MAIL_ADDR . ',' . IMAIKEHALL_MAIL_ADDR
+				: ADMIN_MAIL_ADDR;
+		try {
+			switch ($_POST['mode']) {
+				case 'reject_reserve':
+					$this->_validateAccessKey($_POST['accept_key']);
+
+					$prev_status	= STATUS_APPLICATION;
+					$next_status	= STATUS_REJECT;
+					break;
+				case 'approve_reserve':
+					$this->_validateAccessKey($_POST['accept_key']);
+
+					$prev_status	= STATUS_APPLICATION;
+					$next_status	= STATUS_APPLOVED;
+					break;
+				case 'cancel_reserve':
+					$prev_status	= array(STATUS_APPLICATION, STATUS_APPLOVED, STATUS_PRE_ACCEPTE, STATUS_ACCEPTED);
+					$next_status	= STATUS_CANCEL;
+
+					$mail_flg	= true;
+					$subject	= MAIL_SUBJECT_CANCEL_RESERVE;
+					$tpl		= 'reserve/mail/cancel_reserve.tpl';
+					break;
+				case 'pre_accept_reserve':
+					$prev_status	= STATUS_APPLOVED;
+					$next_status	= STATUS_PRE_ACCEPTE;
+
+					$mail_flg		= true;
+					$user_mail_flg	= true;
+					$subject		= 'MAIL_SUBJECT_PRE_ACCEPT';
+					$tpl			= 'reserve/mail/pre_accept%s.tpl';
+					break;
+				case 'accept_reserve':
+					$prev_status	= STATUS_PRE_ACCEPTE;
+					$next_status	= STATUS_ACCEPTED;
+
+					if (! isset($_POST['mail_flg_user'])) {
+						trigger_error('お客様へのメールを送信するかどうか選択してください。', WARNING);
+						throw new Exception();
+					}
+					if (! isset($_POST['mail_flg_user'])) {
+						trigger_error('管理者へのメールを送信するかどうか選択してください。', WARNING);
+						throw new Exception();
+					}
+
+					$user_mail_flg	= ($_POST['mail_flg_user'] == '1') ? true : false;
+					$mail_flg		= ($_POST['mail_flg_admin'] == '1') ? true : false;
+					$subject		= 'MAIL_SUBJECT_ACCEPT';
+					$tpl			= 'reserve/mail/accept%s.tpl';
+					break;
+				default:
+					trigger_error('不正な処理です。', WARNING);
+					throw new Exception();
+			}
+
+			$this->_dbUpdateReserveStatus($reserve_id, $prev_status, $next_status, $_POST['upd']);
+
+			if ($mail_flg || $user_mail_flg) {
+				try {
+					if (in_array($_POST['mode'], array('pre_accept_reserve', 'accept_reserve'))) {
+						if ($data['building_kn'] == BUILDING_KN_IMAIKE_HALL) {
+							$subject	= constant($subject . '_IMAIKEHALL');
+							$tpl		= sprintf($tpl, '_imaikehall');
+						} else {
+							$subject	= constant($subject);
+							$tpl		= sprintf($tpl, '');
+						}
+					}
+
+					if (($this->property = $this->_getPropertyList()) === false) {
+						throw new Exception();
+					}
+				} catch (Exception $e) {
+					trigger_error('管理者宛メールの送信に失敗しました。', WARNING);
+					throw $e;
+				}
+
+				$header = array(
+					'From'	=> SYS_MAIL_FROM
+				);
+
+				if ($user_mail_flg && $data['contact_mail']) {
+					$recipients	= $data['contact_mail'];
+					if ($mail_flg) {
+						$header['Bcc']	= $admin_mail;
+					}
+				} elseif ($mail_flg) {
+					$recipients	= $admin_mail;
+				}
+
+				if (sendMail($recipients, $subject, $tpl, $data, $header) === false) {
+					trigger_error('メールの送信に失敗しました。', WARNING);
+					throw new Exception();
+				}
+
+				if ($_POST['mode'] == 'accept_reserve') {
+					try {
+						$this->_dbUpdateMailSendDate($reserve_id);
+					} catch (Exception $e) {
+						trigger_error('メール送信日時の更新に失敗しました。', WARNING);
+						throw $e;
+					}
+				}
+			}
+
+		} catch (Exception $e) {
+			return;
+		}
+
+		if ($_POST['mode'] == 'cancel_reserve') {
+			$_SESSION['admin']['message'] = '予約をキャンセルしました。';
+			header(sprintf('Location: %scancel/', BASE_URL));
+		} else {
+			$_SESSION['admin']['message'] = 'ステータスの更新が完了しました。';
+			header(sprintf('Location: %stask/?%s', BASE_URL, http_build_query($_GET)));
+		}
+		exit;
+	}
+
+	/**
+	 * 予約データCSVダウンロード
+	 */
+	public function downloadCSV() {
+		global $smarty;
+
+		try {
+			$this->_validateTargetReserve($_POST, 'ダウンロード対象');
+
+			if (($this->property = $this->_getPropertyList()) === false) {
+				trigger_error('データの取得に失敗しました。', WARNING);
+				throw new Exception();
+			}
+		} catch (Exception $e) {
+			return;
+		}
+
+
+
+		$filename = sprintf("reserve_%s.csv", date("YmdHis"));
+		header('Content-Type: text/plain');
+		header('Content-Disposition: attachment; filename=' . $filename);
+		header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
+		header('Pragma: private');
+
+		echo $smarty->fetch('reserve/csv_header.tpl');
+					;
+
+		try {
+			$tmpfs = fopen('php://output', 'w');
+
+      stream_filter_register("msLineEnding", "ms_line_ending_filter");
+      stream_filter_append($tmpfs, "msLineEnding");
+			//stream_filter_register('lineFeedCode', 'LineFeedCodeFilter');
+			//stream_filter_append($tmpfs, 'lineFeedCode');
+
+			for ($i=0; ($data = $this->_dbGetReserveDownloadList($_POST, $i * DOWNLOAD_FETCH_ROWS_LIMIT)) !== null; $i++) {
+				foreach ($data as $d) {
+					$d['status']				= ($d['status'] == '9')
+						? '休室'
+						: $this->getPropertyName($d['status'], 'status_kn');
+
+					$d['building_kn']			= $this->getPropertyName($d['building_kn'], 'building_kn');
+					$d['time_kn']				= $this->getPropertyName($d['time_kn'], 'time_kn');
+					$d['use_type']				= ($d['status'] == '休室')
+						? ''
+						: $this->getPropertyName($d['use_type'], 'use_type');
+					$d['layout_kn']				= ($d['layout_kn'] == '4')
+						? ''	// ※フラットフロア形式削除(2011.4改修分)
+						: $this->getPropertyName($d['layout_kn'], 'layout_kn');
+					$d['purpose_kn']			= $this->getPropertyName($d['purpose_kn'], 'purpose_kn');
+					$d['applicant_pref_cd']		= $this->getPropertyName($d['applicant_pref_cd'], 'pref_cd');
+					$d['applicant_title']		= $this->getPropertyName($d['applicant_title'], 'applicant_title');
+					$d['host_pref_cd']			= $this->getPropertyName($d['host_pref_cd'], 'pref_cd');
+					$d['supervisor_pref_cd']	= $this->getPropertyName($d['supervisor_pref_cd'], 'pref_cd');
+					$d['equipment_detail_flg']	= $this->getPropertyName($d['equipment_detail_flg'], 'equipment_detail_flg');
+					$d['engineer_kn']			= $this->getPropertyName($d['engineer_kn'], 'engineer_kn');
+
+					$d['event_info'] = "";
+					$tmp	= $this->_bit2Array($d['event_info']);
+          if($tmp){
+            $item	= null;
+            foreach ($tmp as $k => $v) {
+              if ($v) {
+                $item[] = $this->getPropertyName($k, 'event_info');
+              }
+            }
+            $d['event_info'] = implode('/', $item);
+          }
+
+					$d['brown_equipment'] = "";
+					$tmp	= $this->_bit2Array($d['brown_equipment']);
+          if($tmp){
+            $item	= null;
+            foreach ($tmp as $k => $v) {
+              if ($v) {
+                $item[] = $this->getPropertyName($k, 'brown_equipment');
+              }
+            }
+            $d['brown_equipment'] = implode('/', $item);
+          }
+
+					$d['room_fee']		= number_format($d['room_fee']);
+					$d['entrance_fee']	= number_format($d['entrance_fee']);
+					$d['engineer_fee']	= number_format($d['engineer_fee']);
+					$d['invoice_price']	= number_format($d['invoice_price']);
+					$d['tax']			= number_format($d['tax']);
+					$d['extra_charge']	= number_format($d['extra_charge']);
+					$d['discount']		= number_format($d['discount']);
+
+					mb_convert_variables('SJIS-win', 'UTF-8', $d);
+					fputcsv($tmpfs, $d);
+				}
+			}
+			fclose($tmpfs);
+		} catch (Exception $e) {
+			echo u2s('データの取得に失敗しました。');
+		}
+		exit;
+
+	}
+
+	/**
+	 * 過去予約データ削除
+	 */
+	public function batchDeleteReserveData() {
+		try {
+			$this->_validateTargetReserve($_POST, '削除対象');
+			$this->_dbDeleteReserveData($_POST, $delete_count);
+
+		} catch (Exception $e) {
+			return;
+		}
+
+		trigger_error("{$delete_count}件の予約データを削除しました。", NOTICE);
+	}
+
+	/**
+	 * JSON: 日別予約状況取得(予約台帳用)
+	 */
+	public function jsonDailyReserveList() {
+		global $smarty;
+
+		if (! isDate($_POST['target_date'])) {
+			trigger_error('不正な操作が行われました。もう一度やり直してください。', WARNING);
+		} else {
+			$this->reserve = $this->_getDailyReserveList();
+		}
+
+		@header('Content-type: application/json; charset=UTF-8');
+		echo json_encode(array(
+			'sysmessage'	=> $smarty->fetch('sysmessage.tpl'),
+			'html'			=> $smarty->fetch('reserve/room_reserve_list.tpl')
+		));
+		exit;
+	}
+
+	/**
+	 * JSON: 部屋別予約状況取得(予約台帳用)
+	 */
+	public function jsonMonthlyReserveList() {
+		global $smarty;
+
+		if (! isDate($_POST['target_month'] . '01')
+			|| ! isNaturalNumber($_POST['room_id'], false)) {
+			trigger_error('不正な操作が行われました。もう一度やり直してください。', WARNING);
+		} else {
+			$this->reserve = $this->_getRoomReserveList();
+		}
+
+		@header('Content-type: application/json; charset=UTF-8');
+		echo json_encode(array(
+			'sysmessage'	=> $smarty->fetch('sysmessage.tpl'),
+			'html'			=> $smarty->fetch('reserve/room_reserve_list_monthly.tpl'),
+			'is_half'		=> ($_POST['room_id'] == ROOM_ID_SAKAE_401) ? '1' : '0'
+		));
+		exit;
+	}
+
+	/**
+	 * JSON: 会議室・ホール変更時のデータ取得(予約登録・変更)
+	 */
+	public function jsonRoomAttribute() {
+		global $smarty;
+
+		try {
+			if (! isNaturalNumber($_GET['room_id'])) {
+				throw new Exception();
+			}
+
+			$building_kn = $this->_dbGetBuildingKubun($_GET['room_id']);
+			if (empty($building_kn)) {
+				throw new Exception();
+			}
+
+			$data = $this->_dbGetRoomPriceList($_GET['room_id'], $_GET['use_date']);
+			foreach ($data as $v) {
+				$use_type[$v['use_type']] = 1;
+
+				$price[$v['day_kn']][$v['time_kn']][$v['use_type']]		= $v['tax_included_fee'];
+				$tax_fee[$v['day_kn']][$v['time_kn']][$v['use_type']]	= $v['tax_fee'];
+			}
+
+			if ($building_kn == BUILDING_KN_IMAIKE_HALL) {
+				$wd = (isDate($_GET['use_date']))
+					? date('w', strtotime($_GET['use_date']))
+					: null;
+
+				$day_kn = (in_array($wd, array(0, 6)) || $this->_isHoliday($_GET['use_date']))
+						? DAY_KN_WEEKEND_HOLIDAY
+						: DAY_KN_WEEKDAY;
+
+			} else {
+				$day_kn = DAY_KN_ALL;
+			}
+
+			if ($_GET['equipment'] == '1' && isNaturalNumber($_GET['room_id'])) {
+				$this->equipment = $this->_dbGetEquipmentList($_GET['room_id'], $_GET['use_date']);
+			}
+
+			if (($property = $this->_getPropertyList('time_kn')) === false) {
+				throw new Exception();
+			}
+			$time_kn = '<option value="">選択してください</option>';
+			foreach ($price[$day_kn] as $k => $v) {
+				$time_kn .= sprintf(
+					'<option value="%s"%s>%s</option>',
+					$k,
+					($k == $_GET['time_kn']) ? ' selected' : '',
+					$property['time_kn'][$k]
+				);
+			}
+
+		} catch (Exception $e) {
+			trigger_error('データの取得に失敗しました。', WARNING);
+		}
+
+		@header('Content-type: application/json; charset=UTF-8');
+		echo json_encode(array(
+			'sysmessage'	=> $smarty->fetch('sysmessage.tpl'),
+			'raw_equipment'	=> $this->equipment,
+			'equipment'		=> ($_GET['equipment'] == '1')
+				? $smarty->fetch('reserve/room_equipment_list.tpl') : null,
+			'price'			=> $price[$day_kn],
+			'tax_fee'		=> $tax_fee[$day_kn],
+			'use_type'		=> $use_type,
+			'time_kn'		=> $time_kn
+		));
+		exit;
+	}
+
+	/**
+	 * JSON: 消費税率取得
+	 */
+	public function jsonGetTaxRatio() {
+		global $smarty;
+
+		$tax_ratio = $this->getTaxRatio($_GET['base_date']);
+
+		@header('Content-type: application/json; charset=UTF-8');
+		echo json_encode(array(
+			'sysmessage'	=> $smarty->fetch('sysmessage.tpl'),
+			'tax_ratio'		=> $tax_ratio
+		));
+		exit;
+	}
+
+	/**
+	 * 消費税率取得
+	 */
+	public function getTaxRatio($base_date) {
+		$base_date	= str_replace(array('/', '-'), '', $base_date);
+
+		$tax_ratio	= 0.05;
+/*		if ($base_date >= 20170401) {
+			$tax_ratio = 0.1;
+		} else
+		*/
+		if ($base_date >= 20140401) {
+			$tax_ratio = 0.08;
+		}
+
+		return $tax_ratio;
+	}
+
+	/**
+	 * プロパティ名取得
+	 */
+	public function getPropertyName($item_id, $category) {
+		if (! isset($this->property[$category])
+			&& ($this->property = $this->_getPropertyList($category)) === false) {
+			return false;
+		}
+
+    //undefined index対策 20190407
+		return isset($this->property[$category][$item_id]) ? $this->property[$category][$item_id] : false;
+	}
+
+	/**
+	 * 全面/半面利用で関連する会議室の休室予約データを返す
+	 */
+	private function _getRelatedDisabledReservationData($base, $reserve_no) {
+		global $db;
+
+		$related = array();
+		foreach ($this->_getRelatedRoomIds($base['room_id']) as $related_room_id) {
+			if ($this->_exsistsReservation($related_room_id, $base['use_date'], $base['time_kn'])) {
+				foreach ($this->_getSplittedTimeKnList($related_room_id, $base) as $time_kn) {
+					$related[] = $this->_createDisabledReserveData(
+						$related_room_id,
+						$reserve_no,
+						$time_kn,
+						$base);
+					$reserve_no += 1;
+				}
+			} else {
+				$related[] = $this->_createDisabledReserveData(
+					$related_room_id,
+					$reserve_no,
+					$base['time_kn'],
+					$base);
+				$reserve_no += 1;
+			}
+		}
+
+		return $related;
+	}
+
+	/**
+	 * 予約の有無を返す
+	 */
+	private function _exsistsReservation($room_id, $use_date, $time_kn) {
+		return ($this->_dbGetIsAvailableRoom(compact('room_id', 'use_date', 'time_kn')) != RESERVE_AVAILABLE);
+	}
+
+	/**
+	 * 時間帯区分を分割する
+	 */
+	private function _getSplittedTimeKnList($room_id, $base) {
+		$time_kn_list = array();
+		$reserve_time_kn_list = array();
+		foreach ($this->_dbGetDailyReserveList(str_replace('/', '', $base['use_date']), $room_id) as $reserve) {
+			$reserve_time_kn_list[] = $reserve['time_kn'];
+		}
+		foreach ($this->_concatTimeKn($this->_getDiffOverlappedTimeKn($base['time_kn'], $reserve_time_kn_list)) as $time_kn) {
+			$time_kn_list[] = $time_kn;
+		}
+		return array_unique($time_kn_list);
+	}
+
+	/**
+	 * 全面／半面利用時の関連ルームIDの配列を返す
+	 */
+	private function _getRelatedRoomIds($room_id) {
+		switch ($room_id) {
+			case ROOM_ID_GASHALL_FULL:
+			case ROOM_ID_GASHALL_HALF_A:
+			case ROOM_ID_GASHALL_HALF_B:
+				return array_diff(
+					array(ROOM_ID_GASHALL_FULL, ROOM_ID_GASHALL_HALF_A, ROOM_ID_GASHALL_HALF_B),
+					array($room_id));
+			default:
+				return array();
+		}
+	}
+
+	/**
+	 * オーバーラップする時間帯区分の差を返す
+	 * 午前・午後や午後・夜間は、それぞれ(午前, 午後), (午後, 夜間)と個別の時間帯区分となる
+	 */
+	private function _getDiffOverlappedTimeKn($time_kn_1, $time_kn_2_list) {
+		$units_dict = array(
+			TIME_KN_MORNING				=> array(TIME_KN_MORNING),
+			TIME_KN_AFTERNOON			=> array(TIME_KN_AFTERNOON),
+			TIME_KN_NIGHT				=> array(TIME_KN_NIGHT),
+			TIME_KN_MORNING_AFTERNOON	=> array(TIME_KN_MORNING, TIME_KN_AFTERNOON),
+			TIME_KN_AFTERNOON_NIGHT		=> array(TIME_KN_AFTERNOON, TIME_KN_NIGHT),
+			TIME_KN_WHOLE_DAY			=> array(TIME_KN_MORNING, TIME_KN_AFTERNOON, TIME_KN_NIGHT)
+		);
+		
+		$diff = $units_dict[$time_kn_1];
+		foreach ($time_kn_2_list as $time_kn_2) {
+			$diff = array_diff($diff, $units_dict[$time_kn_2]);
+		}
+		return $diff;
+	}
+
+	/**
+	 * 時間帯区分のリストのうち、連結可能なものを連結する
+	 */
+	private function _concatTimeKn($time_kn_list) {
+		$concat_dict = array(
+			implode(array(TIME_KN_MORNING), '.')	=> TIME_KN_MORNING,
+			implode(array(TIME_KN_AFTERNOON), '.')	=> TIME_KN_AFTERNOON,
+			implode(array(TIME_KN_NIGHT), '.')		=> TIME_KN_NIGHT,
+			implode(array(TIME_KN_MORNING, TIME_KN_AFTERNOON), '.')					=> TIME_KN_MORNING_AFTERNOON,
+			implode(array(TIME_KN_AFTERNOON, TIME_KN_NIGHT), '.')					=> TIME_KN_AFTERNOON_NIGHT,
+			implode(array(TIME_KN_MORNING, TIME_KN_AFTERNOON, TIME_KN_NIGHT), '.')	=> TIME_KN_WHOLE_DAY
+		);
+
+		$time_kn_key = implode($time_kn_list, '.');
+		return isset($concat_dict[$time_kn_key])
+			? array($concat_dict[$time_kn_key])
+			: $time_kn_list;
+	}
+
+	/**
+	 * 休室予約データを作成して返す
+	 */
+	private function _createDisabledReserveData($room_id, $reserve_no, $time_kn, $base) {
+		global $db;
+
+		return array_merge(
+			$base,
+			array(
+				'room_id'			=> $room_id,
+				'reserve_id'		=> $db->GenID('s_予約_reserve_id'),
+				'reserve_no'		=> sprintf('%s%s', RESERVE_NO_INITIAL_ADMIN, $reserve_no),
+				'time_kn'			=> $time_kn,
+				'disable_reason'	=> sprintf('自動休室:%s', $base['reserve_no'])
+			)
+		);
+	}
+
+	/**
+	 * ビットマップの配列変換
+	 */
+	private function _bit2Array($bit_val) {
+		$tmp = str_split(strrev($bit_val));
+		foreach ($tmp as $k => $v) {
+			if ($v == '1') {
+				$rs[$k + 1] = true;
+			} elseif ($v === '0') {
+				$rs[$k + 1] = false;
+			} else {
+				return false;
+			}
+		}
+		return $rs;
+	}
+
+	/**
+	 * ビットマスクの値取得
+	 */
+	private function _getBitmask($data) {
+		foreach ($data as $k => $v) {
+			if ($v == '1') {
+				$bitmask_cd |= (0x1 << $k - 1);
+			}
+		}
+		return $bitmask_cd;
+	}
+
+	/**
+	 * 請求金額の取得
+	 */
+	private function _getInvoicePrice($d) {
+		if ($d['invoice_price_change_flg'] == '1') {
+			return $d['invoice_price'];
+		}
+
+		$invoice_price = 0;
+
+		if ($d['room_fee'] != '') {
+			$invoice_price += $d['room_fee'];
+		}
+
+		if ($this->room[$d['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL
+			&& $d['engineer_fee'][$d['engineer_kn']] != '') {
+			$invoice_price += $d['engineer_fee'][$d['engineer_kn']];
+		}
+
+		foreach ($d['equipment_fee'] as $k => $v) {
+			if ($d['reserve_count'][$k] > 0 && $v > 0) {
+				$invoice_price += $d['reserve_count'][$k] * $v;
+			}
+		}
+
+		foreach ($d['equipment_admin_fee'] as $k => $v) {
+			if ($d['equipment_admin_count'][$k] > 0 && $v > 0) {
+				$invoice_price += $d['equipment_admin_count'][$k] * $v;
+			}
+		}
+
+		foreach ($d['adjust_fee'] as $k => $v) {
+			if ($v > 0) {
+				$invoice_price += $v;
+			}
+		}
+
+		if ($d['extra_charge'] != '') {
+			$invoice_price += $d['extra_charge'];
+		}
+
+		if ($d['discount'] != '') {
+			$invoice_price -= $d['discount'];
+		}
+
+		return $invoice_price;
+	}
+
+	/**
+	 * 予約データ入力チェック
+	 */
+	private function _isValidReserve($d) {
+		global $smarty;
+
+		$w =& $this->warning;
+
+		$time_check_flg	= true;
+
+		if ($d['disable_flg'] != DISABLE_FLG_ON) {
+			if ($d['kari_flg'] == '') {
+				$w['kari_flg'][] = '予約の状態を選択してください。';
+			} elseif (! in_array($d['kari_flg'], array(0, 1))) {
+				$w['kari_flg'][] = '予約の状態が正しくありません。';
+			}
+		}
+
+		if ($d['use_date'] == '') {
+			$w['use_date'][] = '使用日を入力してください。';
+			$time_check_flg	 = false;
+		} elseif (! isDate($d['use_date'])) {
+			$w['use_date'][] = '使用日の日付(YYYY/MM/DD)が正しくありません。';
+			$time_check_flg	 = false;
+		}
+
+		if ($d['room_id'] == '') {
+			$w['room_id'][] = '使用カンファレンスルームまたはホールを選択してください。';
+		} else {
+			if (! is_array($this->room[$d['room_id']])) {
+				$w['room_id'][] = '使用カンファレンスルームまたはホールの値が正しくありません。';
+			}
+			if (APPS_UID == 'imaikehall'
+				&& $this->room[$d['room_id']]['building_kn'] != BUILDING_KN_IMAIKE_HALL) {
+				$w['room_id'][] = '使用カンファレンスルームまたはホールの値が正しくありません。';
+			}
+		}
+
+		if (! is_array($w['use_date']) && ! is_array($w['room_id'])) {
+			try {
+				$time_kn = $this->_dbGetTimeKubun($d['room_id'], $d['use_date']);
+			} catch (Exception $e) {
+				$w['time_kn'][] = "時間帯のデータ取得に失敗しました。";
+				return false;
+			}
+			if ($d['time_kn'] == '') {
+				$time_check_flg = false;
+				$w['time_kn'][] = '時間帯を選択してください。';
+			} elseif (! array_key_exists($d['time_kn'], $time_kn)) {
+				$time_check_flg = false;
+				$w['time_kn'][] = '時間帯の値が正しくありません。';
+			}
+		}
+
+		if ($d['disable_flg'] == DISABLE_FLG_ON) {
+			if ($d['disable_reason'] == '') {
+				$w['disable_reason'][] = '休室理由を入力してください。';
+			} elseif (mb_strlen($d['disable_reason']) > 20) {
+				$w['disable_reason'][] = '休室理由は20文字以内で入力してください。';
+			}  elseif (($str = isMachineDependenceChars($d['disable_reason'])) !== false) {
+				$w['disable_reason'][] = "休室理由に、使用できない文字({$str})が含まれています。";
+			}
+			return (is_array($this->warning)) ? false : true;
+		}
+
+		///// 以下、通常予約の場合 //////////////////////////////////////////////////////
+
+		if ($d['use_type'] == '') {
+			$w['use_type'][] = '使用形式を選択してください。';
+		} elseif (is_array($this->room[$d['room_id']])) {
+			if (! in_array($d['use_type'], $this->room[$d['room_id']]['use_type'])) {
+				$w['use_type'][] = '使用形式の値が正しくありません。';
+			}
+		} else {
+			if (empty($d['time_kn'][$d['use_type']])) {
+				$time_check_flg = false;
+				$w['time_kn'][] = '時間帯の値が正しくありません。';
+			}
+		}
+
+		if (is_array($this->room[$d['room_id']])
+			&& $this->room[$d['room_id']]['building_kn'] != BUILDING_KN_IMAIKE_HALL) {
+			if ($d['use_type'] == USE_TYPE_BASIC) {
+				if ($d['participant_count'][0] == '') {
+					$w['participant_count[0]'][] = '利用人数を入力してください。';
+				} elseif (! isNaturalNumber($d['participant_count'][0], false)) {
+					$w['participant_count[0]'][] = '利用人数は1以上の数字で入力してください。';
+				} elseif ($d['participant_count'][0] > $this->room[$d['room_id']]['capacity']) {
+					$w['participant_count[0]'][] = "利用人数は{$this->room[$d['room_id']]['capacity']}名以内で入力してください。";
+				}
+			} else {
+				if ($d['layout_kn'] == '') {
+					$w['layout_kn'][] = 'レイアウトを選択してください。';
+				} elseif (! array_key_exists($d['layout_kn'], $this->property['layout_kn'])) {
+					$w['layout_kn'][] = 'レイアウトを正しく選択してください。';
+				} elseif ($d['use_type'] == USE_TYPE_HALF && $d['layout_kn'] == LAYOUT_KN_RO) {
+					$w['layout_kn'][] = '応用形(半面)でご利用の際は、レイアウトに「ロの字」を選択できません。';
+				} else {
+					if ($d['participant_count'][$d['layout_kn']] == '') {
+						$w["participant_count[{$d['layout_kn']}]"][] = '利用人数を入力してください。';
+					} elseif (! isNaturalNumber($d['participant_count'][$d['layout_kn']], false)) {
+						$w["participant_count[{$d['layout_kn']}]"][] = '利用人数は1以上の数字で入力してください。';
+					} elseif ($d['participant_count'][$d['layout_kn']] > $this->room[$d['room_id']]['capacity']) {
+						$w["participant_count[{$d['layout_kn']}]"][] = "利用人数は{$this->room[$d['room_id']]['capacity']}名以内で入力してください。";
+					}
+				}
+			}
+		}
+
+		if ($d['room_fee'] != '' &&
+			(! isNaturalNumber($d['room_fee']) || strlen($d['room_fee']) > 8)) {
+			$w['room_fee'][] = "貸室使用料は数字(8桁以内)で入力してください。";
+		}
+
+		if ($d['purpose_kn'] != '' &&
+				! array_key_exists($d['purpose_kn'], $this->property['purpose_kn'])) {
+			$w['purpose_kn'][] = '使用目的を正しく選択してください。';
+		}
+		if ($d['purpose_kn'] == PURPOSE_KN_OTHER && $d['purpose_other'] == '') {
+			$w['purpose_other'][] = '使用目的を入力してください。';
+		} elseif (mb_strlen($d['purpose_other']) > 20) {
+			$w['purpose_other'][] = '使用目的は20文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['purpose_other'])) !== false) {
+			$w['purpose_other'][] = "使用目的に、使用できない文字({$str})が含まれています。";
+		}
+
+		if (mb_strlen($d['event_nm']) > 40) {
+			$w['event_nm'][] = '催事名は40文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['event_nm'])) !== false) {
+			$w['event_nm'][] = "催事名に、使用できない文字({$str})が含まれています。";
+		}
+
+		if (mb_strlen($d['detail']) > 120) {
+			$w['detail'][] = '使用の詳細は120文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['detail'])) !== false) {
+			$w['detail'][] = "使用の詳細に、使用できない文字({$str})が含まれています。";
+		}
+
+		if (mb_strlen($d['host_nm']) > 40) {
+			$w['host_nm'][] = '主催者名は40文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['host_nm'])) !== false) {
+			$w['host_nm'][] = "主催者名に、使用できない文字({$str})が含まれています。";
+		}
+
+		$time_begin		= implode(':', $d['begin_time']);
+		if ($time_begin != ':' && (! isTime($time_begin))) {
+			$time_valid_flg = false;
+			$w['begin_time[hour]'][] = '催事時間(開始時刻)を正しく入力してください。';
+		} elseif ($time_begin == ':') {
+			$time_check_flg = false;
+		} else {
+			$time_start = sprintf('%d%02d', $d['begin_time']['hour'], $d['begin_time']['minute']);
+		}
+
+		$time_end = implode(':', $d['end_time']);
+		if ($time_end != ':' && (! isTime($time_end))) {
+			$time_valid_flg = false;
+			$w['end_time[hour]'][] = '催事時間(終了時刻)を正しく入力してください。';
+		} elseif ($time_end == ':') {
+			$time_check_flg = false;
+		} else {
+			$time_end = sprintf('%d%02d', $d['end_time']['hour'], $d['end_time']['minute']);
+		}
+
+		if (isset($time_start) && isset($time_end) && $time_start >= $time_end) {
+			$w['begin_time[hour]'][] = "催事時間は開始時間＜終了時間で入力してください。";
+			$time_check_flg = false;
+		}
+
+		if ($time_check_flg && is_array($this->room[$d['room_id']])) {
+			$limit_start = (int) str_replace(
+				':', '', $this->room[$d['room_id']]['use_time'][$d['time_kn']]['begin_time']
+			);
+			$limit_end	 = (int) str_replace(
+				':', '', $this->room[$d['room_id']]['use_time'][$d['time_kn']]['end_time']
+			);
+
+			if ($time_start < $limit_start || $time_end > $limit_end) {
+				$w['begin_time[hour]'][] = sprintf(
+					"催事時間は、%s～%sの間で入力してください。",
+					$this->room[$d['room_id']]['use_time'][$d['time_kn']]['begin_time'],
+					$this->room[$d['room_id']]['use_time'][$d['time_kn']]['end_time']
+				);
+			}
+		}
+
+		if ($d['display_event_info_flg'] == DISPLAY_EVENT_INFO_SHOW) {
+			foreach ($d['display_event_info'] as $k => $v) {
+				if (! array_key_exists($k, $this->property['event_info'])) {
+					$w["display_event_info[{$k}]"][] = '公開場所を正しく選択してください。';
+					break;
+				}
+			}
+		}
+
+		if ($this->room[$d['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL) {
+			if ($d['visitor_count'] != '' &&
+					(! isNaturalNumber($d['visitor_count'], false) ||
+					strlen($d['visitor_count']) > 8)) {
+				$w['visitor_count'][] = '入場予想人数は1以上の数字(8桁以内)で入力してください。';
+			}
+
+			if ($d['entrance_fee_flg'] != '' && ! array_key_exists($d['entrance_fee_flg'], $this->property['entrance_fee_flg'])) {
+				$w['entrance_fee_flg'][] = '入場料を正しく選択してください。';
+			} elseif ($d['entrance_fee_flg'] == ENTRANCE_FEE_PAY &&
+					(! isNaturalNumber($d['entrance_fee'], false) ||
+					strlen($d['entrance_fee']) > 8)) {
+				$w['entrance_fee'][] = '入場料は1以上の数字(8桁以内)で入力してください。';
+			}
+
+			if ($d['last_use_date'] != '') {
+				if (mb_strlen($d['last_use_date']) > 20) {
+					$w['last_use_date'][] = '年月日は20文字以内で入力してください。';
+				} elseif (($str = isMachineDependenceChars($d['last_use_date'])) !== false) {
+					$w['last_use_date'][] = "年月日に、使用できない文字({$str})が含まれています。";
+				}
+			}
+
+			if ($d['other_room_flg'] != ''
+				&& ! array_key_exists($d['other_room_flg'], $this->property['other_room_flg'])) {
+				$w['other_room_flg'][] = 'カンファレンスルーム利用の有無を正しく入力してください。';
+			} elseif ($d['other_room_flg'] == OTHER_ROOM_FLG_ON) {
+				if ($d['other_room_id'] == '') {
+					$w['other_room_id'][] = '利用するカンファレンスルームを選択してください。';
+				} elseif (! is_array($this->room[$d['other_room_id']])
+						|| $this->room[$d['other_room_id']]['building_kn'] != BUILDING_KN_IMAIKE_ROOM) {
+					$w['other_room_id'][] = '利用するカンファレンスルームを正しく選択してください。';
+				}
+			}
+		}
+
+		if (mb_strlen($d['user_note1']) > 120) {
+			$w['user_note1'][] = '通信欄は120文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['user_note1'])) !== false) {
+			$w['user_note1'][] = "通信欄に、使用できない文字({$str})が含まれています。";
+		}
+
+		$applicant_zip = implode('-', $d['applicant_zip']);
+		if ($applicant_zip != '-' && ! isPostalCode($applicant_zip)) {
+			$w['applicant_zip[1]'][] = "郵便番号は[数字3桁] - [数字4桁]で入力してください。";
+		}
+
+		if ($d['applicant_pref_cd'] != ''
+			&& ! array_key_exists($d['applicant_pref_cd'], $this->property['pref_cd'])) {
+			$w['applicant_pref_cd'][] = "住所1(都道府県)を正しく選択してください。";
+		}
+		if (mb_strlen($d['applicant_addr1']) > 40) {
+			$w['applicant_addr1'][] = '住所1は40文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['applicant_addr1'])) !== false) {
+			$w['applicant_addr1'][] = "住所1に、使用できない文字({$str})が含まれています。";
+		}
+
+		if (mb_strlen($d['applicant_addr2']) > 40) {
+			$w['applicant_addr2'][] = '住所2は40文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['applicant_addr2'])) !== false) {
+			$w['applicant_addr2'][] = "住所2に、使用できない文字({$str})が含まれています。";
+		}
+
+		if ($d['applicant_company_nm'] == '') {
+			$w['applicant_company_nm'][] = '会社名・団体名を入力してください。';
+		} elseif (mb_strlen($d['applicant_company_nm']) > 45) {
+			$w['applicant_company_nm'][] = '会社名・団体名は45文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['applicant_company_nm'])) !== false) {
+			$w['applicant_company_nm'][] = "会社名・団体名に、使用できない文字({$str})が含まれています。";
+		}
+
+		if (! array_key_exists($d['applicant_title'], $this->property['applicant_title'])) {
+			$w['applicant_title'][] = "申込者(敬称)を正しく選択してください。";
+		}
+
+		if (mb_strlen($d['applicant_department_nm']) > 20) {
+			$w['applicant_department_nm'][] = '部署名は20文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['applicant_department_nm'])) !== false) {
+			$w['applicant_department_nm'][] = "部署名に、使用できない文字({$str})が含まれています。";
+		}
+
+		if ($d['last_nm'] == '') {
+			$w['last_nm'][] = '担当者名(姓)を入力してください。';
+		} elseif (mb_strlen($d['last_nm']) > 10) {
+			$w['last_nm'][] = '担当者名(姓)は10文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['last_nm'])) !== false) {
+			$w['last_nm'][] = "担当者名(姓)に、使用できない文字({$str})が含まれています。";
+		}
+		if (mb_strlen($d['first_nm']) > 10) {
+			$w['first_nm'][] = '担当者名(名)は10文字以内で入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['first_nm'])) !== false) {
+			$w['first_nm'][] = "担当者名(名)に、使用できない文字({$str})が含まれています。";
+		}
+		if ($d['last_nm_kana'] != '' &&
+				(mb_strlen($d['last_nm_kana']) > 10 || !isZenkakuHiraganaKatakana($d['last_nm_kana']))) {
+			$w['last_nm_kana'][] = '担当者名(セイ)は10文字以内のひらがな・カタカナで入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['last_nm_kana'])) !== false) {
+			$w['last_nm_kana'][] = "担当者名(セイ)に、使用できない文字({$str})が含まれています。";
+		}
+		if ($d['first_nm_kana'] != '' &&
+				(mb_strlen($d['first_nm_kana']) > 10 ||  !isZenkakuHiraganaKatakana($d['first_nm_kana']))) {
+			$w['first_nm_kana'][] = '担当者名(メイ)は10文字以内のひらがな・カタカナで入力してください。';
+		} elseif (($str = isMachineDependenceChars($d['first_nm_kana'])) !== false) {
+			$w['first_nm_kana'][] = "担当者名(メイ)に、使用できない文字({$str})が含まれています。";
+		}
+
+		$contact_tel = implode('-', $d['contact_tel']);
+		if ($contact_tel != '--' && ! isTelephoneNumber($contact_tel)) {
+			$w['contact_tel[1]'][] = "連絡先(電話番号)は、[数字2-6桁(0始まり)] - [数字1-6桁] - [数字1-6桁]の形式で入力してください。";
+		}
+
+		$contact_fax = implode('-', $d['contact_fax']);
+		if ($contact_fax != '--' && ! isTelephoneNumber($contact_fax)) {
+			$w['contact_fax[1]'][] = "連絡先(FAX番号)は、[数字2-6桁(0始まり)] - [数字1-6桁] - [数字1-6桁]の形式で入力してください。";
+ 		}
+
+		if (! preg_match("/\A\d{0,10}\z/", $d['contact_extension_no'])) {
+			$w['contact_extension_no'][] = "連絡先(内線番号)は数字(10桁以内)で入力してください。";
+		}
+
+		if (strlen($d['contact_mail']) > 256) {
+			$w['contact_mail'][] = "連絡先(メールアドレス)は半角英数字・記号256文字以内で入力してください。";
+		} elseif ($d['contact_mail'] != '' && ! isMailAddress($d['contact_mail'])) {
+			$w['contact_mail'][] = "連絡先(メールアドレス)を半角英数字・記号のみで正しく入力してください。";
+		}elseif ($d['contact_mail'] != $d['contact_mail2']) {
+			$w['contact_mail'][] = "確認用のメールアドレスと一致しません。";
+		}
+
+		$contact_mobile_phone = implode('-', $d['contact_mobile_phone']);
+		if ($contact_mobile_phone != '--') {
+			if (! isMobilePhoneNumber($contact_mobile_phone)) {
+				$w['contact_mobile_phone[1]'][] = "連絡先(携帯電話番号)は[数字3桁] - [数字4桁] - [数字4桁]の形式で入力してください。";
+			}
+		}
+
+		if ($this->room[$d['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL) {
+			$host_zip = implode('-', $d['host_zip']);
+			if ($host_zip != '-' && ! isPostalCode($host_zip)) {
+				$w['host_zip[1]'][] = "郵便番号は[数字3桁] - [数字4桁]で入力してください。";
+			}
+
+			if ($d['host_pref_cd'] != '' && ! array_key_exists($d['host_pref_cd'], $this->property['pref_cd'])) {
+				$w['host_pref_cd'][] = "住所1(都道府県)を正しく選択してください。";
+			}
+			if (mb_strlen($d['host_addr1']) > 40) {
+				$w['host_addr1'][] = '住所1は40文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['host_addr1'])) !== false) {
+				$w['host_addr1'][] = "住所1に、使用できない文字({$str})が含まれています。";
+			}
+
+			if (mb_strlen($d['host_addr2']) > 40) {
+				$w['host_addr2'][] = '住所2は40文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['host_addr2'])) !== false) {
+				$w['host_addr2'][] = "住所2に、使用できない文字({$str})が含まれています。";
+			}
+
+			if (mb_strlen($d['host_company_nm']) > 45) {
+				$w['host_company_nm'][] = '会社名・団体名は45文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['host_company_nm'])) !== false) {
+				$w['host_company_nm'][] = "会社名・団体名に、使用できない文字({$str})が含まれています。";
+			}
+
+			if (mb_strlen($d['host_department_nm']) > 20) {
+				$w['host_department_nm'][] = '部署名は20文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['host_department_nm'])) !== false) {
+				$w['host_department_nm'][] = "部署名に、使用できない文字({$str})が含まれています。";
+			}
+
+			if (mb_strlen($d['host_last_nm']) > 10) {
+				$w['host_last_nm'][] = '担当者名(姓)は10文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['host_last_nm'])) !== false) {
+				$w['host_last_nm'][] = "担当者名(姓)に、使用できない文字({$str})が含まれています。";
+			}
+			if (mb_strlen($d['host_first_nm']) > 10) {
+				$w['host_first_nm'][] = '担当者名(名)は10文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['host_first_nm'])) !== false) {
+				$w['host_first_nm'][] = "担当者名(名)に、使用できない文字({$str})が含まれています。";
+			}
+
+			$host_tel = implode('-', $d['host_tel']);
+			if ($host_tel != '--' && ! isTelephoneNumber($host_tel)) {
+				$w['host_tel[1]'][] = "主催者(電話)は[数字2-6桁(0始まり)] - [数字1-6桁] - [数字1-6桁]の形式で入力してください。";
+			}
+
+			$supervisor_zip = implode('-', $d['supervisor_zip']);
+			if ($supervisor_zip != '-' && ! isPostalCode($supervisor_zip)) {
+				$w['supervisor_zip[1]'][] = "郵便番号は[数字3桁] - [数字4桁]で入力してください。";
+			}
+
+			if ($d['supervisor_pref_cd'] != '' && ! array_key_exists($d['supervisor_pref_cd'], $this->property['pref_cd'])) {
+				$w['supervisor_pref_cd'][] = "住所1(都道府県)を正しく選択してください。";
+			}
+			if (mb_strlen($d['supervisor_addr1']) > 40) {
+				$w['supervisor_addr1'][] = '住所1は40文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['supervisor_addr1'])) !== false) {
+				$w['supervisor_addr1'][] = "住所1に、使用できない文字({$str})が含まれています。";
+			}
+
+			if (mb_strlen($d['supervisor_addr2']) > 40) {
+				$w['supervisor_addr2'][] = '住所2は40文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['supervisor_addr2'])) !== false) {
+				$w['supervisor_addr2'][] = "住所2に、使用できない文字({$str})が含まれています。";
+			}
+
+			if (mb_strlen($d['supervisor_company_nm']) > 45) {
+				$w['supervisor_company_nm'][] = '会社名・団体名は45文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['supervisor_company_nm'])) !== false) {
+				$w['supervisor_company_nm'][] = "会社名・団体名に、使用できない文字({$str})が含まれています。";
+			}
+
+			if (mb_strlen($d['supervisor_department_nm']) > 20) {
+				$w['supervisor_department_nm'][] = '部署名は20文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['supervisor_department_nm'])) !== false) {
+				$w['supervisor_department_nm'][] = "部署名に、使用できない文字({$str})が含まれています。";
+			}
+
+			if (mb_strlen($d['supervisor_last_nm']) > 10) {
+				$w['supervisor_last_nm'][] = '担当者名(姓)は10文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['supervisor_last_nm'])) !== false) {
+				$w['supervisor_last_nm'][] = "担当者名(姓)に、使用できない文字({$str})が含まれています。";
+			}
+			if (mb_strlen($d['supervisor_first_nm']) > 10) {
+				$w['supervisor_first_nm'][] = '担当者名(名)は10文字以内で入力してください。';
+			} elseif (($str = isMachineDependenceChars($d['supervisor_first_nm'])) !== false) {
+				$w['supervisor_first_nm'][] = "担当者名(名)に、使用できない文字({$str})が含まれています。";
+			}
+
+			$supervisor_tel = implode('-', $d['supervisor_tel']);
+			if ($supervisor_tel != '--' && ! isTelephoneNumber($supervisor_tel)) {
+				$w['supervisor_tel[1]'][] = "会場使用責任者(電話番号)は[数字2-6桁(0始まり)] - [数字1-6桁] - [数字1-6桁]の形式で入力してください。";
+			}
+		}
+
+		if (mb_strlen($d['user_note2']) > 120) {
+			$w['user_note2'][] = '通信欄は120文字以内で入力してください。';
+		} elseif ($str = isMachineDependenceChars($d['user_note2'])) {
+			$w['user_note2'][] = "通信欄に、使用できない文字({$str})が含まれています。";
+		}
+
+		if ($d['equipment_flg'] == '') {
+			$w['equipment_flg'][] = "申込備品の有無を選択してください。";
+
+		} elseif (! in_array($d['equipment_flg'], $this->property['equipment_flg'])) {
+			$w['equipment_flg'][] = "申込備品の有無を正しく選択してください。";
+
+		} elseif ($d['equipment_flg'] == EQUIPMENT_FLG_ON) {
+			if (! empty($d['reserve_count']) && ! empty($this->equipment)) {
+				foreach ($this->equipment as $v) {
+					$equipment[$v['equipment_id']] = $v;
+				}
+
+				foreach ($d['reserve_count'] as $k => $v) {
+					if ($v == 0) {
+						continue;
+					}
+
+					if (! array_key_exists($k, $equipment)) {
+						trigger_error("備品Aの選択が正しくありません。", WARNING);
+					} elseif (! isNaturalNumber($v)) {
+						trigger_error("<<備品A({$equipment[$k]['equipment_nm']})>>の申込数量が正しくありません。", WARNING);
+					} elseif ($v > $equipment[$k]['available_count']) {
+						trigger_error("<<備品A({$equipment[$k]['equipment_nm']})>>の申込数量が、予約可能数量を超えています。", WARNING);
+					} else {
+						if ($d['equipment_fee'][$k] == '') {
+							trigger_error("<<備品A({$equipment[$k]['equipment_nm']})>>の料金を入力してください。", WARNING);
+						} elseif (! isNaturalNumber($d['equipment_fee'][$k]) ||
+								strlen($d['equipment_fee'][$k]) > 8) {
+							trigger_error("<<備品A({$equipment[$k]['equipment_nm']})>>の料金は数字(8桁以内)で入力してください。", WARNING);
+						}
+					}
+				}
+			}
+		}
+
+		foreach ($d['equipment_admin'] as $k => $v) {
+			if ($v == '' && $d['equipment_admin_fee'][$k] == '' && $d['equipment_admin_count'][$k] == '') {
+				continue;
+			}
+
+			if ($v == '') {
+				trigger_error("<<追加備品{$k}>>の備品名を入力してください。", WARNING);
+			} elseif (mb_strlen($v) > 50) {
+				trigger_error("<<追加備品{$k}>>の備品名は、50文字以内で入力してください。", WARNING);
+			} elseif (($str = isMachineDependenceChars($v)) !== false) {
+				trigger_error("<<追加備品{$k}>>の備品名に、使用できない文字({$str})が含まれています。", WARNING);
+			} elseif (strpos($v, '|') !== false) {
+				trigger_error("<<追加備品{$k}>>の備品名にパイプ(|)を使用することはできません。", WARNING);
+			}
+
+			if ($d['equipment_admin_fee'][$k] == '') {
+				trigger_error("<<追加備品{$k}>>の料金を入力してください。", WARNING);
+			} elseif (! isNaturalNumber($d['equipment_admin_fee'][$k]) ||
+					strlen($d['equipment_admin_fee'][$k]) > 8) {
+				trigger_error("<<追加備品{$k}>>の料金は数字(8桁以内)で入力してください。", WARNING);
+			}
+
+			if ($d['equipment_admin_count'][$k] == '') {
+				trigger_error("<<追加備品{$k}>>の数量を入力してください。", WARNING);
+			} elseif (! isNaturalNumber($d['equipment_admin_count'][$k], false) ||
+					strlen($d['equipment_admin_count'][$k]) > 4) {
+				trigger_error("<<追加備品{$k}>>の数量は1以上の数字(4桁以内)で入力してください。", WARNING);
+			}
+		}
+
+		if ($d['equipment_flg'] == EQUIPMENT_FLG_ON &&
+				(array_sum($d['reserve_count']) + array_sum($d['equipment_admin_count'])) == 0 &&
+				! is_array($smarty->get_template_vars('warning'))) {
+			trigger_error("<<備品>>が1つも選択されていません。", WARNING);
+		}
+
+		if ($this->room[$d['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL) {
+			if (isset($d['engineer_kn'])) {
+				if (! array_key_exists($d['engineer_kn'], $this->property['engineer_kn'])) {
+					$w['engineer_kn'][] = "技術者派遣料を正しく選択してください。";
+				} else {
+					if ($d['engineer_fee'][$d['engineer_kn']] == '') {
+						$w["engineer_fee[{$d['engineer_kn']}]"][] = "技術者派遣料を入力してください。";
+					} elseif (! isNaturalNumber($d['engineer_fee'][$d['engineer_kn']]) ||
+							strlen($d['engineer_fee'][$d['engineer_kn']]) > 8) {
+						$w["engineer_fee[{$d['engineer_kn']}]"][] = "技術者派遣料は数字(8桁以内)で入力してください。";
+					}
+				}
+			}
+		}
+
+		foreach ($d['adjust_item'] as $k => $v) {
+			if ($v == '' && $d['adjust_fee'][$k] == '') {
+				continue;
+			}
+
+			if ($v == '') {
+				trigger_error("<<調整項目{$k}>>の項目名を入力してください。", WARNING);
+			} elseif (mb_strlen($v) > 50) {
+				trigger_error("<<調整項目{$k}>>の項目名は、50文字以内で入力してください。", WARNING);
+			} elseif (($str = isMachineDependenceChars($v)) !== false) {
+				trigger_error("<<調整項目{$k}>>の項目名に、使用できない文字({$str})が含まれています。", WARNING);
+			} elseif (strpos($v, '|') !== false) {
+				trigger_error("<<調整項目{$k}>>の項目名にパイプ(|)を使用することはできません。", WARNING);
+			}
+
+			if ($d['adjust_fee'][$k] == '') {
+				trigger_error("<<調整項目{$k}>>の料金を入力してください。", WARNING);
+			} elseif (! isNaturalNumber($d['adjust_fee'][$k]) ||
+					strlen($d['adjust_fee'][$k]) > 8) {
+				trigger_Error("<<調整項目{$k}>>の料金は数字(8桁以内)で入力してください。", WARNING);
+			}
+		}
+
+		if ($d['extra_charge'] != ''
+			&& (! isNaturalNumber($d['extra_charge']) || strlen($d['extra_charge']) > 8)) {
+			trigger_error("<<追加料金>>は数字(8桁以内)で入力してください。", WARNING);
+		}
+
+		if ($d['discount'] != ''
+			&& (! isNaturalNumber($d['discount']) || strlen($d['discount']) > 8)) {
+			trigger_error("<<値引き>>は数字(8桁以内)で入力してください。", WARNING);
+		}
+
+		if (mb_strlen($d['adjust_comment']) > 20) {
+			$w['adjust_comment'][] = '調整額摘要は20文字以内で入力してください。';
+		} elseif ($str = isMachineDependenceChars($d['adjust_comment'])) {
+			$w['adjust_comment'][] = "調整額摘要に、使用できない文字({$str})が含まれています。";
+		}
+
+		if ($d['invoice_price_change_flg'] == '1') {
+			if ($d['invoice_price'] == '') {
+				$w['invoice_price'][] = "置換え請求金額を入力してください。";
+			} elseif (! isNaturalNumber($d['invoice_price']) ||
+					strlen($d['invoice_price']) > 8) {
+				$w['invoice_price'][] = "置換え請求金額は数字(8桁以内)で入力してください。";
+			}
+		}
+
+		if ($d['tax'] != '' &&
+				(! isNaturalNumber($d['tax']) || strlen($d['tax']) > 8)) {
+			$w['tax'][] = "消費税は数字(8桁以内)で入力してください。";
+		}
+
+		$invoice_date_check_flg = true;
+		if ($d['invoice_date'] != '' && ! isDate($d['invoice_date'])) {
+			$invoice_date_check_flg = false;
+			$w['invoice_date'][] = '請求日付(YYYY/MM/DD)が正しくありません。';
+		}
+
+		if ($d['payment_date'] != '' && ! isDate($d['payment_date'])) {
+			$invoice_date_check_flg = false;
+			$w['payment_date'][] = '振込期日(YYYY/MM/DD)が正しくありません。';
+		}
+
+		if ($d['invoice_date'] != '' && $d['payment_date'] != '' && $invoice_date_check_flg) {
+			if (str_replace('/', '', $d['invoice_date']) > str_replace('/', '', $d['payment_date'])) {
+				$w['payment_date'][] = '振込期日は請求日付以降の日付を入力してください。';
+			}
+		}
+
+		foreach ($d['brown_equipment'] as $k => $v) {
+			if (! array_key_exists($k, $this->property['brown_equipment'])) {
+				$w["brown_equipment[{$k}]"][] = '持ち込み品を正しく選択してください。';
+			}
+		}
+
+		if (isset($d['brown_equipment'][3]) && $d['user_note3'] == '') {
+			$w['user_note3'][] = "持ち込み品の詳細を通信欄に入力してください。";
+		} elseif (mb_strlen($d['user_note3']) > 120) {
+			$w['user_note3'][] = "通信欄は120文字以内で入力してください。";
+		} elseif (($str = isMachineDependenceChars($d['user_note3'])) !== false) {
+			$w['user_note3'][] = "通信欄に、使用できない文字({$str})が含まれています。";
+		}
+
+		if (mb_strlen($d['admin_note']) > 300) {
+			$w['admin_note'][] = "管理者運用メモは300文字以内で入力してください。";
+		} elseif (($str = isMachineDependenceChars($d['admin_note'])) !== false) {
+			$w['admin_note'][] = "管理者運用メモに、使用できない文字({$str})が含まれています。";
+		}
+
+		if (mb_strlen($d['invoice_person']) > 10) {
+			$w['invoice_person'][] = "請求書印字用担当者名は10文字以内で入力してください。";
+		} elseif (($str = isMachineDependenceChars($d['invoice_person'])) !== false) {
+			$w['invoice_person'][] = "請求書印字用担当者名に、使用できない文字({$str})が含まれています。";
+		}
+
+		if (mb_strlen($d['invoice_note']) > 300) {
+			$w['invoice_note'][] = "請求書印字用備考は300文字以内で入力してください。";
+		} elseif (($str = isMachineDependenceChars($d['invoice_note'])) !== false) {
+			$w['invoice_note'][] = "請求書印字用備考に、使用できない文字({$str})が含まれています。";
+		}
+
+		if ($d['status'] != '' && ! isNaturalNumber(decrypt($d['status']))) {
+			trigger_error("処理エラーが発生しました。もう一度最初からやり直してください。", WARNING);
+		}
+
+		return (is_array($this->warning) ||
+				is_array($smarty->get_template_vars('warning')))
+			? false
+			: true;
+	}
+
+	/**
+	 * 承認キーチェック
+	 */
+	private function _validateAccessKey($accept_key) {
+		if ($accept_key == '') {
+			trigger_error("承認キーを入力してください。", WARNING);
+		} else {
+			try {
+				$data = $this->_dbGetAcceptKey();
+			} catch (Exception $e) {
+				trigger_error("データの取得に失敗しました。", WARNING);
+			}
+			if (crypt($accept_key, $data) != $data) {
+				trigger_error("承認キーが正しくありません。", WARNING);
+			}
+		}
+
+		return isValidForm();
+	}
+
+	/**
+	 * 過去予約データ削除・予約データダウンロード 入力チェック
+	 */
+	private function _validateTargetReserve($d, $target) {
+		if ($d['target'] == '') {
+			trigger_error($target . 'を選択してください。', WARNING);
+		} elseif (! in_array($d['target'], array(TARGET_USE_DATE, TARGET_RESERVE_NO))) {
+			trigger_error($target . 'の値が不正です。', WARNING);
+		}
+
+		if ($d['target'] == TARGET_USE_DATE) {
+			if ($d['use_date_from'] == '' && $d['use_date_to'] == '') {
+				trigger_error('利用日の範囲を指定してください', WARNING);
+			}
+			if ($d['use_date_from'] != '' && ! isDate($d['use_date_from'])) {
+				trigger_error('利用日(開始)は、「年4桁/月2桁/日2桁」の正しい日付で入力してください。', WARNING);
+			}
+			if ($d['use_date_to'] != '' && ! isDate($d['use_date_to'])) {
+				trigger_error('利用日(終了)は、「年4桁/月2桁/日2桁」の正しい日付で入力してください。', WARNING);
+			}
+			if (isDate($d['use_date_from']) && isDate($d['use_date_to'])
+				&& (integer) str_replace('/', '', $d['use_date_from']) > (integer) str_replace('/', '', $d['use_date_to'])) {
+				trigger_error('利用日(終了)は、利用日(開始)以降の日付で入力してください。', WARNING);
+			}
+			if ($target == '削除対象'
+				&& ((integer) str_replace('/', '', $d['use_date_from']) >= date('Ymd')
+				|| (integer) str_replace('/', '', $d['use_date_to']) >= date('Ymd'))) {
+				trigger_error('利用日が本日以降の予約は削除できません。', WARNING);
+			}
+		} elseif ($d['target'] == TARGET_RESERVE_NO) {
+			if ($d['reserve_no_from'] == '' && $d['reserve_no_to'] == '') {
+				trigger_error('予約番号の範囲を指定してください。', WARNING);
+			}
+
+			$reserve_no_from	= strlen($d['reserve_no_from']) <= 9
+									? $d['reserve_no_from']
+									: substr($d['reserve_no_from'], 1);
+			$reserve_no_from_i	= strlen($d['reserve_no_from']) <= 9 ? '' : substr($d['reserve_no_from'], 0, 1);
+
+			$reserve_no_to		= strlen($d['reserve_no_to']) <= 9
+									? $d['reserve_no_to']
+									: substr($d['reserve_no_to'], 1);
+			$reserve_no_to_i	= strlen($d['reserve_no_to']) <= 9 ? '' : substr($d['reserve_no_to'], 0, 1);
+
+			if ($reserve_no_from != ''
+				&& (! isNaturalNumber($reserve_no_from) ||
+					strlen($reserve_no_from) > 9 ||
+					($reserve_no_from_i != '' &&
+					 ! in_array($reserve_no_from_i, array(RESERVE_NO_INITIAL_USER, RESERVE_NO_INITIAL_ADMIN)))
+				)) {
+				trigger_error(
+					sprintf(
+						'予約番号(開始)は、半角数字9桁もしくは半角英字1桁(%s/%s)＋半角数字9桁で入力してください。',
+						RESERVE_NO_INITIAL_USER,
+						RESERVE_NO_INITIAL_ADMIN
+					), WARNING
+				);
+			}
+			if ($reserve_no_to != ''
+				&& (! isNaturalNumber($reserve_no_to) ||
+					strlen($reserve_no_to) > 9 ||
+					($reserve_no_to_i != '' &&
+					 ! in_array($reserve_no_to_i, array(RESERVE_NO_INITIAL_USER, RESERVE_NO_INITIAL_ADMIN)))
+				)) {
+				trigger_error(
+					sprintf(
+						'予約番号(終了)は、半角数字9桁もしくは半角英字1桁(%s/%s)＋半角数字9桁で入力してください。',
+						RESERVE_NO_INITIAL_USER,
+						RESERVE_NO_INITIAL_ADMIN
+					), WARNING);
+			}
+			if ($reserve_no_from != '' && isNaturalNumber($reserve_no_from)
+				&& $reserve_no_to != '' && isNaturalNumber($reserve_no_to)
+				&& (integer) $reserve_no_from > (integer) $reserve_no_to) {
+					trigger_error('予約番号(終了)は、予約番号(開始)以上の予約番号で入力してください。', WARNING);
+			}
+		}
+    //new dbug(error_get_last());
+    //exit;
+
+		return isValidForm();
+	}
+
+	/**
+	 * 予約入力項目 文字列整形
+	 */
+	private function _formatReserveFormStrings($d) {
+		foreach ($d as $form_nm => $form_val) {
+			switch ($form_nm) {
+				case 'disable_reason':
+				case 'purpose_other':
+				case 'event_nm':
+				case 'detail':
+				case 'host_nm':
+				case 'applicant_addr1':
+				case 'applicant_addr2':
+				case 'applicant_company_nm':
+				case 'applicant_department_nm':
+				case 'last_nm':
+				case 'first_nm':
+				case 'last_nm_kana':
+				case 'first_nm_kana':
+				case 'adjust_comment':
+				case 'invoice_person':
+				case 'invoice_note':
+				case 'user_note1':
+				case 'user_note2':
+				case 'user_note3':
+				case 'admin_note':
+				case 'host_addr1':
+				case 'host_addr2':
+				case 'host_company_nm':
+				case 'host_department_nm':
+				case 'host_last_nm':
+				case 'host_first_nm':
+				case 'supervisor_addr1':
+				case 'supervisor_addr2':
+				case 'supervisor_company_nm':
+				case 'supervisor_department_nm':
+				case 'supervisor_last_nm':
+				case 'supervisor_first_nm':
+				case 'last_use_date':
+				case 'equipment_admin':
+				case 'adjust_item':
+					if (is_array($form_val)) {
+						foreach ($form_val as $k => $v) {
+							$d[$form_nm][$k] = kanaH2F(mb_trim($v));
+						}
+					} else {
+						$d[$form_nm] = kanaH2F(mb_trim($form_val));
+					}
+					break;
+				case 'use_date':
+				case 'begin_time':
+				case 'end_time':
+				case 'applicant_zip':
+				case 'contact_tel':
+				case 'contact_fax':
+				case 'contact_extension_no':
+				case 'contact_mail':
+				case 'contact_mail2':
+				case 'contact_mobile_phone':
+				case 'invoice_date':
+				case 'payment_date':
+				case 'host_zip':
+				case 'host_tel':
+				case 'supervisor_zip':
+				case 'supervisor_tel':
+					if (is_array($form_val)) {
+						foreach ($form_val as $k => $v) {
+							$d[$form_nm][$k] = strF2HH(mb_trim($v));
+						}
+					} else {
+						$d[$form_nm] = strF2HH(mb_trim($form_val));
+					}
+					break;
+				case 'participant_count':
+				case 'room_fee':
+				case 'extra_charge':
+				case 'discount':
+				case 'invoice_price':
+				case 'tax':
+				case 'visitor_count':
+				case 'entrance_fee':
+				case 'engineer_fee':
+				case 'equipment_fee':
+				case 'reserve_count':
+				case 'equipment_admin_fee':
+				case 'equipment_admin_count':
+				case 'adjust_fee':
+					if (is_array($form_val)) {
+						foreach ($form_val as $k => $v) {
+							$d[$form_nm][$k] = str_replace(',', '', numF2HH(mb_trim($v)));
+						}
+					} else {
+						$d[$form_nm] = str_replace(',', '', numF2HH(mb_trim($form_val)));
+					}
+					break;
+			}
+		}
+
+		return $d;
+	}
+
+	/**
+	 * 予約台帳 表示用データセット
+	 */
+	private function _setReserveData(&$target, $d, $joint_flg=false) {
+		$target['quantity'] += $d['quantity'];
+		if ($d['reserve_id'] != '') {
+			$target['reserve_id']	= $d['reserve_id'];
+			$target['joint_flg']	= $joint_flg;
+			$target['disabled']		= ($d['disable_flg'] == '1') ? true : false;
+			$target['note']			= $d['admin_note'];
+
+			if ($d['disable_flg'] != '1') {
+				$target['use_type']		= $d['use_type'];
+				$target['company']		= $d['applicant_company_nm'];
+				$target['applicant']	= $d['applicant_nm'];
+				$target['tel']			= $d['contact_tel'];
+				$target['accepted']		= ($d['status_kn'] == STATUS_ACCEPTED)
+										? true : false;
+				$target['kari_flg']		= $d['kari_flg'];
+			}
+		}
+	}
+
+	/**
+	 * 日付別カレンダー取得
+	 */
+	private function _getDailyReserveList() {
+		try {
+			$building_kn = (APPS_UID == 'imaikehall') ? BUILDING_KN_IMAIKE_HALL : null;
+
+			$room = $this->_dbGetRoomList($building_kn);
+			foreach ($room as $v) {
+				$this->room[$v['building_kn']][] = array(
+					'room_id'		=> $v['room_id'],
+					'room_nm'		=> ($v['room_id'] == ROOM_ID_SAKAE_401)
+						? $v['room_nm'] . '(A)'
+						: $v['room_nm'],
+					'building_kn'	=> $v['building_kn'],
+					'building_nm'	=> $v['building_nm']
+				);
+
+				if ($v['room_id'] == ROOM_ID_SAKAE_401) {
+					$room_id_401b						= $v['room_id'] . 'b';
+					$this->room[$v['building_kn']][]	= array(
+						'room_id'		=> $room_id_401b,
+						'room_nm'		=> $v['room_nm'] . '(B)',
+						'building_kn'	=> $v['building_kn'],
+						'building_nm'	=> $v['building_nm']
+					);
+				}
+			}
+
+			if (! isDate($_POST['target_date'])) {
+				$_POST['target_date'] = date('Ymd');
+			}
+			$tmp = $this->_dbGetDailyReserveList($_POST['target_date']);
+		} catch(Exception $e) {
+			trigger_error('データの取得に失敗しました。', WARNING);
+			return false;
+		}
+
+		foreach ($tmp as $v) {
+			$d =& $data[$v['room_id']];
+
+			switch ($v['time_kn']) {
+				case TIME_KN_MORNING:
+					$this->_setReserveData($d[$v['time_kn']], $v);
+					break;
+				case TIME_KN_AFTERNOON:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[$v['time_kn']], $v);
+					} elseif ($v['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[$v['time_kn']]['quantity'] > 0
+						|| $d[TIME_KN_MORNING]['reserve_id'] != ''
+						|| $d[TIME_KN_NIGHT]['reserve_id'] != '')) {
+						$this->_setReserveData($d[$v['time_kn']]['B'], $v);
+					} else {
+						$this->_setReserveData($d[$v['time_kn']], $v);
+					}
+					break;
+				case TIME_KN_NIGHT:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[$v['time_kn']], $v);
+					} elseif ($v['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[$v['time_kn']]['quantity'] > 0
+						|| $d[TIME_KN_AFTERNOON]['reserve_id'] != '')) {
+						$this->_setReserveData($d[$v['time_kn']]['B'], $v);
+					} else {
+						$this->_setReserveData($d[$v['time_kn']], $v);
+					}
+					break;
+				case TIME_KN_MORNING_AFTERNOON:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[TIME_KN_MORNING], $v);
+						$this->_setReserveData($d[TIME_KN_AFTERNOON], $v, true);
+					} elseif ($v['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[TIME_KN_MORNING]['quantity'] > 0
+						|| $d[TIME_KN_AFTERNOON]['quantity'] > 0
+						|| $d[TIME_KN_NIGHT]['reserve_id'] != '')) {
+						$this->_setReserveData($d[TIME_KN_MORNING]['B'], $v);
+						$this->_setReserveData($d[TIME_KN_AFTERNOON]['B'], $v, true);
+					} else {
+						$this->_setReserveData($d[TIME_KN_MORNING], $v);
+						$this->_setReserveData($d[TIME_KN_AFTERNOON], $v, true);
+					}
+					break;
+				case TIME_KN_AFTERNOON_NIGHT:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[TIME_KN_AFTERNOON], $v);
+						$this->_setReserveData($d[TIME_KN_NIGHT], $v, true);
+					} elseif ($v['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[TIME_KN_AFTERNOON]['quantity'] > 0
+						|| $d[TIME_KN_NIGHT]['quantity'] > 0
+						|| $d[TIME_KN_MORNING]['reserve_id'] != '')) {
+						$this->_setReserveData($d[TIME_KN_AFTERNOON]['B'], $v);
+						$this->_setReserveData($d[TIME_KN_NIGHT]['B'], $v, true);
+					} else {
+						$this->_setReserveData($d[TIME_KN_AFTERNOON], $v);
+						$this->_setReserveData($d[TIME_KN_NIGHT], $v, true);
+					}
+					break;
+				case TIME_KN_WHOLE_DAY:
+					if ($v['room_id'] == ROOM_ID_SAKAE_401
+						&& $v['use_type'] == USE_TYPE_HALF
+						&& ($d[TIME_KN_MORNING]['quantity'] > 0
+						|| $d[TIME_KN_AFTERNOON]['quantity'] > 0
+						|| $d[TIME_KN_NIGHT]['quantity'] > 0)) {
+						$this->_setReserveData($d[TIME_KN_MORNING]['B'], $v);
+						$this->_setReserveData($d[TIME_KN_AFTERNOON]['B'], $v, true);
+						$this->_setReserveData($d[TIME_KN_NIGHT]['B'], $v, true);
+					} else {
+						$this->_setReserveData($d[TIME_KN_MORNING], $v);
+						$this->_setReserveData($d[TIME_KN_AFTERNOON], $v, true);
+						$this->_setReserveData($d[TIME_KN_NIGHT], $v, true);
+					}
+					break;
+			}
+		}
+
+		// 時間帯の長い順、応用→基本の順
+		if (is_array($data[ROOM_ID_SAKAE_401])) {
+			foreach ($data[ROOM_ID_SAKAE_401] as $k => $v) {
+				if (isset($v['B'])) {
+					$data[$room_id_401b][$k] = $v['B'];
+					unset($data[ROOM_ID_SAKAE_401][$k]['B']);
+				} elseif ($v['quantity'] >= 2 && $v['use_type'] != USE_TYPE_HALF) {
+					$data[$room_id_401b][$k] = $v;
+				}
+			}
+		}
+
+		return $data;
+	}
+
+	/**
+	 * 部屋別カレンダー取得
+	 */
+	private function _getRoomReserveList() {
+		try {
+			$building_kn = (APPS_UID == 'imaikehall') ? BUILDING_KN_IMAIKE_HALL : null;
+
+			$this->room = $this->_dbGetRoomList($building_kn);
+
+			if (! isNaturalNumber($_POST['room_id'], false)) {
+				$_POST['room_id'] = $this->room[0]['room_id'];
+			}
+
+			$tmp = $this->_dbGetRoomReserveList($_POST['target_month'], $_POST['room_id']);
+		} catch(Exception $e) {
+			trigger_error("データの取得に失敗しました。", WARNING);
+			return false;
+		}
+
+		$this->calendar['last_day'] = date('t', strtotime("{$_POST['target_month']}01"));
+
+		foreach ($tmp as $k => $v) {
+			switch ($v['time_kn']) {
+				case TIME_KN_MORNING:
+					$this->_setReserveData($d[$v['day']][$v['time_kn']], $v);
+					break;
+				case TIME_KN_AFTERNOON:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[$v['day']][$v['time_kn']], $v);
+					} elseif ($_POST['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[$v['day']][$v['time_kn']]['quantity'] > 0
+						|| $d[$v['day']][TIME_KN_MORNING]['reserve_id'] != ''
+						|| $d[$v['day']][TIME_KN_NIGHT]['reserve_id'] != '')) {
+						$this->_setReserveData($d[$v['day']][$v['time_kn']]['B'], $v);
+					} else {
+						$this->_setReserveData($d[$v['day']][$v['time_kn']], $v);
+					}
+					break;
+				case TIME_KN_NIGHT:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[$v['day']][$v['time_kn']], $v);
+						break;
+					} elseif ($_POST['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[$v['day']][$v['time_kn']]['quantity'] > 0
+						|| $d[$v['day']][TIME_KN_AFTERNOON]['reserve_id'] != '')) {
+						$this->_setReserveData($d[$v['day']][$v['time_kn']]['B'], $v);
+					} else {
+						$this->_setReserveData($d[$v['day']][$v['time_kn']], $v);
+					}
+					break;
+				case TIME_KN_MORNING_AFTERNOON:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[$v['day']][TIME_KN_MORNING], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON], $v, true);
+						break;
+					} elseif ($_POST['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[$v['day']][TIME_KN_MORNING]['quantity'] > 0
+						|| $d[$v['day']][TIME_KN_AFTERNOON]['quantity'] > 0
+						|| $d[$v['day']][TIME_KN_NIGHT]['reserve_id'] != '')) {
+						$this->_setReserveData($d[$v['day']][TIME_KN_MORNING]['B'], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON]['B'], $v, true);
+					} else {
+						$this->_setReserveData($d[$v['day']][TIME_KN_MORNING], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON], $v, true);
+					}
+					break;
+				case TIME_KN_AFTERNOON_NIGHT:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_NIGHT], $v, true);
+						break;
+					} elseif ($_POST['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[$v['day']][TIME_KN_AFTERNOON]['quantity'] > 0
+						|| $d[$v['day']][TIME_KN_NIGHT]['quantity'] > 0
+						|| $d[$v['day']][TIME_KN_MORNING]['reserve_id'] != '')) {
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON]['B'], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_NIGHT]['B'], $v, true);
+					} else {
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_NIGHT], $v, true);
+					}
+					break;
+				case TIME_KN_WHOLE_DAY:
+					if ($v['use_type'] == USE_TYPE_BASIC) {
+						$this->_setReserveData($d[$v['day']][TIME_KN_MORNING], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON], $v, true);
+						$this->_setReserveData($d[$v['day']][TIME_KN_NIGHT], $v, true);
+						break;
+					} elseif ($_POST['room_id'] == ROOM_ID_SAKAE_401
+						&& ($d[$v['day']][TIME_KN_MORNING]['quantity'] > 0
+						|| $d[$v['day']][TIME_KN_AFTERNOON]['quantity'] > 0
+						|| $d[$v['day']][TIME_KN_NIGHT]['quantity'] > 0)) {
+						$this->_setReserveData($d[$v['day']][TIME_KN_MORNING]['B'], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON]['B'], $v, true);
+						$this->_setReserveData($d[$v['day']][TIME_KN_NIGHT]['B'], $v, true);
+					} else {
+						$this->_setReserveData($d[$v['day']][TIME_KN_MORNING], $v);
+						$this->_setReserveData($d[$v['day']][TIME_KN_AFTERNOON], $v, true);
+						$this->_setReserveData($d[$v['day']][TIME_KN_NIGHT], $v, true);
+					}
+					break;
+			}
+
+			if ($_POST['room_id'] == ROOM_ID_SAKAE_401
+				&& $v['day'] != $tmp[$k + 1]['day']) {
+				if ($d[$v['day'] - 1][TIME_KN_NIGHT]['quantity'] >= 2
+					&& $d[$v['day'] - 1][TIME_KN_NIGHT]['use_type'] != USE_TYPE_HALF
+					&& ! isset($d[$v['day'] - 1][TIME_KN_NIGHT]['B'])) {
+					$d[$v['day'] - 1][TIME_KN_NIGHT]['B'] = $d[$v['day'] - 1][TIME_KN_NIGHT];
+				}
+				if ($d[$v['day']][TIME_KN_MORNING]['quantity'] >= 2
+					&& $d[$v['day']][TIME_KN_MORNING]['use_type'] != USE_TYPE_HALF) {
+					$d[$v['day']][TIME_KN_MORNING]['B'] = $d[$v['day']][TIME_KN_MORNING];
+				}
+				if ($d[$v['day']][TIME_KN_AFTERNOON]['quantity'] >= 2
+					&& $d[$v['day']][TIME_KN_AFTERNOON]['use_type'] != USE_TYPE_HALF) {
+					$d[$v['day']][TIME_KN_AFTERNOON]['B'] = $d[$v['day']][TIME_KN_AFTERNOON];
+				}
+				if ($d[$v['day']][TIME_KN_NIGHT]['quantity'] >= 2
+					&& $d[$v['day']][TIME_KN_NIGHT]['use_type'] != USE_TYPE_HALF) {
+					$d[$v['day']][TIME_KN_NIGHT]['B'] = $d[$v['day']][TIME_KN_NIGHT];
+				}
+				if ($d[$v['day'] + 1][TIME_KN_MORNING]['quantity'] >= 2
+					&& $d[$v['day'] + 1][TIME_KN_MORNING]['use_type'] != USE_TYPE_HALF) {
+					$d[$v['day'] + 1][TIME_KN_MORNING]['B'] = $d[$v['day'] + 1][TIME_KN_MORNING];
+				}
+
+				if ($d[$v['day']][TIME_KN_MORNING]['use_type'] == USE_TYPE_HALF
+					&& $d[$v['day']][TIME_KN_MORNING]['B']['use_type'] == USE_TYPE_HALF) {
+					$d[$v['day'] - 1][TIME_KN_NIGHT]['B']['quantity'] += 1;
+				}
+				if ($d[$v['day']][TIME_KN_NIGHT]['use_type'] == USE_TYPE_HALF
+					&& $d[$v['day']][TIME_KN_NIGHT]['B']['use_type'] == USE_TYPE_HALF) {
+					$d[$v['day'] + 1][TIME_KN_MORNING]['B']['quantity'] += 1;
+				}
+			}
+		}
+
+		return $d;
+	}
+
+	/**
+	 * プロパティ一覧取得
+	 */
+	private function _getPropertyList($category=null) {
+		try {
+			$tmp = $this->_dbGetProperty($category);
+
+			foreach ($tmp as $v) {
+				$property[$v['category']][$v['item_id']] = $v['item_nm'];
+			}
+		} catch (Exception $e) {
+			return false;
+		}
+
+		return $property;
+	}
+
+	/**
+	 * 祝日リスト
+	 */
+	private function _getHolidayList($y) {
+		// 春分の日と秋分の日の計算
+		$s_equinox = (floor(20.8431 + 0.242194 * ($y - 1980) - floor(($y-1980) / 4))) + 300;
+		$a_equinox = (floor(23.2488 + 0.242194 * ($y - 1980) - floor(($y-1980) / 4))) + 900;
+		$holiday[$s_equinox] = "春分の日";
+		$holiday[$a_equinox] = "秋分の日";
+
+		// ハッピーマンデー法に関する祝日
+		// 成人の日(第二月曜日)
+		for ($hd=8; $hd<15; $hd++) {
+			$wd = date("w", mktime(0, 0, 0, 1, $hd, $y));
+			if ($wd == 1) {
+				break;
+			}
+		}
+		$seijin           = $hd + 100;
+		$holiday[$seijin] = "成人の日";
+
+		// 海の日(第三月曜日)
+		for ($hd=15; $hd<22; $hd++) {
+			$wd = date("w", mktime(0, 0, 0, 7, $hd, $y));
+			if ($wd == 1) {
+				break;
+			}
+		}
+		$umi           = $hd + 700;
+		$holiday[$umi] = "海の日";
+
+		// 敬老の日(第三月曜日)
+		for ($hd=15; $hd<22; $hd++) {
+			$wd = date("w", mktime(0, 0, 0, 9, $hd, $y));
+			if ($wd == 1) {
+				break;
+			}
+		}
+		$keirou           = $hd + 900;
+		$holiday[$keirou] = "敬老の日";
+
+		// 体育の日(第二月曜日)
+		for ($hd=8; $hd<15; $hd++) {
+			$wd = date("w", mktime(0, 0, 0, 10, $hd, $y));
+			if ($wd == 1) {
+				break;
+			}
+		}
+		$taiiku           = $hd + 1000;
+		$holiday[$taiiku] = "体育の日";
+
+		// その他の国民の祝日
+		$holiday[101]  = "元日";
+		$holiday[211]  = "建国記念の日";
+		$holiday[429]  = "昭和の日";
+		$holiday[503]  = "憲法記念日";
+		$holiday[504]  = "みどりの日";
+		$holiday[505]  = "こどもの日";
+		$holiday[1103] = "文化の日";
+		$holiday[1123] = "勤労感謝の日";
+		$holiday[1223] = "天皇誕生日";
+		if ($a_equinox - $keirou == 2) {
+			$h_day           = $keirou + 1;
+			$holiday[$h_day] = "国民の祝日";
+		}
+
+		return $holiday;
+	}
+
+	/**
+	 * 祝日かどうかの判定(土日祝料金判定用)
+	 */
+	private function _isHoliday($target_date) {
+		$holiday = $this->_getHolidayList(substr($target_date, 0, 4));
+
+		$check_day	= (integer) substr(str_replace("/", "", $target_date), 4);
+		$code_wday	= date("w", strtotime($target_date));
+
+		if (isset($holiday[$check_day])) {
+			return true;
+
+		} else {
+			$last_sunday = date('nd', strtotime('last Sunday', strtotime($target_date)));
+			if (($last_sunday == 503 || $last_sunday == 504 || $last_sunday == 505)
+				&& $check_day == 506) {
+				return true;
+			} elseif (isset($holiday[$last_sunday]) && $code_wday == 1) {
+				return true;
+			}
+
+			return false;
+		}
+	}
+
+	/**
+	 * 会議室リスト取得
+	 */
+	private function _dbGetRoomList($building_kn = null) {
+		global $db;
+
+		$where = '';
+
+		$db->SetFetchMode(ADODB_FETCH_ASSOC);
+
+		if (isNaturalNumber($building_kn)) {
+			$where = sprintf(' AND a.building_kn = %s ', $db->qstr($building_kn));
+		}
+
+		$sSQL = "
+			SELECT
+				a.room_id,
+				a.room_nm,
+				a.capacity,
+				a.building_kn,
+				b.note building_nm
+			FROM
+				t_会議室 a
+			LEFT JOIN
+				t_プロパティ b ON a.building_kn = b.item_id AND
+				b.category = 'building_kn'
+			WHERE
+				a.disable_flg = '0'
+				{$where}
+			ORDER BY
+				a.building_kn ASC, a.order_seq ASC
+		";
+		return $db->GetAll($sSQL);
+	}
+
+	/**
+	 * 備品リスト取得
+	 */
+	private function _dbGetEquipmentList($room_id, $use_date, $time_kn = null) {
+		global $db;
+
+		$db->SetFetchMode(ADODB_FETCH_ASSOC);
+
+		if ($use_date != '' && is_array($time_kn)) {
+			$available_count = "(a.available_count - COALESCE(b.used_count, 0)) available_count";
+
+			foreach ($time_kn as $v) {
+				$tmp[] = $db->qstr($v);
+			}
+
+			$join_table = sprintf(
+				"LEFT OUTER JOIN
+					(SELECT
+						y.equipment_id,
+						SUM(x.reserve_count) used_count
+					FROM
+						t_備品予約 x
+					LEFT JOIN
+						t_備品 y ON x.equipment_id = y.equipment_id
+							AND y.delete_flg = '0'
+					WHERE
+						x.reserve_id = ANY (
+							SELECT z.reserve_id
+							FROM v_reserve_time_quantity z
+							WHERE
+								z.use_date = TO_DATE(%s, 'YYYY/MM/DD')
+								AND z.room_id = %s
+								AND z.time_kn IN (%s)
+						)
+					GROUP BY
+						y.equipment_id) b USING(equipment_id)",
+				$db->qstr($use_date),
+				$db->qstr($room_id),
+				implode(',', $tmp)
+			);
+		} else {
+			$available_count = "a.available_count";
+		}
+
+		$sSQL = "
+			SELECT
+				e.*
+			FROM (
+				SELECT
+					a.equipment_id,
+					a.equipment_nm,
+					a.category,
+					{$available_count},
+					a.standard_count,
+					a.fee,
+					a.tax_fee,
+					a.fee + a.tax_fee as tax_included_fee,
+					a.description,
+					RANK() OVER (PARTITION BY a.room_id ORDER BY a.apply_date DESC) gen_marker
+				FROM
+					t_備品 a
+				{$join_table}
+				WHERE
+					a.delete_flg = '0' AND
+					a.room_id = ? AND
+					a.apply_date <= (
+						SELECT
+							MAX(target_date)
+						FROM
+							(VALUES (TO_DATE(?, 'yyyy/mm/dd')), (current_date)) AS t1(target_date)
+					)
+				ORDER BY
+					a.order_seq ASC, a.equipment_id ASC
+			) e
+			WHERE
+				e.gen_marker = 1
+		";
+
+		$argSQL = array(
+			'room_id'		=> $room_id,
+			'use_date'		=> $use_date
+		);
+
+		return $db->GetAll($sSQL, $argSQL);
+	}
+
+	/**
+	 * プロパティデータ取得
+	 */
+	private function _dbGetProperty($category) {
+		global $db;
+    $where_clause = "";
+		$db->SetFetchMode(ADODB_FETCH_ASSOC);
+
+		$tmp = null;
+		foreach (explode(',', $category) as $v) {
+			if (trim($v) != '') {
+				$tmp[] = $db->qstr($v);
+			}
+		}
+		if (is_array($tmp)) {
+			$where_clause = sprintf("AND a.category IN (%s)", implode(',', $tmp));
+		}
+
+		$sSQL = "
+			SELECT
+				a.category, a.item_id, a.order_seq,
+				CASE
+					WHEN a.category IN ('building_kn', 'equipment_flg') THEN a.note
+					ELSE a.item_nm
+				END item_nm
+			FROM
+				t_プロパティ a
+			WHERE
+				a.disable_flg = '0'
+				{$where_clause}
+			ORDER BY
+				a.category ASC, a.order_seq ASC
+		";
+
+		return $db->CacheGetAll(3600, $sSQL);
+	}
+
+	/**
+	 * ビル区分取得
+	 */
+	private function _dbGetBuildingKubun($room_id) {
+		global $db;
+
+		$sSQL = "
+			SELECT
+				a.building_kn
+			FROM
+				t_会議室 a
+			WHERE
+				a.disable_flg = '0' AND
+				a.room_id = ?
+		";
+
+		$argSQL = array(
+			'room_id'	=> $room_id
+		);
+
+		return $db->GetOne($sSQL, $argSQL);
+	}
+
+	/**
+	 * 時間帯取得
+	 */
+	private function _dbGetTimeKubun($room_id, $use_date, $use_type = null) {
+		global $db;
+
+		$where = '';
+
+		if ($use_type != '') {
+			$where = sprintf(' AND a.use_type = %s', $db->qstr($use_type));
+		}
+
+		$sSQL = "
+			SELECT DISTINCT
+				a.time_kn,
+				b.item_nm as time_kn_nm,
+				a.use_type
+			FROM
+				t_会議室料金 a
+			LEFT JOIN
+				t_プロパティ b ON a.time_kn = b.item_id AND
+				b.category = 'time_kn'
+			WHERE
+				a.room_id = ? AND
+				a.apply_date = (
+					SELECT
+						MAX(z.apply_date)
+					FROM
+						t_会議室料金 z
+					WHERE
+						z.room_id = a.room_id AND
+						z.apply_date <= CURRENT_DATE
+				)
+				{$where}
+			ORDER BY
+				a.time_kn
+		";
+		$argSQL = array(
+			'room_id'	 => $room_id,
+		);
+
+		foreach ($db->GetAll($sSQL, $argSQL) as $v) {
+			$data[$v['time_kn']][$v['use_type']] = $v['time_kn_nm'];
+		}
+		return $data;
+	}
+
+	/**
+	 * 利用時間一覧取得
+	 */
+	private function _dbGetUseTime($room_id) {
+		global $db;
+
+		$sSQL = "
+			SELECT
+				a.time_kn,
+				TO_CHAR(a.begin_time, 'FMHH24:MI') begin_time,
+				TO_CHAR(a.end_time, 'FMHH24:MI') end_time
+			FROM
+				t_利用時間 a
+			WHERE
+				a.room_id = ?
+			ORDER BY
+				a.time_kn
+		";
+
+		$argSQL = array(
+			'room_id' => $room_id
+		);
+
+		foreach ($db->GetAll($sSQL, $argSQL) as $k => $v) {
+			$data[$v['time_kn']] = $v;
+		}
+
+		return $data;
+	}
+
+	/**
+	 * 料金一覧取得
+	 */
+	private function _dbGetRoomPriceList($room_id, $use_date) {
+		global $db;
+
+		$db->SetFetchMode(ADODB_FETCH_ASSOC);
+
+		$sSQL = "
+			SELECT
+				a.time_kn, a.use_type, a.day_kn, a.room_fee, a.tax_fee, a.room_fee + a.tax_fee as tax_included_fee
+			FROM
+				t_会議室料金 a
+			WHERE
+				a.room_id = ? AND
+				a.apply_date = (
+					SELECT
+						MAX(z.apply_date)
+					FROM
+						t_会議室料金 z
+					WHERE
+						z.room_id = a.room_id AND
+						z.apply_date <= (
+							SELECT
+								MAX(target_date)
+							FROM
+								(VALUES (TO_DATE(?, 'yyyy/mm/dd')), (current_date)) AS t1(target_date)
+						)
+				)
+		";
+
+		$argSQL = array(
+			'room_id'	=> $room_id,
+			'use_date'	=> $use_date
+		);
+
+		return $db->GetAll($sSQL, $argSQL);
+	}
+
+	/**
+	 * 利用形態一覧取得
+	 */
+	private function _dbGetUseType($room_id) {
+		global $db;
+
+		$sSQL = "
+			SELECT DISTINCT
+				a.use_type
+			FROM
+				t_会議室料金 a
+			WHERE
+				a.room_id = ? AND
+				a.apply_date = (
+					SELECT
+						MAX(z.apply_date)
+					FROM
+						t_会議室料金 z
+					WHERE
+						z.room_id = a.room_id AND
+						z.apply_date <= CURRENT_DATE
+				)
+		";
+
+		$argSQL = array(
+			'room_id'	=> $room_id
+		);
+
+		return $db->GetCol($sSQL, $argSQL);
+	}
+
+	/**
+	 * 予約ダウンロードデータ一覧取得
+	 */
+	private function _dbGetReserveDownloadList($d, $offset) {
+		global $db;
+
+		$db->SetFetchMode(ADODB_FETCH_ASSOC);
+
+		if ($d['target'] == TARGET_USE_DATE) {
+			if ($d['use_date_from'] != "" && $d['use_date_to'] != "") {
+				$where[] = sprintf("
+					a.use_date BETWEEN TO_DATE(%s, 'yyyymmdd') AND TO_DATE(%s, 'yyyymmdd')",
+					$db->qstr(str_replace("/", "", $d['use_date_from'])),
+					$db->qstr(str_replace("/", "", $d['use_date_to']))
+				);
+			} elseif ($d['use_date_from'] != "") {
+				$where[] = sprintf(
+					"a.use_date >= TO_DATE(%s, 'yyyymmdd')",
+					$db->qstr(str_replace("/", "", $d['use_date_from']))
+				);
+			} elseif ($d['use_date_to'] != "") {
+				$where[] = sprintf(
+					"a.use_date <= TO_DATE(%s, 'yyyymmdd')",
+					$db->qstr(str_replace("/", "", $d['use_date_to']))
+				);
+			}
+		} elseif ($d['target'] == TARGET_RESERVE_NO) {
+			$reserve_no_from	= strlen($d['reserve_no_from']) <= 9
+									? $d['reserve_no_from']
+									: substr($d['reserve_no_from'], 1);
+
+			$reserve_no_to		= strlen($d['reserve_no_to']) <= 9
+									? $d['reserve_no_to']
+									: substr($d['reserve_no_to'], 1);
+
+			if ($reserve_no_from != "" && $reserve_no_to != "") {
+				$where[] = sprintf("
+					CAST(RTRIM(a.reserve_no_b) AS integer) BETWEEN %s AND %s",
+					$db->qstr($reserve_no_from),
+					$db->qstr($reserve_no_to)
+				);
+			} elseif ($reserve_no_from != "") {
+				$where[] = sprintf("CAST(RTRIM(a.reserve_no_b) AS integer) >= %s", $db->qstr($reserve_no_from));
+			} elseif ($reserve_no_to != "") {
+				$where[] = sprintf("CAST(RTRIM(a.reserve_no_b) AS integer) <= %s", $db->qstr($reserve_no_to));
+			}
+		}
+
+		if (APPS_UID == 'imaikehall') {
+			$where[] = sprintf("b.building_kn = %s", $db->qstr(BUILDING_KN_IMAIKE_HALL));
+		}
+
+		if (is_array($where)) {
+			$where_clause = "WHERE " . implode(" AND ", $where);
+		}
+
+		//$sSQL = "
+		//	SELECT
+		//		CASE a.disable_flg
+		//			WHEN '1' THEN 9
+		//			ELSE a.status_kn
+		//		END status,
+		//		a.reserve_no, TO_CHAR(a.use_date, 'YYYY/MM/DD') use_date,
+		//		b.building_kn, b.room_nm, a.time_kn, a.use_type,
+		//		a.participant_count, a.layout_kn, a.room_fee, a.purpose_kn,
+		//		a.purpose_other, a.event_nm, a.detail, a.host_nm,
+		//		TO_CHAR(a.begin_time, 'hh24:mi') begin_time,
+		//		TO_CHAR(a.end_time, 'hh24:mi') end_time,
+		//		CASE a.display_event_info_flg
+		//			WHEN '1' THEN CAST(CAST(a.display_event_info AS integer) AS bit(4))
+		//			ELSE null
+		//		END event_info,
+		//		a.visitor_count, a.entrance_fee, a.last_use_date,
+		//		CASE a.other_room_flg
+		//			WHEN '1' THEN c.room_nm
+		//			ELSE null
+		//		END other_room_nm,
+		//		a.applicant_zip, a.applicant_pref_cd, a.applicant_addr1, a.applicant_addr2,
+		//		a.applicant_company_nm, a.applicant_title, a.applicant_department_nm,
+		//		a.last_nm, a.first_nm, a.last_nm_kana, a.first_nm_kana, a.contact_tel,
+		//		a.contact_fax, a.contact_extension_no, a.contact_mail,
+		//		a.contact_mobile_phone, a.host_zip, a.host_pref_cd, a.host_addr1,
+		//		a.host_addr2, a.host_company_nm, a.host_department_nm, a.host_last_nm,
+		//		a.host_first_nm, a.host_tel, a.supervisor_zip, a.supervisor_pref_cd,
+		//		a.supervisor_addr1, a.supervisor_addr2, a.supervisor_company_nm,
+		//		a.supervisor_department_nm, a.supervisor_last_nm,
+		//		a.supervisor_first_nm, a.supervisor_tel, a.equipment_detail_flg,
+		//		a.engineer_kn, a.engineer_fee, a.extra_charge, a.discount, a.adjust_comment,
+		//		a.invoice_price,
+		//		a.tax, a.invoice_date, a.payment_date,
+		//		CAST(CAST(a.brown_equipment AS integer) AS bit(3)) brown_equipment,
+		//		a.user_note1, a.user_note2, a.user_note3, a.admin_note, a.disable_reason,
+		//		a.invoice_person, a.invoice_note,
+		//		TO_CHAR(a.accept_mail_send_date, 'YYYY/MM/DD hh24:mi') accept_mail_send_date,
+		//		TO_CHAR(a.update_date, 'YYYY/MM/DD hh24:mi') update_date,
+		//		ARRAY_TO_STRING(array (
+		//			SELECT
+		//				y.equipment_nm || '/' || z.reserve_count || '/' || z.equipment_fee
+		//			FROM
+		//				t_備品予約 z
+		//			LEFT JOIN
+		//				t_備品 y
+		//				ON y.equipment_id = z.equipment_id AND
+		//				y.apply_date = (
+		//					SELECT
+		//						MAX(x.apply_date)
+		//					FROM
+		//						t_備品 x
+		//					WHERE
+		//						x.equipment_id = y.equipment_id AND
+		//						x.apply_date <= a.use_date
+		//				)
+		//			WHERE
+		//				z.reserve_id = a.reserve_id
+		//			ORDER BY
+		//				y.order_seq ASC, y.equipment_id ASC), '|') equipment,
+		//		ARRAY_TO_STRING(array (
+		//			SELECT
+		//				z.equipment_nm || '/' || z.equipment_count || '/' || z.equipment_fee
+		//			FROM
+		//				t_追加備品 z
+		//			WHERE
+		//				z.reserve_id = a.reserve_id
+		//			ORDER BY
+		//				z.order_seq ASC), '|') equipment_admin,
+		//		ARRAY_TO_STRING(array (
+		//			SELECT
+		//				z.item_nm || '/' || z.item_fee
+		//			FROM
+		//				t_調整項目 z
+		//			WHERE
+		//				z.reserve_id = a.reserve_id
+		//			ORDER BY
+		//				z.order_seq ASC), '|') adjust_fee,
+		//		a.kari_flg
+		//	FROM (
+		//		SELECT
+		//			a1.*,
+		//			CASE
+		//				WHEN LENGTH(a1.reserve_no) = 9 THEN RTRIM(a1.reserve_no)
+		//				ELSE SUBSTR(a1.reserve_no, 2)
+		//			END reserve_no_b
+		//		FROM
+		//			t_予約 a1
+		//		) a
+		//	LEFT JOIN
+		//		t_会議室 b ON a.room_id = b.room_id
+		//	LEFT JOIN
+		//		t_会議室 c ON a.other_room_id = c.room_id
+		//	{$where_clause}
+		//	ORDER BY
+		//		CAST(a.reserve_no_b as integer) ASC
+		//	OFFSET ? LIMIT ?
+		//";
+		$sSQL = "
+			SELECT
+				CASE a.disable_flg
+					WHEN '1' THEN 9
+					ELSE a.status_kn
+				END status,
+				a.reserve_no, TO_CHAR(a.use_date, 'YYYY/MM/DD') use_date,
+				b.building_kn, b.room_nm, a.time_kn, a.use_type,
+				a.participant_count, a.layout_kn, a.room_fee, a.purpose_kn,
+				a.purpose_other, a.event_nm, a.detail, a.host_nm,
+				a.begin_time,
+				a.end_time,
+				CASE a.display_event_info_flg
+					WHEN '1' THEN CAST(CAST(a.display_event_info AS integer) AS bit(4))
+					ELSE null
+				END event_info,
+				a.visitor_count, a.entrance_fee, a.last_use_date,
+				CASE a.other_room_flg
+					WHEN '1' THEN c.room_nm
+					ELSE null
+				END other_room_nm,
+				a.applicant_zip, a.applicant_pref_cd, a.applicant_addr1, a.applicant_addr2,
+				a.applicant_company_nm, a.applicant_title, a.applicant_department_nm,
+				a.last_nm, a.first_nm, a.last_nm_kana, a.first_nm_kana, a.contact_tel,
+				a.contact_fax, a.contact_extension_no, a.contact_mail,
+				a.contact_mobile_phone, a.host_zip, a.host_pref_cd, a.host_addr1,
+				a.host_addr2, a.host_company_nm, a.host_department_nm, a.host_last_nm,
+				a.host_first_nm, a.host_tel, a.supervisor_zip, a.supervisor_pref_cd,
+				a.supervisor_addr1, a.supervisor_addr2, a.supervisor_company_nm,
+				a.supervisor_department_nm, a.supervisor_last_nm,
+				a.supervisor_first_nm, a.supervisor_tel, a.equipment_detail_flg,
+				a.engineer_kn, a.engineer_fee, a.extra_charge, a.discount, a.adjust_comment,
+				a.invoice_price,
+				a.tax, a.invoice_date, a.payment_date,
+				CAST(CAST(a.brown_equipment AS integer) AS bit(3)) brown_equipment,
+				a.user_note1, a.user_note2, a.user_note3, a.admin_note, a.disable_reason,
+				a.invoice_person, a.invoice_note,
+				TO_CHAR(a.accept_mail_send_date, 'YYYY/MM/DD hh24:mi') accept_mail_send_date,
+				TO_CHAR(a.update_date, 'YYYY/MM/DD hh24:mi') update_date,
+				ARRAY_TO_STRING(array (
+					SELECT
+						y.equipment_nm || '/' || z.reserve_count || '/' || z.equipment_fee
+					FROM
+						t_備品予約 z
+					LEFT JOIN
+						t_備品 y
+						ON y.equipment_id = z.equipment_id AND
+						y.apply_date = (
+							SELECT
+								MAX(x.apply_date)
+							FROM
+								t_備品 x
+							WHERE
+								x.equipment_id = y.equipment_id AND
+								x.apply_date <= a.use_date
+						)
+					WHERE
+						z.reserve_id = a.reserve_id
+					ORDER BY
+						y.order_seq ASC, y.equipment_id ASC), '|') equipment,
+				ARRAY_TO_STRING(array (
+					SELECT
+						z.equipment_nm || '/' || z.equipment_count || '/' || z.equipment_fee
+					FROM
+						t_追加備品 z
+					WHERE
+						z.reserve_id = a.reserve_id
+					ORDER BY
+						z.order_seq ASC), '|') equipment_admin,
+				ARRAY_TO_STRING(array (
+					SELECT
+						z.item_nm || '/' || z.item_fee
+					FROM
+						t_調整項目 z
+					WHERE
+						z.reserve_id = a.reserve_id
+					ORDER BY
+						z.order_seq ASC), '|') adjust_fee,
+				a.kari_flg
+			FROM (
+				SELECT
+					a1.*,
+					CASE
+						WHEN LENGTH(a1.reserve_no) = 9 THEN RTRIM(a1.reserve_no)
+						ELSE SUBSTR(a1.reserve_no, 2)
+					END reserve_no_b
+				FROM
+					t_予約 a1
+				) a
+			LEFT JOIN
+				t_会議室 b ON a.room_id = b.room_id
+			LEFT JOIN
+				t_会議室 c ON a.other_room_id = c.room_id
+			{$where_clause}
+			ORDER BY
+				CAST(a.reserve_no_b as integer) ASC
+			OFFSET ? LIMIT ?
+		";
+
+		$argSQL = array(
+			'offset'	=> $offset,
+			'limit'		=> DOWNLOAD_FETCH_ROWS_LIMIT
+		);
+    //new dbug($sSQL);
+    //exit;
+
+		$data = $db->GetAll($sSQL, $argSQL);
+		if (count($data) == 0) {
+			return null;
+		}
+
+		return $data;
+	}
+
+	/**
+	 * 予約詳細データ取得
+	 */
+	private function _dbGetReserveDetail($reserve_id, $copy_flg=false, $equipment_flg = true) {
+		global $db;
+    $where_clause = "";
+		$db->SetFetchMode(ADODB_FETCH_ASSOC);
+
+		if (APPS_UID == 'imaikehall') {
+			$where_clause = sprintf(
+				"AND b.building_kn = %s",
+				$db->qstr(BUILDING_KN_IMAIKE_HALL)
+			);
+		}
+
+		if ($copy_flg === false) {
+			$equipment_flg = true;
+			$select_column = ",
+				a.status_kn, a.use_date, b.room_nm, b.building_kn, a.time_kn,
+				a.use_type, a.participant_count, a.layout_kn, a.room_fee,
+				a.equipment_flg, a.equipment_detail_flg, a.engineer_kn,
+				a.engineer_fee, a.extra_charge, a.discount, a.adjust_comment,
+				a.invoice_price, a.invoice_price_change_flg, a.tax,
+				a.invoice_date, a.payment_date,
+				CAST(CAST(a.brown_equipment AS integer) AS bit(3)) brown_equipment,
+				a.user_note3, a.invoice_person, a.invoice_note, a.reserve_no,
+				COALESCE((SELECT
+					SUM(z.equipment_fee * z.reserve_count)
+				FROM
+					t_備品予約 z
+				WHERE
+					z.reserve_id = a.reserve_id), 0) equipment_total,
+				COALESCE((SELECT
+					SUM(z.equipment_fee * z.equipment_count)
+				FROM
+					t_追加備品 z
+				WHERE
+					z.reserve_id = a.reserve_id), 0) admin_equipment_total,
+				(COALESCE((SELECT
+					SUM(z.item_fee)
+				FROM
+					t_調整項目 z
+				WHERE
+					z.reserve_id = a.reserve_id), 0)
+				 + COALESCE(a.discount, 0) + COALESCE(a.extra_charge, 0)) adjust_fee_total,
+				 a.kari_flg
+			";
+		} elseif ($equipment_flg) {
+			$select_column = ",
+				a.use_date,
+				a.equipment_flg, a.equipment_detail_flg, a.user_note3,
+				CAST(CAST(a.brown_equipment AS integer) AS bit(3)) brown_equipment,
+				COALESCE((SELECT
+					SUM(z.equipment_fee * z.reserve_count)
+				FROM
+					t_備品予約 z
+				WHERE
+					z.reserve_id = a.reserve_id), 0) equipment_total,
+				COALESCE((SELECT
+					SUM(z.equipment_fee * z.equipment_count)
+				FROM
+					t_追加備品 z
+				WHERE
+					z.reserve_id = a.reserve_id), 0) admin_equipment_total
+			";
+		}
+
+		$sSQL = "
+			SELECT
+				a.reserve_id, a.disable_flg, a.room_id,
+				a.purpose_kn, a.purpose_other, a.event_nm, a.detail, a.host_nm,
+				a.begin_time, a.end_time, a.display_event_info_flg,
+				CAST(CAST(a.display_event_info AS integer) AS bit(4)) display_event_info,
+				a.visitor_count, a.entrance_fee, a.last_use_date, a.other_room_flg,
+				a.other_room_id, c.room_nm other_room_nm, a.user_note1, a.applicant_zip,
+				a.applicant_pref_cd, a.applicant_addr1, a.applicant_addr2,
+				a.applicant_company_nm, a.applicant_title, a.applicant_department_nm,
+				a.last_nm, a.first_nm, a.last_nm_kana, a.first_nm_kana, a.contact_tel,
+				a.contact_fax, a.contact_extension_no, a.contact_mail,
+				a.contact_mobile_phone, a.host_zip, a.host_pref_cd, a.host_addr1,
+				a.host_addr2, a.host_company_nm, a.host_department_nm, a.host_last_nm,
+				a.host_first_nm, a.host_tel, a.supervisor_zip, a.supervisor_pref_cd,
+				a.supervisor_addr1, a.supervisor_addr2, a.supervisor_company_nm,
+				a.supervisor_department_nm, a.supervisor_last_nm,
+				a.supervisor_first_nm, a.supervisor_tel, a.user_note2, a.admin_note,
+				a.accept_mail_send_date, a.update_date, a.disable_reason, a.kari_flg
+				{$select_column}
+			FROM
+				t_予約 a
+			LEFT JOIN
+				t_会議室 b ON a.room_id = b.room_id
+			LEFT JOIN
+				t_会議室 c ON a.other_room_id = c.room_id
+			WHERE
+				a.reserve_id = ?
+				{$where_clause}
+		";
+
+		$argSQL = array(
+			'reserve_id'	=> $reserve_id
+		);
+
+		$data = $db->GetRow($sSQL, $argSQL);
+		if (empty($data)) {
+			return null;
+		}
+
+		if (! $equipment_flg) {
+			return $data;
+		}
+
+		$argSQL = array(
+			'use_date'		=> $data['use_date'],
+			'reserve_id'	=> $reserve_id
+		);
+
+		$sSQL = "
+			SELECT
+				b.equipment_id,
+				b.category,
+				b.equipment_nm,
+				a.equipment_fee,
+				a.reserve_count,
+				b.description
+			FROM
+				t_備品予約 a
+			LEFT JOIN (
+				SELECT t.*
+				FROM (
+					SELECT
+						e.*,
+						RANK() OVER (PARTITION BY e.equipment_id ORDER BY e.apply_date DESC) gen_marker
+					FROM
+						t_備品 e
+					WHERE
+						e.apply_date <= TO_DATE(?, 'yyyy-mm-dd')
+
+				) t
+				WHERE
+					t.gen_marker = 1
+			) b
+				ON a.equipment_id = b.equipment_id
+			WHERE
+				a.reserve_id = ?
+			ORDER BY
+				b.order_seq ASC, b.equipment_id ASC
+		";
+
+		$data['equipment'] = $db->GetAll($sSQL, $argSQL);
+
+		$argSQL = array(
+			'reserve_id'	=> $reserve_id
+		);
+
+		$sSQL = "
+			SELECT
+				a.equipment_nm,
+				a.equipment_fee,
+				a.equipment_count
+			FROM
+				t_追加備品 a
+			WHERE
+				a.reserve_id = ?
+			ORDER BY
+				a.order_seq ASC
+		";
+
+		$data['equipment_admin'] = $db->GetAll($sSQL, $argSQL);
+
+		if ($copy_flg) {
+			return $data;
+		}
+
+		$sSQL = "
+			SELECT
+				a.item_nm,
+				a.item_fee
+			FROM
+				t_調整項目 a
+			WHERE
+				a.reserve_id = ?
+			ORDER BY
+				a.order_seq ASC
+		";
+
+		$data['adjust_fee'] = $db->GetAll($sSQL, $argSQL);
+
+		return $data;
+	}
+
+	/**
+	 * 承認キー取得
+	 */
+	private function _dbGetAcceptKey() {
+		global $db;
+
+		$sSQL = "
+			SELECT
+				a.accept_key
+			FROM
+				t_管理者 a
+			WHERE
+				a.login_id = ?
+        ";
+
+		$argSQL = array('login_id' => APPS_UID);
+
+		return $db->GetOne($sSQL, $argSQL);
+	}
+
+	/**
+	 * 指定日の会議室、時間帯(午前・午後・夜間)別の利用状況
+	 */
+	private function _dbGetDailyReserveList($use_date, $room_id = null) {
+		global $db;
+
+		$db->SetFetchMode(ADODB_FETCH_ASSOC);
+
+		if (APPS_UID == 'imaikehall') {
+			$where_clause = sprintf(
+				"AND room_id IN (SELECT a.room_id FROM t_会議室 a WHERE a.building_kn = %s)",
+				$db->qstr(BUILDING_KN_IMAIKE_HALL)
+			);
+		}
+		if ($room_id) {
+			$where_clause_2 = sprintf("AND room_id = %s", $db->qstr($room_id));
+		}
+
+		// ステータスがキャンセルと非承認以外(申込～本受付)
+		$sSQL = "
+			SELECT
+				a.time_kn, a.use_type, a.reserve_id, a.room_id,
+				a.applicant_company_nm,
+				COALESCE(a.last_nm, '') || COALESCE(a.first_nm, '') applicant_nm,
+				a.contact_tel,
+				CASE
+					WHEN a.disable_flg = '1' THEN a.disable_reason
+					ELSE a.admin_note END admin_note,
+				a.disable_flg, a.status_kn,
+				CASE a.use_type
+					WHEN 3 THEN 1
+					ELSE 2
+				END quantity,
+				a.kari_flg
+			FROM
+				t_予約 a
+			WHERE
+				a.status_kn IN(1, 2, 3, 4)
+				AND a.use_date = TO_DATE(?, 'YYYYMMDD')
+				{$where_clause}
+				{$where_clause_2}
+			ORDER BY
+				1 DESC, 2 DESC
+		";
+
+		$argSQL = array(
+			'use_date'	=> $use_date
+		);
+
+		return $db->GetAll($sSQL, $argSQL);
+	}
+
+	/**
+	 * 指定月・部屋の空き状況取得(部屋別カレンダー)
+	 */
+	private function _dbGetRoomReserveList($target_month, $room_id) {
+		global $db;
+
+		$db->SetFetchMode(ADODB_FETCH_ASSOC);
+
+		// ステータスがキャンセルと非承認以外(申込～本受付)
+		$sSQL = "
+			SELECT
+				DATE_PART('day', a.use_date) AS day, a.time_kn,
+				a.use_type, a.reserve_id, a.applicant_company_nm,
+				COALESCE(a.last_nm, '') || COALESCE(a.first_nm, '') applicant_nm,
+				a.contact_tel,
+				CASE
+					WHEN a.disable_flg = '1' THEN a.disable_reason
+					ELSE a.admin_note END admin_note,
+				a.disable_flg, a.status_kn,
+				CASE a.use_type
+					WHEN 3 THEN 1
+					ELSE 2
+				END quantity,
+				a.kari_flg
+			FROM t_予約 a
+			WHERE
+				a.status_kn IN(1, 2, 3, 4) AND
+				TO_CHAR(DATE_TRUNC('month', a.use_date), 'YYYYMM') = ? AND
+				a.room_id = ?
+			ORDER BY
+				1 ASC, 2 DESC, 3 DESC
+		";
+
+		$argSQL = array(
+			'target_month'	=> $target_month,
+			'room_id'		=> $room_id
+		);
+
+		return $db->GetAll($sSQL, $argSQL);
+	}
+
+	/**
+	 * 空室判定(利用日・会議室・時間帯・利用形態)
+	 */
+	private function _dbGetIsAvailableRoom($d, $reserve_id = null) {
+		global $db;
+
+		$where = null;
+		$where_sub	= null;
+
+		$where[] = sprintf(
+			"a.use_date = TO_DATE(%s, 'YYYY/MM/DD')",
+			$db->qstr($d['use_date'])
+		);
+
+		$where[]		= sprintf("a.room_id = %s", $db->qstr($d['room_id']));
+		$where_sub[]	= sprintf("z.room_id = %s", $db->qstr($d['room_id']));
+
+		if ($reserve_id != '') {
+			$where[]		= sprintf("a.reserve_id <> %s", $db->qstr($reserve_id));
+			$where_sub[]	= sprintf("z.reserve_id <> %s", $db->qstr($reserve_id));
+		}
+
+		$tmp = null;
+		switch ($d['time_kn']) {
+			case TIME_KN_MORNING:
+				$where[] = sprintf("a.time_kn = %s", $db->qstr($d['time_kn']));
+				break;
+			case TIME_KN_AFTERNOON:
+				$where[] = sprintf("a.time_kn = %s", $db->qstr($d['time_kn']));
+				break;
+			case TIME_KN_NIGHT:
+				$where[] = sprintf("a.time_kn = %s", $db->qstr($d['time_kn']));
+				break;
+			case TIME_KN_MORNING_AFTERNOON:
+				$where[] = sprintf(
+					"a.time_kn IN (%s, %s)",
+					$db->qstr(TIME_KN_MORNING),
+					$db->qstr(TIME_KN_AFTERNOON)
+				);
+				break;
+			case TIME_KN_AFTERNOON_NIGHT:
+				$where[] = sprintf(
+					"a.time_kn IN (%s, %s)",
+					$db->qstr(TIME_KN_AFTERNOON),
+					$db->qstr(TIME_KN_NIGHT)
+				);
+				break;
+			case TIME_KN_WHOLE_DAY:
+				break;
+			default:
+				throw new Exception();
+		}
+
+		$quantity	= ($d['use_type'] == USE_TYPE_HALF && $d['disable_flg'] != '1')
+					? 1 : 0;
+
+		if (is_array($where)) {
+			$where_clause = "WHERE " . implode(" AND ", $where);
+		}
+
+		$sSQL = "
+			SELECT
+				CASE
+					WHEN MAX(c.sum_quantity) > {$quantity} THEN 0
+					ELSE 1
+				END available_flg
+			FROM (
+				SELECT
+					SUM(b.quantity) sum_quantity
+				FROM
+					(SELECT DISTINCT
+						a.reserve_id, a.quantity, a.time_kn, a.use_date
+					FROM
+						v_reserve_time_quantity a
+					{$where_clause}) b
+				GROUP BY
+					b.time_kn, b.use_date
+			) c
+		";
+
+		return $db->GetOne($sSQL, $argSQL);
+	}
+
+	/**
+	 * 予約番号取得
+	 */
+	private function _dbGetReserveNo() {
+		global $db;
+
+		$sSQL = "
+			SELECT
+				COALESCE(MAX(CAST(a.reserve_no AS integer)) + 1, ?)
+			FROM
+				(
+				SELECT
+					CASE
+						WHEN LENGTH(a1.reserve_no) = 9 THEN RTRIM(a1.reserve_no)
+						ELSE SUBSTR(a1.reserve_no, 2)
+					END reserve_no
+				FROM
+					t_予約 a1
+				) a
+			WHERE
+				a.reserve_no LIKE ?
+		";
+
+		$argSQL = array(
+			'reserve_no_1'	=> date('ymd') . '001',
+			'reserve_no_2'	=> date('ymd') . '%'
+		);
+
+		return $db->GetOne($sSQL, $argSQL);
+	}
+
+	/**
+	 * 指定された予約の予約番号取得
+	 */
+	 private function _dbGetReserveNoByReverveId($reserve_id) {
+		global $db;
+
+		$sSQL = "
+			SELECT reserve_no
+			FROM t_予約
+			WHERE reserve_id = ?
+		";
+
+		$argSQL = array(
+			'reserve_id'	=> $reserve_id
+		);
+
+		return $db->GetOne($sSQL, $argSQL);
+	}
+
+	/**
+	 * 休室予約
+	 * ステータスは本受付、利用形態は基本形
+	 */
+	private function _dbRegistDisabledReserve($d) {
+		global $db;
+
+		$insert = array(
+			'reserve_id'		=> $d['reserve_id'],
+			'reserve_no'		=> $d['reserve_no'],
+			'room_id'			=> $d['room_id'],
+			'use_date'			=> $d['use_date'],
+			'time_kn'			=> $d['time_kn'],
+			'status_kn'			=> STATUS_ACCEPTED,
+			'use_type'			=> USE_TYPE_BASIC,
+			'disable_flg'		=> '1',
+			'disable_reason'	=> $d['disable_reason'],
+			'regist_date'		=> $d['regist_date']
+		);
+
+		$db->AutoExecute('t_予約', $insert, 'INSERT');
+	}
+
+	private function _dbUpdateDisabledReserve($d, $reserve_id) {
+		global $db;
+
+		$update = array(
+			'kari_flg'			=> $d['kari_flg'],
+			'room_id'			=> $d['room_id'],
+			'use_date'			=> $d['use_date'],
+			'time_kn'			=> $d['time_kn'],
+			'status_kn'			=> STATUS_ACCEPTED,
+			'use_type'			=> USE_TYPE_BASIC,
+			'disable_flg'		=> '1',
+			'disable_reason'	=> $d['disable_reason'],
+			'update_date'		=> date('Y-m-d H:i:s'),
+			'update_user_id'	=> $_SESSION['admin']['auth']['uuid']
+		);
+
+		$wSQL = sprintf(
+			"reserve_id = %s AND update_date %s",
+			$db->qstr($reserve_id),
+			exclusive(decrypt($d['upd']))
+		);
+
+		$db->AutoExecute('t_予約', $update, 'UPDATE', $wSQL);
+
+		if ($db->Affected_Rows() !== 1) {
+			trigger_error("更新しようとしたデータはすでに古くなっています。再度やり直してください。", WARNING);
+			throw new Exception();
+		}
+	}
+	
+	/**
+	 * 予約登録
+	 */
+	private function _dbRegistReserve(&$d) {
+		global $db;
+
+		$reserve_date = time();
+
+		$db->StartTrans();
+
+		try {
+			if ($this->_dbGetIsAvailableRoom($d) != RESERVE_AVAILABLE) {
+				throw new Exception('Reserve not available.');
+			}
+		} catch (Exception $e) {
+			if ($e->getMessage() == 'Reserve not available.') {
+				trigger_error("指定の日・時間帯・カンファレンスルームまたはホールでの予約はできません。", WARNING);
+			} else {
+				trigger_error("データの登録に失敗しました(予約可否判定)。", WARNING);
+			}
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		try {
+			$reserve_id = $db->GenID('s_予約_reserve_id');
+			$d['reserve_id'] = $reserve_id;
+			
+			$reserve_no = $this->_dbGetReserveNo();
+			$d['reserve_no'] = sprintf('%s%s', RESERVE_NO_INITIAL_ADMIN, $reserve_no);
+
+			$d['regist_date'] = date('Y-m-d H:i:s', $reserve_date);
+
+			if ($d['disable_flg'] == '1') {
+				$this->_dbRegistDisabledReserve($d);
+			}
+			$reserve_no += 1;
+
+			foreach ($this->_getRelatedDisabledReservationData($d, $reserve_no) as $data) {
+				$this->_dbRegistDisabledReserve($data);
+			}
+		} catch (Exception $e) {
+			logging(__METHOD__, $e->__toString());
+			trigger_error("データの登録に失敗しました。", WARNING);
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		///// 休室の場合ここで終了 //////////////////////////////////////////////////////
+
+		if ($d['disable_flg'] == '1') {
+			$db->CompleteTrans();
+			return true;
+		}
+
+		///// 以下、通常予約の場合 //////////////////////////////////////////////////////
+
+		$insert = array(
+			'reserve_id'				=> $d['reserve_id'],
+			'kari_flg'					=> $d['kari_flg'],
+			'reserve_no'				=> $d['reserve_no'],
+			'room_id'					=> $d['room_id'],
+			'use_date'					=> $d['use_date'],
+			'time_kn'					=> $d['time_kn'],
+			'status_kn'					=> STATUS_APPLICATION,
+			'disable_flg'				=> '0',
+			'use_type'					=> $d['use_type'],
+			'participant_count'			=> ($d['use_type'] == USE_TYPE_BASIC)
+				? ifempty($d['participant_count'][0])
+				: ifempty($d['participant_count'][$d['layout_kn']]),
+			'layout_kn'					=> ifempty($d['layout_kn']),
+			'room_fee'					=> $d['room_fee'],
+			'purpose_kn'				=> $d['purpose_kn'],
+			'purpose_other'				=> ($d['purpose_kn'] == PURPOSE_KN_OTHER)
+				? $d['purpose_other'] : null,
+			'event_nm'					=> $d['event_nm'],
+			'detail'					=> $d['detail'],
+			'host_nm'					=> $d['host_nm'],
+			'begin_time'				=> (implode(':', $d['begin_time']) != ':')
+				? implode(':', $d['begin_time']) : null,
+			'end_time'					=> (implode(':', $d['end_time']) != ':')
+				? implode(':', $d['end_time']) : null,
+			'display_event_info_flg'	=> ($d['display_event_info_flg'] == '1')
+				? '1' : '0',
+			'display_event_info'		=> ($d['display_event_info_flg'] == '1')
+				? $this->_getBitmask($d['display_event_info']) : null,
+			'applicant_zip'				=> implode('', $d['applicant_zip']),
+			'applicant_pref_cd'			=> ifempty($d['applicant_pref_cd']),
+			'applicant_addr1'			=> $d['applicant_addr1'],
+			'applicant_addr2'			=> $d['applicant_addr2'],
+			'applicant_company_nm'		=> $d['applicant_company_nm'],
+			'applicant_title'			=> $d['applicant_title'],
+			'applicant_department_nm'	=> $d['applicant_department_nm'],
+			'last_nm'					=> $d['last_nm'],
+			'first_nm'					=> $d['first_nm'],
+			'last_nm_kana'				=> $d['last_nm_kana'],
+			'first_nm_kana'				=> $d['first_nm_kana'],
+			'contact_tel'				=> (implode('-', $d['contact_tel']) != '--')
+				? implode('-', $d['contact_tel']) : null,
+			'contact_fax'				=> (implode('-', $d['contact_fax']) != '--')
+				? implode('-', $d['contact_fax']) : null,
+			'contact_extension_no'		=> $d['contact_extension_no'],
+			'contact_mail'				=> $d['contact_mail'],
+			'contact_mobile_phone'		=> (implode('-', $d['contact_mobile_phone']) != '--')
+				? implode('-', $d['contact_mobile_phone']) : null,
+			'equipment_flg'				=> $d['equipment_flg'],
+			'equipment_detail_flg'		=> ($d['equipment_flg'] == '1')
+				? $d['equipment_detail_flg'] : null,
+			'extra_charge'				=> ifempty($d['extra_charge']),
+			'discount'					=> ifempty(0 - $d['discount']),
+			'adjust_comment'			=> $d['adjust_comment'],
+			'invoice_price'				=> $this->_getInvoicePrice($d),
+			'invoice_price_change_flg'	=> ($d['invoice_price_change_flg'] == '1')
+				? '1' : '0',
+			'tax'						=> ifempty($d['tax']),
+			'invoice_date'				=> $d['invoice_date'],
+			'payment_date'				=> $d['payment_date'],
+			'brown_equipment'			=> $this->_getBitmask($d['brown_equipment']),
+			'invoice_person'			=> $d['invoice_person'],
+			'invoice_note'				=> $d['invoice_note'],
+			'user_note1'				=> $d['user_note1'],
+			'user_note2'				=> $d['user_note2'],
+			'user_note3'				=> $d['user_note3'],
+			'admin_note'				=> $d['admin_note'],
+			'regist_date'				=> $d['regist_date']
+		);
+
+		if ($this->room[$d['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL) {
+			$insert['layout_kn']				= ($d['layout_kn_4'] == '4') ? '4' : null;
+			$insert['host_zip']					= implode('', $d['host_zip']);
+			$insert['host_pref_cd']				= ifempty($d['host_pref_cd']);
+			$insert['host_addr1']				= $d['host_addr1'];
+			$insert['host_addr2']				= $d['host_addr2'];
+			$insert['host_company_nm']			= $d['host_company_nm'];
+			$insert['host_department_nm']		= $d['host_department_nm'];
+			$insert['host_last_nm']				= $d['host_last_nm'];
+			$insert['host_first_nm']			= $d['host_first_nm'];
+			$insert['host_tel']					= (implode('-', $d['host_tel']) != '--')
+				? implode('-', $d['host_tel']) : null;
+			$insert['supervisor_zip']			= implode('', $d['supervisor_zip']);
+			$insert['supervisor_pref_cd']		= $d['supervisor_pref_cd'];
+			$insert['supervisor_addr1']			= $d['supervisor_addr1'];
+			$insert['supervisor_addr2']			= $d['supervisor_addr2'];
+			$insert['supervisor_company_nm']	= $d['supervisor_company_nm'];
+			$insert['supervisor_department_nm']	= $d['supervisor_department_nm'];
+			$insert['supervisor_last_nm']		= $d['supervisor_last_nm'];
+			$insert['supervisor_first_nm']		= $d['supervisor_first_nm'];
+			$insert['supervisor_tel']			= (implode('-', $d['supervisor_tel']) != '--')
+				? implode('-', $d['supervisor_tel']) : null;
+			$insert['visitor_count']			= ifempty($d['visitor_count']);
+			$insert['entrance_fee']				= ($d['entrance_fee_flg'] === '0')
+				? '0' : ifempty($d['entrance_fee']);
+			$insert['last_use_date']			= $d['last_use_date'];
+			$insert['other_room_flg']			= ($d['other_room_flg'] == '1') ? '1' : '0';
+			$insert['engineer_kn']				= $d['engineer_kn'];
+			$insert['engineer_fee']				= ifempty($d['engineer_fee'][$d['engineer_kn']]);
+			if ($d['other_room_flg'] == '1') {
+				$insert['other_room_id'] = ifempty($d['other_room_id']);
+			}
+		}
+
+		try {
+			$db->AutoExecute('t_予約', $insert, 'INSERT');
+		} catch (Exception $e) {
+			trigger_error("データの登録に失敗しました。", WARNING);
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		if ($d['equipment_flg'] == '1') {
+			foreach ($d['reserve_count'] as $equipment_id => $reserve_count) {
+				if ($reserve_count == '0') {
+					continue;
+				}
+
+				$insert = array(
+					'reserve_id'	=> $reserve_id,
+					'equipment_id'	=> $equipment_id,
+					'reserve_count'	=> $reserve_count,
+					'equipment_fee'	=> $d['equipment_fee'][$equipment_id]
+				);
+
+				try {
+					$db->AutoExecute('t_備品予約', $insert, 'INSERT');
+				} catch (Exception $e) {
+					trigger_error("データの登録に失敗しました。(備品A)", WARNING);
+					$db->CompleteTrans(false);
+					throw $e;
+				}
+			}
+
+			for ($i=1; $i<=MAX_EQUIPMENT_ADMIN; $i++) {
+				if ($d['equipment_admin'][$i] == '' || $d['equipment_admin_count'][$i] == '') {
+					continue;
+				}
+
+				$insert = array(
+					'reserve_id'		=> $reserve_id,
+					'equipment_nm'		=> $d['equipment_admin'][$i],
+					'equipment_fee'		=> $d['equipment_admin_fee'][$i],
+					'equipment_count'	=> $d['equipment_admin_count'][$i],
+					'order_seq'			=> $i
+				);
+
+				try {
+					$db->AutoExecute('t_追加備品', $insert, 'INSERT');
+				} catch (Exception $e) {
+					trigger_error("データの登録に失敗しました(備品B)。", WARNING);
+					$db->CompleteTrans(false);
+					throw $e;
+				}
+			}
+		}
+
+		for ($i=1; $i<=MAX_ADJUST_ITEM; $i++) {
+			if ($d['adjust_item'][$i] == '' || $d['adjust_fee'][$i] == '') {
+				continue;
+			}
+
+			$insert = array(
+				'reserve_id'	=> $reserve_id,
+				'item_nm'		=> $d['adjust_item'][$i],
+				'item_fee'		=> $d['adjust_fee'][$i],
+				'order_seq'		=> $i
+			);
+
+			try {
+				$db->AutoExecute('t_調整項目', $insert, 'INSERT');
+			} catch (Exception $e) {
+				trigger_error("データの登録に失敗しました(料金調整)。", WARNING);
+				$db->CompleteTrans(false);
+				throw $e;
+			}
+		}
+
+		$db->CompleteTrans();
+		return true;
+	}
+
+	/**
+	 * 予約変更
+	 */
+	private function _dbUpdateReserve($d, $reserve_id) {
+		global $db;
+
+		$db->StartTrans();
+
+		try {
+			if ($this->_dbGetIsAvailableRoom($d, $reserve_id) != RESERVE_AVAILABLE) {
+				throw new Exception('Reserve not available.');
+			}
+		} catch (Exception $e) {
+			if ($e->getMessage() == 'Reserve not available.') {
+				trigger_error("指定の日・時間帯・カンファレンスルームまたはホールでの予約はできません。", WARNING);
+			} else {
+				trigger_error("データの更新に失敗しました(予約可否判定)。", WARNING);
+			}
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		try {
+			$reserve_no = $this->_dbGetReserveNo();
+			$d['reserve_no'] = $this->_dbGetReserveNoByReverveId($reserve_id);
+			
+			if ($d['disable_flg'] == '1') {
+				$this->_dbUpdateDisabledReserve($d, $reserve_id);
+			}
+
+			foreach ($this->_getRelatedDisabledReservationData($d, $reserve_no) as $data) {
+				$this->_dbRegistDisabledReserve($data);
+			}
+		} catch (Exception $e) {
+			logging(__METHOD__, $e->__toString());
+			trigger_error("データの登録に失敗しました。", WARNING);
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		///// 休室の場合ここで終了 //////////////////////////////////////////////////////
+
+		if ($d['disable_flg'] == '1') {
+			$db->CompleteTrans();
+			return true;
+		}
+
+		///// 以下、通常予約の場合 //////////////////////////////////////////////////////
+
+		$update = array(
+			'kari_flg'					=> $d['kari_flg'],
+			'room_id'					=> $d['room_id'],
+			'use_date'					=> $d['use_date'],
+			'time_kn'					=> $d['time_kn'],
+			'disable_flg'				=> '0',
+			'use_type'					=> $d['use_type'],
+			'participant_count'			=> ($d['use_type'] == USE_TYPE_BASIC)
+				? ifempty($d['participant_count'][0])
+				: ifempty($d['participant_count'][$d['layout_kn']]),
+			'layout_kn'					=> ($d['use_type'] == USE_TYPE_BASIC)
+				? null
+				: ifempty($d['layout_kn']),
+			'room_fee'					=> $d['room_fee'],
+			'purpose_kn'				=> $d['purpose_kn'],
+			'purpose_other'				=> ($d['purpose_kn'] == PURPOSE_KN_OTHER)
+				? $d['purpose_other'] : null,
+			'event_nm'					=> $d['event_nm'],
+			'detail'					=> $d['detail'],
+			'host_nm'					=> $d['host_nm'],
+			'begin_time'				=> (implode(':', $d['begin_time']) != ':')
+				? implode(':', $d['begin_time']) : null,
+			'end_time'					=> (implode(':', $d['end_time']) != ':')
+				? implode(':', $d['end_time']) : null,
+			'display_event_info_flg'	=> ($d['display_event_info_flg'] == '1')
+				? '1' : '0',
+			'display_event_info'		=> ($d['display_event_info_flg'] == '1')
+				? $this->_getBitmask($d['display_event_info']) : null,
+			'applicant_zip'				=> implode('', $d['applicant_zip']),
+			'applicant_pref_cd'			=> ifempty($d['applicant_pref_cd']),
+			'applicant_addr1'			=> $d['applicant_addr1'],
+			'applicant_addr2'			=> $d['applicant_addr2'],
+			'applicant_company_nm'		=> $d['applicant_company_nm'],
+			'applicant_title'			=> $d['applicant_title'],
+			'applicant_department_nm'	=> $d['applicant_department_nm'],
+			'last_nm'					=> $d['last_nm'],
+			'first_nm'					=> $d['first_nm'],
+			'last_nm_kana'				=> $d['last_nm_kana'],
+			'first_nm_kana'				=> $d['first_nm_kana'],
+			'contact_tel'				=> (implode('-', $d['contact_tel']) != '--')
+				? implode('-', $d['contact_tel']) : null,
+			'contact_fax'				=> (implode('-', $d['contact_fax']) != '--')
+				? implode('-', $d['contact_fax']) : null,
+			'contact_extension_no'		=> $d['contact_extension_no'],
+			'contact_mail'				=> $d['contact_mail'],
+			'contact_mobile_phone'		=> (implode('-', $d['contact_mobile_phone']) != '--')
+				? implode('-', $d['contact_mobile_phone']) : null,
+			'equipment_flg'				=> $d['equipment_flg'],
+			'equipment_detail_flg'		=> ($d['equipment_flg'] == '1')
+				? $d['equipment_detail_flg'] : null,
+			'extra_charge'				=> ifempty($d['extra_charge']),
+			'discount'					=> ifempty(0 - $d['discount']),
+			'adjust_comment'			=> $d['adjust_comment'],
+			'invoice_price'				=> $this->_getInvoicePrice($d),
+			'invoice_price_change_flg'	=> ($d['invoice_price_change_flg'] == '1')
+				? '1' : '0',
+			'tax'						=> ifempty($d['tax']),
+			'invoice_date'				=> $d['invoice_date'],
+			'payment_date'				=> $d['payment_date'],
+			'brown_equipment'			=> $this->_getBitmask($d['brown_equipment']),
+			'invoice_person'			=> $d['invoice_person'],
+			'invoice_note'				=> $d['invoice_note'],
+			'user_note1'				=> $d['user_note1'],
+			'user_note2'				=> $d['user_note2'],
+			'user_note3'				=> $d['user_note3'],
+			'admin_note'				=> $d['admin_note'],
+			'update_date'				=> date('Y-m-d H:i:s'),
+			'update_user_id'			=> $_SESSION['admin']['auth']['uuid']
+		);
+
+		if ($this->room[$d['room_id']]['building_kn'] == BUILDING_KN_IMAIKE_HALL) {
+			$update['layout_kn']				= ($d['layout_kn_4'] == '4') ? '4' : null;
+			$update['host_zip']					= implode('', $d['host_zip']);
+			$update['host_pref_cd']				= ifempty($d['host_pref_cd']);
+			$update['host_addr1']				= $d['host_addr1'];
+			$update['host_addr2']				= $d['host_addr2'];
+			$update['host_company_nm']			= $d['host_company_nm'];
+			$update['host_department_nm']		= $d['host_department_nm'];
+			$update['host_last_nm']				= $d['host_last_nm'];
+			$update['host_first_nm']			= $d['host_first_nm'];
+			$update['host_tel']					= (implode('-', $d['host_tel']) != '--')
+				? implode('-', $d['host_tel']) : null;
+			$update['supervisor_zip']			= implode('', $d['supervisor_zip']);
+			$update['supervisor_pref_cd']		= $d['supervisor_pref_cd'];
+			$update['supervisor_addr1']			= $d['supervisor_addr1'];
+			$update['supervisor_addr2']			= $d['supervisor_addr2'];
+			$update['supervisor_company_nm']	= $d['supervisor_company_nm'];
+			$update['supervisor_department_nm']	= $d['supervisor_department_nm'];
+			$update['supervisor_last_nm']		= $d['supervisor_last_nm'];
+			$update['supervisor_first_nm']		= $d['supervisor_first_nm'];
+			$update['supervisor_tel']			= (implode('-', $d['supervisor_tel']) != '--')
+				? implode('-', $d['supervisor_tel']) : null;
+			$update['visitor_count']			= ifempty($d['visitor_count']);
+			$update['entrance_fee']				= ($d['entrance_fee_flg'] === '0')
+				? '0' : ifempty($d['entrance_fee']);
+			$update['last_use_date']			= $d['last_use_date'];
+			$update['other_room_flg']			= ($d['other_room_flg'] == '1') ? '1' : '0';
+			$update['engineer_kn']				= $d['engineer_kn'];
+			$update['engineer_fee']				= ifempty($d['engineer_fee'][$d['engineer_kn']]);
+			if ($d['other_room_flg'] == '1') {
+				$update['other_room_id'] = ifempty($d['other_room_id']);
+			}
+		} else {
+			$update['host_zip']					= '';
+			$update['host_pref_cd']				= null;
+			$update['host_addr1']				= '';
+			$update['host_addr2']				= '';
+			$update['host_company_nm']			= '';
+			$update['host_department_nm']		= '';
+			$update['host_last_nm']				= '';
+			$update['host_first_nm']			= '';
+			$update['host_tel']					= '';
+			$update['supervisor_zip']			= '';
+			$update['supervisor_pref_cd']		= null;
+			$update['supervisor_addr1']			= '';
+			$update['supervisor_addr2']			= '';
+			$update['supervisor_company_nm']	= '';
+			$update['supervisor_department_nm']	= '';
+			$update['supervisor_last_nm']		= '';
+			$update['supervisor_first_nm']		= '';
+			$update['supervisor_tel']			= '';
+			$update['visitor_count']			= null;
+			$update['entrance_fee']				= null;
+			$update['last_use_date']			= '';
+			$update['other_room_flg']			= '0';
+			$update['other_room_id'] 			= null;
+			$update['engineer_kn']				= null;
+			$update['engineer_fee']				= null;
+		}
+
+		$wSQL = sprintf(
+			"reserve_id = %s AND update_date %s",
+			$db->qstr($reserve_id),
+			exclusive(decrypt($d['upd']))
+		);
+
+		try {
+			$db->AutoExecute('t_予約', $update, 'UPDATE', $wSQL);
+		} catch (Exception $e) {
+			trigger_error("データの更新に失敗しました。", WARNING);
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		if ($db->Affected_Rows() !== 1) {
+			trigger_error("更新しようとしたデータはすでに古くなっています。再度やり直してください。", WARNING);
+			throw new Exception();
+		}
+
+		$sSQL = "
+			DELETE FROM
+				t_備品予約
+			WHERE
+				reserve_id = ?
+		";
+
+		$argSQL = array(
+			'reserve_id'	=> $reserve_id
+		);
+
+		try {
+			$db->Execute($sSQL, $argSQL);
+		} catch (Exception $e) {
+			trigger_error("データの更新に失敗しました。", WARNING);
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		$sSQL = "
+			DELETE FROM
+				t_追加備品
+			WHERE
+				reserve_id = ?
+		";
+
+		$argSQL = array(
+			'reserve_id'	=> $reserve_id
+		);
+
+		try {
+			$db->Execute($sSQL, $argSQL);
+		} catch (Exception $e) {
+			trigger_error("データの更新に失敗しました。", WARNING);
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		if ($d['equipment_flg'] == '1') {
+			foreach ($d['reserve_count'] as $equipment_id => $reserve_count) {
+				if ($reserve_count == '0') {
+					continue;
+				}
+
+				$insert = array(
+					'reserve_id'	=> $reserve_id,
+					'equipment_id'	=> $equipment_id,
+					'reserve_count'	=> $reserve_count,
+					'equipment_fee'	=> $d['equipment_fee'][$equipment_id]
+				);
+
+				try {
+					$db->AutoExecute('t_備品予約', $insert, 'INSERT');
+				} catch (Exception $e) {
+					trigger_error("データの更新に失敗しました。(備品A)", WARNING);
+					$db->CompleteTrans(false);
+					throw $e;
+				}
+			}
+
+			for ($i=1; $i<=MAX_EQUIPMENT_ADMIN; $i++) {
+				if ($d['equipment_admin'][$i] == '' || $d['equipment_admin_count'][$i] == '') {
+					continue;
+				}
+
+				$insert = array(
+					'reserve_id'		=> $reserve_id,
+					'equipment_nm'		=> $d['equipment_admin'][$i],
+					'equipment_fee'		=> $d['equipment_admin_fee'][$i],
+					'equipment_count'	=> $d['equipment_admin_count'][$i],
+					'order_seq'			=> $i
+				);
+
+				try {
+					$db->AutoExecute('t_追加備品', $insert, 'INSERT');
+				} catch (Exception $e) {
+					trigger_error("データの更新に失敗しました(備品B)。", WARNING);
+					$db->CompleteTrans(false);
+					throw $e;
+				}
+			}
+		}
+
+		$sSQL = "
+			DELETE FROM
+				t_調整項目
+			WHERE
+				reserve_id = ?
+		";
+
+		$argSQL = array(
+			'reserve_id'	=> $reserve_id
+		);
+
+		try {
+			$db->Execute($sSQL, $argSQL);
+		} catch (Exception $e) {
+			trigger_error("データの更新に失敗しました。", WARNING);
+			$db->CompleteTrans(false);
+			throw $e;
+		}
+
+		for ($i=1; $i<=MAX_ADJUST_ITEM; $i++) {
+			if ($d['adjust_item'][$i] == '' || $d['adjust_fee'][$i] == '') {
+				continue;
+			}
+
+			$insert = array(
+				'reserve_id'	=> $reserve_id,
+				'item_nm'		=> $d['adjust_item'][$i],
+				'item_fee'		=> $d['adjust_fee'][$i],
+				'order_seq'		=> $i
+			);
+
+			try {
+				$db->AutoExecute('t_調整項目', $insert, 'INSERT');
+			} catch (Exception $e) {
+				trigger_error("データの更新に失敗しました(料金調整)。", WARNING);
+				$db->CompleteTrans(false);
+				throw $e;
+			}
+		}
+
+		$db->CompleteTrans();
+		return true;
+	}
+
+	/**
+	 * 予約ステータス変更
+	 */
+	private function _dbUpdateReserveStatus($reserve_id, $prev_status, $next_status, $upd) {
+		global $db;
+
+		$where = null;
+
+		$where[] = sprintf("reserve_id = %s", $db->qstr($reserve_id));
+
+		if (is_array($prev_status)) {
+			$tmp = null;
+			foreach ($prev_status as $v) {
+				$tmp[] = $db->qstr($v);
+			}
+			$where[] = sprintf("status_kn IN (%s)", implode(',', $tmp));
+		} else {
+			$where[] = sprintf("status_kn = %s", $db->qstr($prev_status));
+		}
+
+		$where[] = sprintf("update_date %s", exclusive(decrypt($upd)));
+
+		if (APPS_UID == 'imaikehall') {
+			$where[] = sprintf(
+				"room_id IN (SELECT a.room_id FROM t_会議室 a WHERE a.building_kn = %s)",
+				$db->qstr(BUILDING_KN_IMAIKE_HALL)
+			);
+		}
+
+		if (is_array($where)) {
+			$whereSQL = implode(" AND ", $where);
+		}
+
+		$update = array(
+			'status_kn'			=> $next_status,
+			'update_date'		=> date('Y-m-d H:i:s'),
+			'update_user_id'	=> $_SESSION['admin']['auth']['uuid']
+		);
+
+		try {
+			$db->AutoExecute('t_予約', $update, 'UPDATE', $whereSQL);
+		} catch(Exception $e) {
+			trigger_error("データの更新に失敗しました。", WARNING);
+			throw $e;
+		}
+
+		if ($db->Affected_Rows() !== 1) {
+			trigger_error("更新しようとしたデータはすでに古くなっています。再度やり直してください。", WARNING);
+			throw new Exception();
+		}
+
+		return true;
+	}
+
+	/**
+	 * 本予約完了メール送信日時更新
+	 */
+	private function _dbUpdateMailSendDate($reserve_id) {
+		global $db;
+
+		$update = array(
+			'accept_mail_send_date'	=> date('Y/m/d H:i:s')
+		);
+
+		$where[] = sprintf("reserve_id = %s", $db->qstr($reserve_id));
+		$where[] = sprintf("status_kn = %s", $db->qstr(STATUS_ACCEPTED));
+
+		if (APPS_UID == 'imaikehall') {
+			$where[] = sprintf(
+				"room_id IN (SELECT a.room_id FROM t_会議室 a WHERE a.building_kn = %s)",
+				$db->qstr(BUILDING_KN_IMAIKE_HALL)
+			);
+		}
+
+		if (is_array($where)) {
+			$whereSQL = implode(" AND ", $where);
+		}
+
+		try {
+			$db->AutoExecute('t_予約', $update, 'UPDATE', $whereSQL);
+		} catch(Exception $e) {
+			trigger_error("データの更新に失敗しました。", WARNING);
+			throw $e;
+		}
+
+		return true;
+	}
+
+	/**
+	 * 過去予約データ削除
+	 */
+	private function _dbDeleteReserveData($d, &$delete_count) {
+		global $db;
+
+		$where = null;
+
+		if ($d['target'] == TARGET_USE_DATE) {
+			if ($d['use_date_from'] != "" && $d['use_date_to'] != "") {
+				$where[] = sprintf("
+					use_date BETWEEN TO_DATE(%s, 'yyyymmdd') AND TO_DATE(%s, 'yyyymmdd')",
+					$db->qstr(str_replace("/", "", $d['use_date_from'])),
+					$db->qstr(str_replace("/", "", $d['use_date_to']))
+				);
+			} elseif ($d['use_date_from'] != "") {
+				$where[] = sprintf(
+					"use_date >= TO_DATE(%s, 'yyyymmdd')",
+					$db->qstr(str_replace("/", "", $d['use_date_from']))
+				);
+			} elseif ($d['use_date_to'] != "") {
+				$where[] = sprintf(
+					"use_date <= TO_DATE(%s, 'yyyymmdd')",
+					$db->qstr(str_replace("/", "", $d['use_date_to']))
+				);
+			}
+		} elseif ($d['target'] == TARGET_RESERVE_NO) {
+			$reserve_no_from	= strlen($d['reserve_no_from']) <= 9
+									? $d['reserve_no_from']
+									: substr($d['reserve_no_from'], 1);
+
+			$reserve_no_to		= strlen($d['reserve_no_to']) <= 9
+									? $d['reserve_no_to']
+									: substr($d['reserve_no_to'], 1);
+
+			if ($reserve_no_from != "" && $reserve_no_to != "") {
+				$where[] = sprintf(
+					"CAST(SUBSTR(RTRIM(reserve_no), LENGTH(RTRIM(reserve_no)) - 8) AS integer) BETWEEN %s AND %s",
+					$db->qstr($reserve_no_from),
+					$db->qstr($reserve_no_to)
+				);
+			} elseif ($reserve_no_from != "") {
+				$where[] = sprintf("CAST(SUBSTR(RTRIM(reserve_no), LENGTH(RTRIM(reserve_no)) - 8) AS integer) >= %s", $db->qstr($reserve_no_from));
+			} elseif ($reserve_no_to != "") {
+				$where[] = sprintf("CAST(SUBSTR(RTRIM(reserve_no), LENGTH(RTRIM(reserve_no)) - 8) AS integer) <= %s", $db->qstr($reserve_no_to));
+			}
+		}
+
+		if (APPS_UID == 'imaikehall') {
+			$where[] = sprintf(
+				"room_id IN (SELECT a.room_id FROM t_会議室 a WHERE a.building_kn = %s)",
+				$db->qstr(BUILDING_KN_IMAIKE_HALL)
+			);
+		}
+
+		if (is_array($where)) {
+			$where_clause = "AND " . implode(" AND ", $where);
+		}
+
+		$sSQL = "
+			DELETE FROM
+				t_予約
+			WHERE
+				use_date < CURRENT_DATE
+				{$where_clause}
+		";
+
+		try {
+			$db->Execute($sSQL);
+		} catch (Exception $e) {
+			trigger_error("データの削除に失敗しました。", WARNING);
+			throw $e;
+		}
+
+		$delete_count = $db->Affected_Rows();
+		return true;
+	}
+}
+
+class ms_line_ending_filter extends php_user_filter
+{
+    function filter($in, $out, &$consumed, $closing) {
+        while ($bucket = stream_bucket_make_writeable($in)) {
+            $bucket->data = preg_replace("/\n$/", "", $bucket->data);
+            $bucket->data = preg_replace("/\r$/", "", $bucket->data);
+            $bucket->data = $bucket->data . "\r\n";
+            $consumed += $bucket->datalen;
+            stream_bucket_append($out, $bucket);
+        }
+        return PSFS_PASS_ON;
+    }
+}

@@ -1,0 +1,1 @@
+{'RewriteEngine', 'RewriteCond', 'index', 'images', 'robots', 'REQUEST_FILENAME', 'RewriteRule', 'php_value', 'upload_max_filesize', 'post_max_size', 'memory_limit', 'ignore_user_abort', 'max_execution_time', 'php_flag', 'allow_call_time_pass_reference', 'display_errors'}

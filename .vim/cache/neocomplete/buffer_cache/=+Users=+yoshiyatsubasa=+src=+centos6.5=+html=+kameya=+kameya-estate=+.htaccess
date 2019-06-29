@@ -1,0 +1,1 @@
+{'BEGIN', 'WordPress', 'IfModule', 'mod_rewrite', 'RewriteEngine', 'RewriteBase', 'RewriteRule', 'index', 'RewriteCond', 'REQUEST_FILENAME', 'php_value', 'max_execution_time'}

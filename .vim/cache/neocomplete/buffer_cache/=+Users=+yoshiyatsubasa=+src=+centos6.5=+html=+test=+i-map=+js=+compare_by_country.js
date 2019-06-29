@@ -1,0 +1,1 @@
+{'function', 'strict', 'input', 'iCheck', 'checkboxClass', 'icheckbox_square', 'blue', 'radioClass', 'iradio_square', 'increaseArea', 'optional', 'setSearchform', 'toggle', 'searchform', 'click', '_SELECTOR_SEARCHFORM', 'slideToggle'}

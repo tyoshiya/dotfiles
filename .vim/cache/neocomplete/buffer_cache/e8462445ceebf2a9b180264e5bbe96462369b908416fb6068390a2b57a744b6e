@@ -1,0 +1,1 @@
+{'name', 'type', 'integer', 'null', 'default', 'length', 'material_id', 'factory_id', 'factory_type', 'rank', 'order_date', 'date', 'order_id', 'quantity', 'stock', 'ordered', 'del_flg', 'created', 'datetime', 'create_user_id', 'modified', 'modify_user_id', 'staff_id', 'memo', 'string'}

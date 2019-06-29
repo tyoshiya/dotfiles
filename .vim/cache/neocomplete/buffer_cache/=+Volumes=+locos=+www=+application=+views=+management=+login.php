@@ -1,0 +1,1 @@
+{'<div ', 'login', '<h1>', '<img ', 'images', 'management', 'logo', 'width', 'height', '</h1>', 'loginBox', 'loginText', '</p>', '<form ', 'action', 'method', 'post', 'error', '<dl>', '<dt>', '</dt>', '<dd>', '<input ', 'name', '_user', 'type', 'text', 'value', '</dd>', '_pass', 'password', '</dl>', 'bt_login', 'image', 'hidden', 'execute', '</form>', '</div>'}
