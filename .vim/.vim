@@ -1,1 +1,0 @@
-/Users/yoshiyatsubasa/dotfiles/.vim
