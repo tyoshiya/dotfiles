@@ -1,0 +1,76 @@
+#array
+snippet arrayi
+	$${1:#:arrayName} = array();
+
+#SQL
+snippet select
+    $sql = array();
+    $sql[] = "select";
+    $sql[] = "${1:field}";
+    ${0:END}
+snippet from
+    $sql[] = "from";
+    $sql[] = "${1:code}";
+    ${0:END}
+snippet left
+    $sql[] = "left outer join ${1:join_table} on ${2:table}.${3:field} = ${1:join_table}.${3:join_field}";
+    ${0:END}
+snippet inner
+    $sql[] = "inner join ${1:join_table} on ${2:table}.${3:field} = ${1:join_table}.${3:join_field}";
+    ${0:END}
+snippet where
+    $sql[] = "where 1=1";
+    $sql[] = "and ${1:code}";
+    ${0:END}
+snippet and
+    $sql[] = "and ${1:code}";
+    ${0:END}
+snippet order
+    $sql[] = "order by";
+    $sql[] = "${1:code}";
+    ${0:END}
+snippet limit
+    $sql[] = "limit";
+    $sql[] = "${1:code}";
+    ${0:END}
+snippet group
+    $sql[] = "group by";
+    $sql[] = "${1:code}";
+    ${0:END}
+snippet sql
+    $sql[] = "${1:code}";
+    ${0:END}
+snippet query
+    $q = implode(" ",$sql);
+    $${1:var} = $this->query($q);
+    ${0:END}
+
+snippet set
+    $this->set("${1:var}",${2:var});
+
+snippet model
+    $this->model("${1:var}")->${0:TARGET};
+snippet ,model
+    $this->model("${1:var}")->${0:TARGET};
+
+#debug
+snippet nde
+    new dbug($${1:var});
+    exit;
+snippet ndu
+    new dbug($${1:var});
+snippet snde
+    new dbug(implode("<br />",$sql));exit;
+snippet sndu
+    new dbug(implode("<br />",$sql));
+
+#find
+snippet findone
+    $${1:var} = $this->model("${2:model}")->findOne(array(${3:#:options}));
+    ${0:END}
+snippet findbyid
+    $${1:var} = $this->model("${2:model}")->findById(${3:#:id},array(${4:#:options}));
+    ${0:END}
+snippet findall
+    $${1:var} = $this->model("${2:model}")->findAll(array(${3:#:options}));
+    ${0:END}
