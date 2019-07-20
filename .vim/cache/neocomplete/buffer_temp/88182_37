@@ -1,0 +1,300 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+use \Ospinto\dBug as dbug;
+use setasign\Fpdi;
+
+class Pdf_model extends MY_Model {
+	private $CI;
+
+  private $fontJP;
+
+  private $padding = 3;
+
+  private $start_detail_header_y = 12;
+
+  private $detail_header_height = 6;
+  private $detail_height = 4;
+
+	public function __construct()
+  {
+    parent::__construct();
+
+		$this->CI =& get_instance();
+  }
+
+  /********************************************************************
+  *
+  * Pdf初期化
+  *
+  * @param $title string タイトル
+  * @param $orientation 'L' or 'P' pdfの向き
+  * @return $pdf object
+  *
+  ********************************************************************/
+  private function initPdf($title = "",$orientation){
+    $pdf = new TCPDF($orientation,"mm",'A4',true,'UTF-8',false);
+    $font = new TCPDF_FONTS();
+    $fontJP = $font->addTTFfont(dirname(__FILE__).'/../../fonts/ipagp.ttf');
+    $this->fontJP = $fontJP;
+    $pdf->SetFont($fontJP);
+    $pdf->SetTitle($title);
+    return $pdf;
+  }
+
+  /********************************************************************
+  *
+  * ヘッダーをセット
+  *
+  * @param $pdf object pdfオブジェクト
+  * @param $title string タイトル
+  * @param $total_count int 駐車件数
+  * @param $date string 検索日付
+  *
+  ********************************************************************/
+  private function addPage(&$pdf = array(),$title = "",$total_count = null,$date = null){
+    try{
+      if(empty($pdf)){
+        throw new Exception(_MESSAGE_FAIL_PDF_OUTPUT);
+      }
+
+      $pdf->setMargins(0,0,0);
+      $pdf->setAutoPageBreak(false);
+      $pdf->setPrintHeader(false);
+      $pdf->setPrintFooter(false);
+      $pdf->AddPage();
+      $pdf->setCellPaddings( 0, 0, 0, 0 );
+
+      $str_arr = array();
+      $str_arr[] = $title;
+      $select_park_id = $this->CI->data["select_park_id"];
+      if($select_park_id == "all"){
+        $group = $this->CI->data["group"];
+        $str_arr[] = !empty($group) ? $group["group_name"] : "すべて";
+      }else{
+        $str_arr[] = $this->CI->data["parks_list"][$select_park_id];
+      }
+      if($total_count !== null){
+        $str_arr[] = $total_count."台";
+      }
+      if($date !== null){
+        $str_arr[] = $date;
+      }
+      $str = implode(" ",$str_arr);
+      $pdf->SetFont($this->fontJP,"",12);
+      $pdf->setXY($this->padding,$this->padding);
+      //$pdf->SetFillColor(rand(0,255),rand(0,255),rand(0,255),0);
+      $w = floor($pdf->getPageWidth() - $this->padding * 2);
+      $pdf->Cell($w,6, $str);
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+  }
+
+  /********************************************************************
+  *
+  * 明細のヘッダーをセット
+  *
+  * @param $pdf object pdfオブジェクト
+  * @param $cell_infos array 印字するデータの配列
+  * @return $y float 現在のy座標
+  *
+  ********************************************************************/
+  private function addDetailHeader(&$pdf = array(),$cell_infos = array()){
+    try{
+      if(empty($pdf) || empty($cell_infos)){
+        throw new Exception(_MESSAGE_FAIL_PDF_OUTPUT);
+      }
+
+      $x = $this->padding;
+      $pdf->SetFont($this->fontJP,"",8);
+      foreach ($cell_infos as $cell_info) {
+        $pdf->setXY($x,$this->start_detail_header_y);
+        $width = $cell_info["width"];
+        $label = $cell_info["label"];
+        $align = $cell_info["align"];
+        if($align == "L"){
+          $pdf->setCellPaddings(1, 0, 0, 0);
+        }
+        if($align == "R"){
+          $pdf->setCellPaddings(0, 0, 1, 0);
+        }
+        //$pdf->SetFillColor(rand(0,255),rand(0,255),rand(0,255),0);
+        $pdf->Cell($width,$this->detail_header_height, $label, "TB", 0, $align, false, "", 0, false, "T", "M" );
+        $x+= $width;
+      }
+
+      return $this->start_detail_header_y + $this->detail_header_height;
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+  }
+
+  /********************************************************************
+  *
+  * 明細の行をセット
+  *
+  * @param $pdf object pdfオブジェクト
+  * @param $y float 現在のy座標
+  * @param $cell_infos array 印字するデータの配列
+  * @param $data array データの配列
+  *
+  ********************************************************************/
+  private function setDetailRow(&$pdf = array(),&$y = null,$cell_infos = array(),$data = array()){
+    try{
+      if(empty($pdf) || $y === null || empty($cell_infos) || empty($data)){
+        throw new Exception(_MESSAGE_FAIL_PDF_OUTPUT);
+      }
+
+      $x = $this->padding;
+      $pdf->SetFont($this->fontJP,"",8);
+      foreach ($cell_infos as $cell_info) {
+        $pdf->setXY($x,$y);
+        $width = $cell_info["width"];
+        $label = $cell_info["label"];
+        $align = $cell_info["align"];
+        if($align == "L"){
+          $pdf->setCellPaddings(1, 0, 0, 0);
+        }
+        if($align == "R"){
+          $pdf->setCellPaddings(0, 0, 1, 0);
+        }
+        $property = $cell_info["property"];
+        $val = $data[$property];
+        if(isset($cell_info["type"])){
+          if($cell_info["type"] == "number_format_if_not_null"){
+            $decimals = isset($cell_info["decimals"]) ? $cell_info["decimals"] : null;
+            $dec_point = isset($cell_info["dec_point"]) ? $cell_info["dec_point"] : null;
+            $thousands_sep = isset($cell_info["thousands_sep"]) ? $cell_info["thousands_sep"] : null;
+            $prefix = isset($cell_info["prefix"]) ? $cell_info["prefix"] : null;
+            $suffix = isset($cell_info["suffix"]) ? $cell_info["suffix"] : null;
+            $val = number_format_if_not_null($val,$decimals,$dec_point,$thousands_sep,$prefix,$suffix); 
+          } 
+        }
+        $pdf->Cell($width,$this->detail_height, $val, "", 0, $align, false, "", 0, false, "T", "M" );
+        $x+= $width;
+      }
+
+      $y+= $this->detail_height;
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+  }
+  
+  /********************************************************************
+  *
+  * Pdf出力
+  *
+  * @param $data array データ
+  *
+  ********************************************************************/
+  public function output($data = array()){
+    try{
+      //出力するデータがあるかチェック
+      if(empty($data)){
+        throw new Exception(_MESSAGE_NO_DATA);
+      }
+
+      $class = $this->CI->uri->rsegments[1];
+      $method = $this->CI->uri->rsegments[2];
+      $title = $this->CI->config->config["title"][$class."/".$method];
+      if($class == "reports" && $method == "index"){
+        if($this->CI->data["select_park_id"] == "all"){
+          $title.= " 一覧";
+          $pdf = $this->initPdf($title,"L");
+          $this->addPage($pdf,$title,$data["total_count"],$this->CI->input->post("adjust_date"));
+          $cell_infos = array();
+          $cell_infos[] = array(
+            "property" => "park_name",
+            "label"    => "駐車場名",
+            "width"    => 90,
+            "height"   => 4,
+            "align"    => "L",
+          );
+          $cell_infos[] = array(
+            "property" => "sum_count",
+            "label"    => "出庫件数",
+            "width"    => 25,
+            "align"    => "R",
+            "type"     => "number_format_if_not_null",
+            "suffix"   => "件",
+          );
+          $cell_infos[] = array(
+            "property" => "sum_receipt_amount",
+            "label"    => "現金",
+            "width"    => 25,
+            "align"    => "R",
+            "type"     => "number_format_if_not_null",
+            "suffix"   => "円",
+          );
+          $cell_infos[] = array(
+            "property" => "sum_except_for_cash",
+            "label"    => "現金以外",
+            "width"    => 25,
+            "align"    => "R",
+            "type"     => "number_format_if_not_null",
+            "suffix"   => "円",
+          );
+          $cell_infos[] = array(
+            "property" => "sum_prepaid_use_other",
+            "label"    => "プリペイド",
+            "width"    => 25,
+            "align"    => "R",
+            "type"     => "number_format_if_not_null",
+            "suffix"   => "円",
+          );
+          $cell_infos[] = array(
+            "property" => "sum_waribiki_price",
+            "label"    => "サービス券",
+            "width"    => 25,
+            "align"    => "R",
+            "type"     => "number_format_if_not_null",
+            "suffix"   => "円",
+          );
+          $cell_infos[] = array(
+            "property" => "sum_credit_clearance",
+            "label"    => "クレジット",
+            "width"    => 25,
+            "align"    => "R",
+            "type"     => "number_format_if_not_null",
+            "suffix"   => "円",
+          );
+          $cell_infos[] = array(
+            "property" => "sum_edy_clearance",
+            "label"    => "電子マネー",
+            "width"    => 25,
+            "align"    => "R",
+            "type"     => "number_format_if_not_null",
+            "suffix"   => "円",
+          );
+          $cell_infos[] = array(
+            "property" => "sum_web_pay",
+            "label"    => "web決済",
+            "width"    => 25,
+            "align"    => "R",
+            "type"     => "number_format_if_not_null",
+            "suffix"   => "円",
+          );
+
+          $y = $this->addDetailHeader($pdf,$cell_infos);
+
+          foreach ($data["data"] as $park_id => $dat) {
+            $this->setDetailRow($pdf,$y,$cell_infos,$dat); 
+          }
+
+
+          $pdf->Output($title."_".date("YmdHis").".pdf",'I');
+        }else{
+          throw new Exception(_MESSAGE_FAIL_PDF_OUTPIT);
+        }
+      }else{
+        throw new Exception(_MESSAGE_FAIL_PDF_OUTPIT);
+      }
+
+      $this->CI->csv->download($csv,$filename);
+      exit;
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+  }
+}

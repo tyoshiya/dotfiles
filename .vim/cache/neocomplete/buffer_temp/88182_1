@@ -1,0 +1,6 @@
+<div class="mb-3 mb-xl-0">
+  <a class="btn btn-primary submit" id="BtnSearch" href="#" data-action="/admin/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>">検　索</a>
+  <a class="btn btn-secondary" href="/admin/common/park_unselect/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>">駐車場を再選択</a>
+</div>
+<?php hidden("park_group_id"); ?>
+<?php hidden("park_id"); ?>

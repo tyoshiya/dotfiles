@@ -1,0 +1,79 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+use \Ospinto\dBug as dbug;
+class Pdf extends Admin_Controller {
+	public function __construct()
+  {
+      parent::__construct();
+      $this->check_login();
+   }
+
+	/**
+	 * Index Page for this controller.
+	 *
+	 * Maps to the following URL
+	 * 		http://example.com/index.php/welcome
+	 *	- or -
+	 * 		http://example.com/index.php/welcome/index
+	 *	- or -
+	 * Since this controller is set as the default controller in
+	 * config/routes.php, it's displayed at http://example.com/
+	 *
+	 * So any other public methods not prefixed with an underscore will
+	 * map to /index.php/welcome/<method_name>
+	 * @see https://codeigniter.com/user_guide/general/urls.html
+	 */
+
+  /********************************************
+  *
+  * 画像保存
+  * 
+  ********************************************/ 
+	public function save_image()
+	{
+    try {
+      if(!$this->input->post("base64"))
+        throw new Exception("Not Found base64");
+      } 
+      $base64 = $this->input->post("base64");
+      $base64 = str_replace('data:image/png;base64,', '', $base64);
+      $base64 = str_replace(' ', '+', $base64);
+      $image_data = base64_decode($base64);
+      if(!$image_data){
+        throw new Exception("Invalid base64");
+      }
+      $image_name = (int)str_replace(" ","",microtime()).".png";
+      $image_path = dirname(__FILE__)."/../../tmp/graph/";
+      file_put_contents($image_path.$image_name, $image_data);
+      echo $image_path
+    } catch (Exception $e) {
+      $this->output->set_status_header(500,$e->getMessage()); 
+    }
+    exit;
+	}
+
+  /********************************************
+  *
+  * 駐車場選択解除
+  * 
+  * @param $redirect_class string 駐車場が選択されたらリダイレクトするクラス
+  * @param $redirect_method string 駐車場が選択されたらリダイレクトするメソッド
+  *
+  ********************************************/ 
+	public function park_unselect($redirect_class = null,$redirect_method = null)
+	{
+    try{
+      if($redirect_class === null || $redirect_method === null){
+        throw new Exception("駐車場選択時のリダイレクト先が指定されていません");
+      }
+
+      unset($_SESSION["park_group_id"]);
+      unset($_SESSION["park_id"]);
+
+      redirect("/admin/common/park_select/".$redirect_class."/".$redirect_method);
+    }catch(Exception $e){
+      $this->error->custom_error($e->getMessage());
+    }
+	}
+}

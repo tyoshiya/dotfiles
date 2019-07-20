@@ -1,0 +1,1005 @@
+<?php use \Ospinto\dBug as dbug; ?>
+<main class="main">
+  <form action="/admin/reports/index" method="POST">
+    <?php $this->load->view("admin/elements/breadcrumb",$this->data); ?>
+    <div class="container-fluid">
+      <div class="animated fadeIn">
+        <div class="col-sm-12 d-print-none">
+          <div class="card">
+            <div class="card-header">
+              <strong><?php echo $this->page_title; ?></strong>
+            </div>
+            <div class="card-body">
+              <div id="Search">
+                <?php $this->load->view('admin/elements/park_info',$this->data); ?>
+                <div class="row">
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">表示区分<?php echo attention('display_type',$validation_rule); ?></label>
+                      <?php echo select("display_type",$this->in_out_index_display_type,array("class" => "form-control","blank" => false,"validation" => $validation_rule)); ?>
+                      <?php echo form_error("display_type"); ?>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccmonth" class="font-weight-bold">日付<?php echo attention('date',$validation_rule); ?></label>
+                      <fieldset class="form-group">
+                        <div class="input-group">
+                          <span class="input-group-prepend">
+                            <span class="input-group-text">
+                              <i class="fa fa-calendar-alt"></i>
+                            </span>
+                          </span>
+                          <?php echo text("date",array("class" => "form-control datetimerangepicker","autocomplete" => "off","validation" => $validation_rule)); ?>
+                        </div>
+                        <?php echo form_error("date"); ?>
+                      </fieldset>
+                    </div>
+                  </div>
+                  <div class="col-sm-3" id="ReceiptCol">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">領収書<?php echo attention('receipt',$validation_rule); ?></label>
+                      <div class="row align-items-center col-px">
+                        <?php foreach ($this->hide_or_show as $key => $val) { ?>
+                          <div class="radio icheck-info mr-2">
+                          <input type="radio" id="Receipt<?php echo $key ;?>" name="receipt" class="<?php echo required_class("receipt",$validation_rule); ?>" value="<?php echo $key; ?>" <?php if($this->input->post("receipt") == $key) echo "checked"; ?>>
+                          <label for="Receipt<?php echo $key; ?>"><?php echo $val; ?></label>
+                          </div>
+                        <?php } ?>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-sm-3" id="NotationCol">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">表記<?php echo attention('notation',$validation_rule); ?></label>
+                      <div class="d-flex align-items-center">
+                        <?php foreach ($this->in_out_index_notation as $key => $val) { ?>
+                          <div class="radio icheck-info mr-2">
+                          <input type="radio" id="Notation<?php echo $key ;?>" name="notation" class="<?php echo required_class("notation",$validation_rule); ?>" value="<?php echo $key; ?>" <?php if($this->input->post("notation") == $key) echo "checked"; ?>>
+                          <label for="Notation<?php echo $key; ?>"><?php echo $val; ?></label>
+                          </div>
+                        <?php } ?>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">車室</label>
+                      <?php echo select("carroom_number[]",$carroom_list,array("class" => "form-control select2","multiple" => "multiple","blank" => false)); ?>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">精算種別</label>
+                      <?php echo select("adjust_data_kind[]",$adjust_data_kind_list,array("class" => "form-control select2","multiple" => "multiple","blank" => false)); ?>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">サービス種別</label>
+                      <?php echo select("price_service[]",$price_service_list,array("class" => "form-control select2","multiple" => "multiple","blank" => false)); ?>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">定期情報</label>
+                      <div class="row align-items-center col-px" id="PassTicket">
+                        <?php foreach ($this->exclusion_or_only as $key => $val) { ?>
+                          <div class="radio icheck-info mr-2">
+                          <input type="radio" id="PassTicket<?php echo $key ;?>" name="pass_ticket" class="<?php echo required_class("pass_ticket",$validation_rule); ?>" value="<?php echo $key; ?>" <?php if($this->input->post("pass_ticket") == $key) echo "checked"; ?>>
+                          <label for="PassTicket<?php echo $key; ?>"><?php echo $val; ?></label>
+                          </div>
+                        <?php } ?>
+                        <button class="btn btn-secondary btn-sm reset" target="#PassTicket">リセット</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-sm-3" id="TimeZoneCol">
+                    <div class="form-group">
+                      <label for="ccnumber" class="font-weight-bold">時間帯<?php echo attention('midnight_time_zone_from',$validation_rule); ?></label>
+                      <div class="form-group form-inline ml-2">
+                        <label for="ccnumber" class="">深夜の時間帯：</label>
+                        <?php echo select("midnight_time_zone_from",$this->hours,array("class" => "form-control","blank" => false)); ?>時 〜
+                        <?php echo select("midnight_time_zone_to",$this->hours,array("class" => "form-control","blank" => false)); ?>時
+                      </div>
+                      <div class="form-group form-inline ml-2">
+                        <label for="ccnumber" class="">　朝の時間帯：</label>
+                        <?php echo select("morning_time_zone_from",$this->hours,array("class" => "form-control","blank" => false)); ?>時 〜
+                        <?php echo select("morning_time_zone_to",$this->hours,array("class" => "form-control","blank" => false)); ?>時
+                      </div>
+                      <div class="form-group form-inline ml-2">
+                        <label for="ccnumber" class="">　昼の時間帯：</label>
+                        <?php echo select("afternoon_time_zone_from",$this->hours,array("class" => "form-control","blank" => false)); ?>時 〜
+                        <?php echo select("afternoon_time_zone_to",$this->hours,array("class" => "form-control","blank" => false)); ?>時
+                      </div>
+                      <div class="form-group form-inline ml-2">
+                        <label for="ccnumber" class="">夕方の時間帯：</label>
+                        <?php echo select("evening_time_zone_from",$this->hours,array("class" => "form-control","blank" => false)); ?>時 〜
+                        <?php echo select("evening_time_zone_to",$this->hours,array("class" => "form-control","blank" => false)); ?>時
+                      </div>
+                      <div class="form-group form-inline ml-2">
+                        <label for="ccnumber" class="">　夜の時間帯：</label>
+                        <?php echo select("night_time_zone_from",$this->hours,array("class" => "form-control","blank" => false)); ?>時 〜
+                        <?php echo select("night_time_zone_to",$this->hours,array("class" => "form-control","blank" => false)); ?>時
+                      </div>
+                      <?php echo form_error("midnight_time_zone_from"); ?>
+                    </div>
+                  </div>
+                </div>
+                <?php $this->load->view('admin/elements/search_footer',$this->data); ?>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /.col-->
+        <?php if($data !== null){ ?>
+          <div class="col-lg-12">
+            <div class="card">
+              <div class="card-body">
+                <?php if(!empty($data)){ ?>
+                  <div class="row align-items-end mb-2">
+                    <div class="col-sm-12 font-weight-bold">
+                      <?php if(!empty($group)){ ?>
+                        <div><?php echo $group["group_name"]; ?>グループ</div>
+                      <?php } ?>
+                      <?php if(!empty($parks)){ ?>
+                        <div>
+                          <?php foreach($parks as $park){ ?>
+                            <span class="mr-2"><?php echo $park["park_name"] ?></span>
+                          <?php } ?>
+                        </div>
+                      <?php } ?>
+                      <div><?php if(isset($data["total_count"]) && $data["total_count"] !== null) echo $data["total_count"]."台 "; ?><?php echo $this->input->post("date"); ?></div>
+                    </div>
+                  </div>
+                  <div class="row justify-content-end pr-0 mb-2 d-print-none">
+                    <div class="col-sm-auto form-group form-inline mb-0">
+                      <?php if($this->input->post("display_type") == "fructuation_index"){ ?>
+                        <a class="btn btn-light ml-2 submit" href="#" data-action="/admin/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>">変動比率を反映して再表示</a>
+                      <?php } ?>
+                      <a class="btn btn-light print ml-2" href="#">印刷</a>
+                      <a class="btn btn-light submit ml-2" href="#" data-action="/admin/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>/csv" data-target="_blank">CSV出力</a>
+                    </div>
+                  </div>
+
+                  <?php if($this->input->post("display_type") == "in_out_time_index"){ ?>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-responsive-sm table-bordered">
+                        <thead class="thead-light">
+                          <tr>
+                            <th class="text-center" colspan="2" style="min-width:11rem;">時間</th>
+                            <?php for($i = 0; $i <= 23; $i++){ ?>
+                              <th class="text-right" style="min-width:6rem;"><?php echo $i; ?>時</th>
+                            <?php } ?>
+                            <th class="text-right" style="min-width:6rem;">計</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <th class="text-center bg-thead-light" rowspan="3">入庫件数</th>
+                            <th class="text-center bg-thead-light thead-light-border-right">前半30分</th>
+                            <?php foreach($data["put_in"]["data"] as $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_first_half"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["put_in"]["total_first_half"],null,null,null,null,"件"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right">後半30分</th>
+                            <?php foreach($data["put_in"]["data"] as $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_last_half"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["put_in"]["total_last_half"],null,null,null,null,"件"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right">トータル</th>
+                            <?php foreach($data["put_in"]["data"] as $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_total"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["put_in"]["total_total"],null,null,null,null,"件"); ?></td>
+                          </tr>
+                        </tbody>
+                        <tbody>
+                          <tr>
+                            <th class="text-center bg-thead-light" rowspan="3">出庫件数</th>
+                            <th class="text-center bg-thead-light thead-light-border-right">前半30分</th>
+                            <?php foreach($data["put_out"]["data"] as $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_first_half"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["put_out"]["total_first_half"],null,null,null,null,"件"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right">後半30分</th>
+                            <?php foreach($data["put_out"]["data"] as $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_last_half"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["put_out"]["total_last_half"],null,null,null,null,"件"); ?></td>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light thead-light-border-right">トータル</th>
+                            <?php foreach($data["put_out"]["data"] as $dat){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($dat["sum_total"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["put_out"]["total_total"],null,null,null,null,"件"); ?></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <canvas id="Graph" style="width:100%;height:500px;" class="mt-2"></canvas >
+                  <?php } ?>
+
+                  <?php if($this->input->post("display_type") == "put_in_time"){ ?>
+                    <table class="table table-sm table-responsive-sm table-bordered">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-center" style="width:6rem;">入庫時間</th>
+                          <th class="text-right">駐車合計時間(分)</th>
+                          <th class="text-right">入庫時間→出庫請求金額</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <?php for($i = 0; $i <= 23; $i++){ ?>
+                          <tr>
+                            <th class="text-center bg-thead-light"><?php echo $i; ?>時</th>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["data"][$i]["sum_minutes"],null,null,null,null,"分"); ?><?php echo return_if_not_null(convert_minute_to_hour_minute($data["data"][$i]["sum_minutes"]),"(",")"); ?></td>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["data"][$i]["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                        <?php } ?>
+                          <tr>
+                            <th class="text-center bg-thead-light">計</th>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["total_minutes"],null,null,null,null,"分"); ?><?php echo return_if_not_null(convert_minute_to_hour_minute($data["total_minutes"]),"(",")"); ?></td>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                          </tr>
+                      </tbody>
+                    </table>
+                    <table class="table table-sm table-responsive-sm table-bordered">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-center">全稼働</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                          <tr>
+                            <td class="text-right"><?php echo number_format_if_not_null($data["all"]); ?></td>
+                          </tr>
+                      </tbody>
+                    </table>
+                    <canvas id="Graph" style="width:100%;height:500px;" class="mt-2"></canvas >
+                  <?php } ?>
+
+                  <?php if($this->input->post("display_type") == "put_out_time_analysis"){ ?>
+                    <div class="text-muted">縦軸:出庫時間 横軸:入庫時間</div>
+                    <?php if($this->input->post("notation") == _ANALYSE_IN_OUT_INDEX_NOTATION_SIGN){ ?>
+                    <div class="text-muted">
+                      <span class="color-success">▲</span>:1件〜<?php echo $data["quarter"]; ?>件&nbsp;<span class="color-blue ml-2">◆</span>:<?php echo $data["quarter"] + 1; ?>件〜<?php echo $data["half_quarters"]; ?>件&nbsp;<span class="color-warning ml-2">◎</span>:<?php echo $data["half_quarters"] + 1; ?>件〜<?php echo $data["three_quarters"]; ?>件&nbsp;<span class="color-red ml-2">★</span>:<?php echo $data["three_quarters"] + 1; ?>件〜<?php echo $data["max_val"]; ?>件
+                    </div>
+                    <?php } ?>
+                    <div class="table-responsive">
+                      <table class="table table-responsive-sm table-bordered table-sm">
+                        <thead class="thead-light">
+                          <tr>
+                            <th class="text-center" style="min-width:6rem;">&nbsp;</th>
+                            <?php for($i = 0; $i <= 23; $i++){ ?>
+                                <th class="text-center" style="min-width:4rem;"><?php echo $i; ?>時</th>
+                            <?php } ?>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <?php for($i = 0; $i <= 23; $i++){ ?>
+                            <tr>
+                              <th class="text-center bg-thead-light"><?php echo $i; ?>時</th>
+                              <?php for($j = 0; $j <= 23; $j++){ ?>
+                                <?php $class = array(); ?>
+                                <?php $class[] = "text-center"; ?>
+                                <?php $class[] = "position-relative"; ?>
+                                <?php $class[] = $data["put_in_out"][$i][$j]["class"] ?>
+                                <?php $style = ""; ?>
+                                <?php if($i == 6 && $j >= 6 && $j <= 22){ ?>
+                                <?php $style.= "border-top:2px solid #ff0000;"; ?>
+                                <?php } ?>
+                                <?php if($j == 22 && $i >= 6 && $i <= 22){ ?>
+                                <?php $style.= "border-right:2px solid #ff0000;"; ?>
+                                <?php } ?>
+                                  <td class="<?php echo implode(" ",$class); ?>" style="<?php echo $style; ?>">
+                                  <?php echo $data["put_in_out"][$i][$j]["val"]; ?>
+                                  <?php if($i == $j){ ?>
+                                    <small class="cross-label"><?php echo sprintf("%02d",$j); ?></small>
+                                  <?php } ?>
+                                </td>
+                              <?php } ?>
+                            </tr>
+                          <?php } ?>
+                          <?php if($this->input->post("receipt") == "show"){ ?>
+                            <tr>
+                              <th class="text-center bg-thead-light">領収書発行</th>
+                              <?php for($i = 0; $i <= 23; $i++){ ?>
+                                <td class="text-right"><?php echo number_format_if_not_null($data["receipt_issue"][$i]); ?></td>
+                              <?php } ?>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light">領収書要求</th>
+                              <?php for($i = 0; $i <= 23; $i++){ ?>
+                                <td class="text-right"><?php echo number_format_if_not_null($data["receipt_request"][$i]); ?></td>
+                              <?php } ?>
+                            </tr>
+                          <?php } ?>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="row mt-2">
+                      <div class="col-sm-6">
+                        <table class="table table-sm table-responsive-sm table-bordered">
+                          <thead class="thead-light">
+                            <tr>
+                              <th class="text-center" style="width:4rem;">時間</th>
+                              <th class="text-right">入庫数</th>
+                              <th class="text-right">出庫数</th>
+                              <th class="text-right">入庫時間→出庫請求金額</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <?php for($i = 0; $i <= 23; $i++){ ?>
+                              <tr>
+                                <th class="text-center bg-thead-light"><?php echo $i; ?>時</th>
+                                <td class="text-right"><?php echo number_format_if_not_null($data["put_in"][$i],null,null,null,null,"件"); ?></td>
+                                <td class="text-right"><?php echo number_format_if_not_null($data["put_out"][$i],null,null,null,null,"件"); ?></td>
+                                <td class="text-right"><?php echo number_format_if_not_null($data["parking_charge"][$i],null,null,null,null,"円"); ?></td>
+                              </tr>
+                            <?php } ?>
+                            <tr>
+                              <th class="text-center bg-thead-light">合計</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_put_in_count"],null,null,null,null,"件"); ?></td>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_put_out_count"],null,null,null,null,"件"); ?></td>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <?php if($this->input->post("receipt") == "show"){ ?>
+                              <tr>
+                                <th class="text-center bg-thead-light">領収書発行計</th>
+                                  <td class="text-right">&nbsp;</td>
+                                  <td class="text-right"><?php echo number_format_if_not_null($data["total_receipt_issue"]); ?></td>
+                                  <td class="text-right"><?php echo number_format_if_not_null($data["total_receipt_issue_percent"],1,null,null,"領収書発行計 / 出庫数 = ","%"); ?></td>
+                              </tr>
+                              <tr>
+                                <th class="text-center bg-thead-light">領収書要求計</th>
+                                  <td class="text-right">&nbsp;</td>
+                                  <td class="text-right"><?php echo number_format_if_not_null($data["total_receipt_request"]); ?></td>
+                                  <td class="text-right"><?php echo number_format_if_not_null($data["total_receipt_request_percent"],1,null,null,"領収書要求計 / 出庫数 = ","%"); ?></td>
+                            <?php } ?>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="col-sm-6">
+                        <table class="table table-sm table-responsive-sm table-bordered">
+                          <thead class="thead-light">
+                            <tr>
+                            <th class="text-center" colspan="3">入庫時間→出庫請求金額時間別計<?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,"(","円)"); ?></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:6rem;">0時〜5時</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_0_to_5_count"],null,null,null,null,"件"); ?></td>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_0_to_5_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:6rem;">6時〜10時</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_6_to_10_count"],null,null,null,null,"件"); ?></td>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_6_to_10_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:6rem;">11時〜15時</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_11_to_15_count"],null,null,null,null,"件"); ?></td>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_11_to_15_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:6rem;">16時〜19時</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_16_to_19_count"],null,null,null,null,"件"); ?></td>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_16_to_19_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:6rem;">20時〜23時</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_20_to_23_count"],null,null,null,null,"件"); ?></td>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_20_to_23_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  <?php } ?>
+
+                  <?php if($this->input->post("display_type") == "past_time"){ ?>
+                    <?php if($this->input->post("notation") == _ANALYSE_IN_OUT_INDEX_NOTATION_SIGN){ ?>
+                    <div class="text-muted">
+                      <span class="color-success">▲</span>:1件〜<?php echo $data["quarter"]; ?>件&nbsp;<span class="color-blue ml-2">◆</span>:<?php echo $data["quarter"] + 1; ?>件〜<?php echo $data["half_quarters"]; ?>件&nbsp;<span class="color-warning ml-2">◎</span>:<?php echo $data["half_quarters"] + 1; ?>件〜<?php echo $data["three_quarters"]; ?>件&nbsp;<span class="color-red ml-2">★</span>:<?php echo $data["three_quarters"] + 1; ?>件〜<?php echo $data["max_val"]; ?>件
+                    </div>
+                    <?php } ?>
+                    <div class="table-responsive">
+                      <table class="table table-responsive-sm table-bordered table-sm">
+                        <thead class="thead-light">
+                          <tr>
+                            <th class="text-center" style="min-width:6rem;">入庫時間</th>
+                            <?php for($i = 0; $i <= 23; $i++){ ?>
+                                <th class="text-right" style="min-width:6rem;"><?php echo $i; ?>時</th>
+                            <?php } ?>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <?php foreach($data["data"]["minutes"] as $key => $dat){ ?>
+                            <tr>
+                              <th class="text-center bg-thead-light"><?php echo $key; ?></th>
+                              <?php for($i = 0; $i <= 23; $i++){ ?>
+                                <?php $class = array(); ?>
+                                <?php $class[] = "text-right"; ?>
+                                <?php $class[] = $dat["data"][$i]["class"] ?>
+                                <td class="<?php echo implode(" ",$class); ?>"><?php echo $dat["data"][$i]["val"]; ?></td>
+                              <?php } ?>
+                            </tr>
+                          <?php } ?>
+                          <tr>
+                            <th class="text-center bg-thead-light">合計件数</th>
+                            <?php for($i = 0; $i <= 23; $i++){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["data"]["hours"][$i]["sum_put_in_count"],null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                          </tr>
+                          <tr>
+                            <th class="text-center bg-thead-light">合計金額</th>
+                            <?php for($i = 0; $i <= 23; $i++){ ?>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["data"]["hours"][$i]["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            <?php } ?>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="row mt-2">
+                      <div class="col-sm-4">
+                        <table class="table table-sm table-responsive-sm table-bordered">
+                          <thead class="thead-light">
+                            <tr>
+                              <th class="text-center" style="width:6rem;">入庫時間</th>
+                              <th class="text-right">合計件数</th>
+                              <th class="text-right">合計金額</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <?php foreach($data["data"]["minutes"] as $key => $dat){ ?>
+                              <tr>
+                                <th class="text-center bg-thead-light"><?php echo $key; ?></th>
+                                <td class="text-right"><?php echo number_format_if_not_null($dat["sum_put_in_count"],null,null,null,null,"件"); ?></td>
+                                <td class="text-right"><?php echo number_format_if_not_null($dat["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                              </tr>
+                            <?php } ?>
+                            <tr>
+                              <th class="text-center bg-thead-light">合計</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_put_in_count"],null,null,null,null,"件"); ?></td>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="col-sm-8">
+                        <div class="form-group">
+                          <label for="ccnumber" class="font-weight-bold">8時間(480分以下)</label>
+                          <textarea class="form-control" style="height:200px;"><?php echo implode("\n",$data["data"]["data"]["within_8hours"]); ?></textarea>
+                        </div>
+                        <div class="form-group">
+                          <label for="ccnumber" class="font-weight-bold">8時間(480分)→16時間(960分)</label>
+                          <textarea class="form-control" style="height:200px;"><?php echo implode("\n",$data["data"]["data"]["between_8hours_and_16hours"]); ?></textarea>
+                        </div>
+                        <div class="form-group">
+                          <label for="ccnumber" class="font-weight-bold">17時間(961分以上)</label>
+                          <textarea class="form-control" style="height:200px;"><?php echo implode("\n",$data["data"]["data"]["over_16hours"]); ?></textarea>
+                        </div>
+                      </div>
+                    </div>
+                  <?php } ?>
+
+                  <?php if($this->input->post("display_type") == "count_ranking"){ ?>
+                    <table class="table table-responsive-sm table-bordered table-sm">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-center" style="min-width:4rem;">ランク</th>
+                          <th class="text-center">A:請求金額 / B:件数</th>
+                          <th class="text-center">C = A x B</th>
+                          <th class="text-center">金額比率 = C / 金計(<?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?>)</th>
+                          <th class="text-center">件数比率 = C / 件数(<?php echo number_format_if_not_null($data["total_count"],null,null,null,null,"件"); ?>)</th>
+                          <th class="text-center">1位 入庫〜出庫 / 件数</th>
+                          <th class="text-center">2位 入庫〜出庫 / 件数</th>
+                          <th class="text-center">3位 入庫〜出庫 / 件数</th>
+                          <th class="text-center">4位 入庫〜出庫 / 件数</th>
+                          <th class="text-center">5位 入庫〜出庫 / 件数</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <?php foreach($data["data"] as $i => $dat){ ?>
+                          <tr>
+                            <th class="text-center bg-thead-light" rowspan="2" style="vertical-align:middle;"><?php echo $i + 1; ?>位</th>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["parking_charge"],null,null,null,null,"円"); ?></td>
+                            <td class="text-right" rowspan="2" style="vertical-align:middle;"><?php echo number_format_if_not_null($dat["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            <td class="text-right" rowspan="2" style="vertical-align:middle;"><?php echo number_format_if_not_null($dat["parking_charge_ratio"],1,null,null,null,"%"); ?></td>
+                            <td class="text-right" rowspan="2" style="vertical-align:middle;"><?php echo number_format_if_not_null($dat["count_ratio"],1,null,null,null,"%"); ?></td>
+                            <?php foreach($dat["ranking"] as $key => $val){ ?>
+                              <td class="text-center">(<?php echo $key; ?>)</td>
+                            <?php } ?>
+                          </tr>
+                          <tr>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["sum_count"],null,null,null,null,"件"); ?></td>
+                            <?php foreach($dat["ranking"] as $key => $val){ ?>
+                              <td class="text-center"><?php echo number_format_if_not_null($val,null,null,null,null,"件"); ?></td>
+                            <?php } ?>
+                          </tr>
+                        <?php } ?>
+                      </tbody>
+                    </table>
+                  <?php } ?>
+
+                  <?php if($this->input->post("display_type") == "fructuation_index"){ ?>
+                    <table class="table table-responsive-sm table-bordered table-sm">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-center" style="width:6rem;">入庫時間</th>
+                          <th class="text-right">利用台数</th>
+                          <th class="text-right">請求金額</th>
+                          <th class="">変動比率</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <?php foreach($data["data"] as $put_in_hour => $dat){ ?>
+                          <tr>
+                            <th class="text-center <?php echo $dat["class"]; ?>"><?php echo $put_in_hour; ?>時</th>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["sum_count"],null,null,null,null,"台"); ?></td>
+                            <td class="text-right"><?php echo number_format_if_not_null($dat["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            <td class=""><?php echo select("fractuation_ratio[{$put_in_hour}]",$this->in_out_index_fractuation_ratio,array("class" => "form-control d-inline-block w-auto","blank" => false)); ?>%</td>
+                          </tr>
+                        <?php } ?>
+                      </tbody>
+                    </table>
+                    <div class="row">
+                      <div class="col-sm-2">
+                        <table class="table table-responsive-sm table-bordered table-sm mt-2">
+                          <thead class="">
+                            <tr>
+                            <th class="text-center <?php echo $data["midnight"]["class"]; ?>" colspan="2">深夜の時間帯 <?php echo $this->input->post("midnight_time_zone_from"); ?>時〜<?php echo $this->input->post("midnight_time_zone_to"); ?>時</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">台数</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["midnight"]["sum_count"],null,null,null,null,"台"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["midnight"]["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo select("midnight_fractuation_ratio",$this->in_out_index_fractuation_ratio,array("class" => "form-control d-inline-block w-auto","blank" => false)); ?>%</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="col-sm-2">
+                        <table class="table table-responsive-sm table-bordered table-sm mt-2">
+                          <thead class="">
+                            <tr>
+                            <th class="text-center <?php echo $data["morning"]["class"]; ?>" colspan="2">朝の時間帯 <?php echo $this->input->post("morning_time_zone_from"); ?>時〜<?php echo $this->input->post("morning_time_zone_to"); ?>時</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">台数</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["morning"]["sum_count"],null,null,null,null,"台"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["morning"]["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo select("morning_fractuation_ratio",$this->in_out_index_fractuation_ratio,array("class" => "form-control d-inline-block w-auto","blank" => false)); ?>%</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="col-sm-2">
+                        <table class="table table-responsive-sm table-bordered table-sm mt-2">
+                          <thead class="">
+                            <tr>
+                            <th class="text-center <?php echo $data["afternoon"]["class"]; ?>" colspan="2">昼の時間帯 <?php echo $this->input->post("afternoon_time_zone_from"); ?>時〜<?php echo $this->input->post("afternoon_time_zone_to"); ?>時</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">台数</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["afternoon"]["sum_count"],null,null,null,null,"台"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["afternoon"]["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo select("afternoon_fractuation_ratio",$this->in_out_index_fractuation_ratio,array("class" => "form-control d-inline-block w-auto","blank" => false)); ?>%</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="col-sm-2">
+                        <table class="table table-responsive-sm table-bordered table-sm mt-2">
+                          <thead class="">
+                            <tr>
+                            <th class="text-center <?php echo $data["evening"]["class"]; ?>" colspan="2">夕方の時間帯 <?php echo $this->input->post("evening_time_zone_from"); ?>時〜<?php echo $this->input->post("evening_time_zone_to"); ?>時</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">台数</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["evening"]["sum_count"],null,null,null,null,"台"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["evening"]["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo select("evening_fractuation_ratio",$this->in_out_index_fractuation_ratio,array("class" => "form-control d-inline-block w-auto","blank" => false)); ?>%</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="col-sm-2">
+                        <table class="table table-responsive-sm table-bordered table-sm mt-2">
+                          <thead class="">
+                            <tr>
+                            <th class="text-center <?php echo $data["night"]["class"]; ?>" colspan="2">夜の時間帯 <?php echo $this->input->post("night_time_zone_from"); ?>時〜<?php echo $this->input->post("night_time_zone_to"); ?>時</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">台数</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["night"]["sum_count"],null,null,null,null,"台"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["night"]["sum_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light" style="width:4rem;">金額</th>
+                              <td class="text-right"><?php echo select("night_fractuation_ratio",$this->in_out_index_fractuation_ratio,array("class" => "form-control d-inline-block w-auto","blank" => false)); ?>%</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="col-sm-2">
+                        <table class="table table-responsive-sm table-bordered table-sm mt-2">
+                          <tbody>
+                            <tr>
+                              <th class="text-center bg-thead-light">総利用台数</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_count"],null,null,null,null,"台"); ?></td>
+                            </tr>
+                            <tr>
+                              <th class="text-center bg-thead-light">総請求金額</th>
+                              <td class="text-right"><?php echo number_format_if_not_null($data["total_parking_charge"],null,null,null,null,"円"); ?></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <canvas id="Graph" style="width:100%;height:500px;" class="mt-2"></canvas >
+
+                  <?php } ?>
+                <?php }else{ ?>
+                  <?php $this->load->view("admin/elements/empty",$this->data); ?>
+                <?php } ?>
+              </div>
+            </div>
+          </div>
+        <?php } ?>
+      </div>
+    </div>
+  </form>
+</main>
+
+<script>
+$(function(){
+  //=========================================================
+  //
+  // daterangepicker
+  //
+  //=========================================================
+  moment.locale('ja', {
+      week: {
+          dow: 1
+      }
+  });
+  var options = {
+    opens: 'left',
+    showDropdowns: false,
+    ranges: {
+      '今日': [moment(), moment()],
+      '昨日': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+      '直近7日': [moment().subtract(6, 'days'), moment()],
+      '直近30日': [moment().subtract(29, 'days'), moment()],
+      '今月': [moment().startOf('month'), moment().endOf('month')],
+      '前月': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+    },
+    locale: {
+      applyLabel: '反映',
+      cancelLabel: '取消',
+      fromLabel: '開始日',
+      toLabel: '終了日',
+      weekLabel: 'W',
+      customRangeLabel: '自分で指定',
+      daysOfWeek: moment.weekdaysMin(),
+      monthNames: moment.monthsShort(),
+      firstDay: moment.localeData()._week.dow
+    },
+  }
+  <?php list($start_date,$end_date) = explode(" - ",$this->input->post("date")); ?>
+  var format = 'YYYY/MM/DD HH:mm';
+  options.format = format;
+  options.locale.format = format; 
+  options.startdate = moment().format('[<?php echo $start_date; ?>]');
+  options.enddate = moment().format('[<?php echo $end_date; ?>]');
+  options.timePicker = true;
+  options.timePicker24Hour = true;
+  $('.datetimerangepicker').daterangepicker(options);
+
+  //=========================================================
+  //
+  // 表示区分に応じて日付を切り替える
+  //
+  //=========================================================
+  var toggleFormByDisplayType = function(display_type){
+    //領収書
+    $receipt_col = $("#ReceiptCol");
+    if(display_type == "put_out_time_analysis"){
+      $receipt_col.show();  
+    }else{
+      $receipt_col.hide();  
+    }
+
+    //表記
+    $notation_col = $("#NotationCol");
+    if(display_type == "put_out_time_analysis" || display_type == "past_time"){
+      $notation_col.show();  
+    }else{
+      $notation_col.hide();  
+    }
+
+    //時間帯
+    $time_zone_col = $("#TimeZoneCol");
+    if(display_type == "fructuation_index"){
+      $time_zone_col.show();  
+    }else{
+      $time_zone_col.hide();  
+    }
+  }
+  toggleFormByDisplayType('<?php echo $this->input->post("display_type"); ?>');
+  $("#display_type").on("change",function(e){
+    toggleFormByDisplayType($(this).val()); 
+  });
+  
+  //=========================================================
+  //
+  // グラフ
+  //
+  //=========================================================
+<?php if($data !== null){ ?>
+  <?php if(!empty($data)){ ?>
+    <?php if($this->input->post("display_type") == "in_out_time_index"){ ?>
+      var ctx = document.getElementById('Graph').getContext('2d');
+      var labels = [];
+      for(i = 0; i < 24; i++){
+        labels.push(i+'時'); 
+      }
+      var bardata = [];
+      <?php foreach($data["put_in"]["data"] as $hour => $dat){ ?>
+        bardata.push(<?php echo $dat["sum_total"] !== null ? $dat["sum_total"] : 0; ?>); 
+      <?php } ?>
+      var bardata2 = [];
+      <?php foreach($data["put_out"]["data"] as $hour => $dat){ ?>
+        bardata2.push(<?php echo $dat["sum_total"] !== null ? $dat["sum_total"] : 0; ?>); 
+      <?php } ?>
+      var chartData = {
+        labels: labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: '入庫件数',
+            backgroundColor: _LINECHARTCOLORS.redpurple,
+            data: bardata,
+            borderColor: 'white',
+            borderWidth: 2
+          }, {
+            type: 'bar',
+            label: '出庫件数',
+            backgroundColor: _BARCHARTCOLORS.green,
+            data: bardata2,
+            borderColor: 'white',
+            borderWidth: 2
+          }
+        ]
+      };
+      var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: true
+          }
+        }
+      });
+    <?php } ?>
+
+    <?php if($this->input->post("display_type") == "put_in_time"){ ?>
+      var ctx = document.getElementById('Graph').getContext('2d');
+      var labels = [];
+      <?php foreach ($data["data"][$first_year]["data"] as $year_month => $dat) { ?>
+        labels.push('<?php echo date("n月",strtotime($year_month."-01")); ?>'); 
+      <?php } ?>
+      <?php foreach ($data["data"] as $year => $year_data) { ?>
+        var linedata<?php echo $year; ?> = [];
+        var bardata<?php echo $year; ?> = [];
+        <?php foreach ($year_data["data"] as $year_month => $dat) { ?>
+          linedata<?php echo $year; ?>.push(<?php echo $dat["sum_count"] !== null ? $dat["sum_count"] : 0; ?>); 
+          bardata<?php echo $year; ?>.push(<?php echo $dat["sum_parking_charge"] !== null ? $dat["sum_parking_charge"] : 0; ?>); 
+        <?php } ?>
+      <?php } ?>
+      var bar_colors = [];
+      $.each(_BARCHARTCOLORS,function(color_name,hex){
+        bar_colors.push(hex); 
+      });
+      var line_colors = [];
+      $.each(_LINECHARTCOLORS,function(color_name,hex){
+        line_colors.push(hex); 
+      });
+      var chartData = {
+        labels: labels,
+        datasets: [
+          <?php $i = 0; ?>
+          <?php foreach ($data["data"] as $year => $year_data) { ?>
+            {
+              type: 'line',
+              label: '利用台数',
+              borderColor: line_colors[<?php echo $i; ?>],
+              borderWidth: 2,
+              fill: false,
+              data: linedata<?php echo $year; ?>,
+              yAxisID: "y-axis-line",
+            },
+            {
+              type: 'bar',
+              label: '請求金額',
+              backgroundColor: bar_colors[<?php echo $i; ?>],
+              data: bardata,
+              borderColor: 'white',
+              borderWidth: 2,
+              yAxisID: "y-axis-bar",
+            },
+            <?php $i++; ?>
+          <?php } ?>
+        ]
+      };
+
+      var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: true
+          },
+          scales: {
+            yAxes: [{
+              id: "y-axis-bar",
+              type: "linear", 
+              position: "left",
+            }, {
+              id: "y-axis-line",
+              type: "linear", 
+              position: "right",
+              gridLines: {
+                drawOnChartArea: false, 
+              },
+            }],
+          }
+        }
+      });
+
+      var ctx = document.getElementById('Graph').getContext('2d');
+      var labels = [];
+      for(i = 0; i < 24; i++){
+        labels.push(i+'時'); 
+      }
+      var bardata = [];
+      <?php foreach($data["data"] as $hour => $dat){ ?>
+        bardata.push(<?php echo $dat["sum_minutes"] !== null ? $dat["sum_minutes"] : 0; ?>); 
+      <?php } ?>
+      var chartData = {
+        labels: labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: '駐車合計時間',
+            backgroundColor: _BARCHARTCOLORS.green,
+            data: bardata,
+            borderColor: 'white',
+            borderWidth: 2
+          }
+        ]
+      };
+      var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: true
+          }
+        }
+      });
+    <?php } ?>
+
+    <?php if($this->input->post("display_type") == "fructuation_index"){ ?>
+      var ctx = document.getElementById('Graph').getContext('2d');
+      var labels = [];
+      <?php for($i = 0; $i < 24; $i++){ ?>
+        labels.push('<?php echo $i; ?>時'); 
+      <?php } ?>
+      var linedata = [];
+      var bardata = [];
+      <?php for($i = 0; $i < 24; $i++){ ?>
+        linedata.push(<?php echo $data["data"][$i]["sum_count"] !== null ? $data["data"][$i]["sum_count"] : 0; ?>); 
+        bardata.push(<?php echo $data["data"][$i]["sum_parking_charge"] !== null ? $data["data"][$i]["sum_parking_charge"] : 0; ?>); 
+      <?php } ?>
+      var chartData = {
+        labels: labels,
+        datasets: [
+          {
+            type: 'line',
+              label: '利用台数',
+              borderColor: _LINECHARTCOLORS.redpurple,
+              borderWidth: 2,
+              fill: false,
+              data: linedata
+          }, {
+          type: 'bar',
+            label: '請求金額',
+            backgroundColor: _BARCHARTCOLORS.green,
+            data: bardata,
+            borderColor: 'white',
+            borderWidth: 2
+          }
+        ]
+      };
+      var myChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+          },
+          tooltips: {
+            mode: 'index',
+            intersect: true
+          }
+        }
+      });
+    <?php } ?>
+  <?php } ?>
+<?php } ?>
+});
+</script>

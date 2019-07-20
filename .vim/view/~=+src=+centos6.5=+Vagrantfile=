@@ -2,8 +2,8 @@ let s:so_save = &so | let s:siso_save = &siso | set so=0 siso=0
 argglobal
 let s:cpo_save=&cpo
 set cpo&vim
-cmap <buffer>  <Plug><cfile>
 cmap <buffer>  <Plug><cword>
+cmap <buffer>  <Plug><cfile>
 let &cpo=s:cpo_save
 unlet s:cpo_save
 setlocal keymap=
@@ -121,12 +121,12 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 57 - ((17 * winheight(0) + 19) / 38)
+let s:l = 38 - ((12 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-57
-normal! 0114|
+38
+normal! 049|
 let &so = s:so_save | let &siso = s:siso_save
 doautoall SessionLoadPost
 " vim: set ft=vim :

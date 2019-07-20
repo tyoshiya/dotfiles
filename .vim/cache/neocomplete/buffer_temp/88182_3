@@ -1,0 +1,315 @@
+<?php use \Ospinto\dBug as dbug; ?>
+<main class="main">
+  <form action="/admin/reports/index" method="POST">
+    <?php $this->load->view("admin/elements/breadcrumb",$this->data); ?>
+    <div class="container-fluid">
+      <div class="animated fadeIn">
+        <div class="col-sm-12">
+          <div class="card">
+            <div class="card-header">
+              <strong><?php echo $this->page_title; ?></strong>
+            </div>
+            <div class="card-body">
+              <div>
+                <div class="row">
+                  <div class="col-sm-12">
+                    <a href="#" class="park-id btn btn-sm btn-outline-success mb-2 <?php if($select_park_id == "all") echo "active"; ?>" data-park-id="all"><?php echo !empty($group) ? $group["group_name"] : "すべて"; ?></a>
+                    <?php foreach($parks as $park){ ?>
+                      <a href="#" class="park-id btn btn-sm btn-outline-success mb-2 <?php if($select_park_id == $park["id"]) echo "active"; ?>" data-park-id="<?php echo $park["id"]; ?>"><?php echo $park["park_name"]; ?></a>
+                    <?php } ?>
+                    <a class="btn btn-sm btn-secondary mb-2" href="/admin/common/park_unselect/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>">駐車場を再選択</a>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccmonth" class="font-weight-bold">精算日</label>
+                      <fieldset class="form-group">
+                        <div class="input-group">
+                          <span class="input-group-prepend">
+                            <span class="input-group-text">
+                              <i class="fa fa-calendar-alt"></i>
+                            </span>
+                          </span>
+                          <?php echo text("adjust_date",array("class" => "form-control datetimerangepicker","autocomplete" => "off")); ?>
+                        </div>
+                        <?php echo form_error("adjust_date"); ?>
+                      </fieldset>
+                    </div>
+                  </div>
+                  <div class="col-sm-3">
+                    <div class="form-group">
+                      <label for="ccmonth" class="font-weight-bold">&nbsp;</label>
+                      <div><a class="btn btn-primary" id="BtnSearch" href="#" data-mode="list">検　索</a></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <?php if(!empty($data)){ ?>
+                <div class="row align-items-center mb-2">
+                  <div class="col-sm-8">
+                    <span class="font-weight-bold mr-2"><?php echo $select_park_id == "all" ? $group["group_name"]: $parks_list[$select_park_id]; ?></span>
+                    <span class="font-weight-bold mr-2"><?php echo $data["total_count"]; ?>台</span>
+                    <span class="font-weight-bold mr-2"><?php echo $this->input->post("adjust_date"); ?></span>
+
+                  </div>
+                  <div class="col-sm-4 text-right d-print-none">
+                    <a class="btn btn-light ml-2" id="BtnPrint" href="#" data-action="/admin/pdf/show/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>/<?php echo $select_park_id; ?>" data-target="_blank">印刷</a>
+                    <a class="btn btn-light submit ml-2" href="#" data-action="/admin/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>/csv/<?php echo $select_park_id; ?>" data-target="_blank">CSV出力</a>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-12">
+                    <table class="table table-sm table-responsive-sm">
+                      <thead class="thead-light">
+                        <tr>
+                          <th class="text-left">駐車場名</th>
+                          <th class="text-right">出庫件数</th>
+                          <th class="text-right">現金</th>
+                          <th class="text-right">現金以外</th>
+                          <th class="text-right">プリペイド</th>
+                          <th class="text-right">サービス券</th>
+                          <th class="text-right">クレジット</th>
+                          <th class="text-right">電子マネー</th>
+                          <th class="text-right">web決済</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                      <?php foreach ($data["data"] as $park_id => $dat) { ?>
+                        <tr>
+                          <td class="text-left"><?php echo $dat["park_name"]; ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_count"],null,null,null,null,"件"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_except_for_cash"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_prepaid_use_other"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_waribiki_price"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_credit_clearance"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_edy_clearance"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($dat["sum_web_pay"],null,null,null,null,"円"); ?></td>
+                        </tr>
+                      <?php } ?>
+                      <tr>
+                          <td class="text-left">計</td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_count"],null,null,null,null,"件"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_receipt_amount"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_except_for_cash"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_prepaid_use_other"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_waribiki_price"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_credit_clearance"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_edy_clearance"],null,null,null,null,"円"); ?></td>
+                          <td class="text-right"><?php echo number_format_if_not_null($data["total_web_pay"],null,null,null,null,"円"); ?></td>
+                      </tr>
+                      </tbody>
+                    </table>
+                    <canvas id="Graph" style="width:100%;height:500px;" class="mt-2"></canvas >
+                  </div>
+                </div>
+              </div>
+                        
+              <?php }else{ ?>
+                <?php $this->load->view("admin/elements/empty",$this->data); ?>
+              <?php } ?>
+            </div>
+          </div>
+        </div>
+        <!-- /.col-->
+      </div>
+    </div>
+  </form>
+</main>
+
+<script>
+$(function(){
+  //=========================================================
+  //
+  // daterangepicker
+  //
+  //=========================================================
+  moment.locale('ja', {
+      week: {
+          dow: 1
+      }
+  });
+  var options = {
+    opens: 'left',
+    showDropdowns: false,
+    ranges: {
+      '今日': [moment(), moment()],
+      '昨日': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+      '直近7日': [moment().subtract(6, 'days'), moment()],
+      '直近30日': [moment().subtract(29, 'days'), moment()],
+      '今月': [moment().startOf('month'), moment().endOf('month')],
+      '前月': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+    },
+    locale: {
+      applyLabel: '反映',
+      cancelLabel: '取消',
+      fromLabel: '開始日',
+      toLabel: '終了日',
+      weekLabel: 'W',
+      customRangeLabel: '自分で指定',
+      daysOfWeek: moment.weekdaysMin(),
+      monthNames: moment.monthsShort(),
+      firstDay: moment.localeData()._week.dow
+    },
+  }
+  //日報
+  <?php list($start_date,$end_date) = explode(" - ",$this->input->post("adjust_date")); ?>
+  var format = 'YYYY/MM/DD';
+  options.format = format;
+  options.locale.format = format; 
+  options.startdate = moment().format('[<?php echo $start_date; ?>]');
+  options.enddate = moment().format('[<?php echo $end_date; ?>]');
+  options.timePicker = true;
+  options.timePicker24Hour = true;
+  $('.datetimerangepicker').daterangepicker(options);
+
+  //=========================================================
+  //
+  // 表示区分に応じて日付を切り替える
+  //
+  //=========================================================
+  //var toggleFormByDisplayType = function(display_type){
+  //  //日付の制御
+  //  $(".date").hide();
+  //  $(".date."+display_type).show();
+  //}
+  //toggleFormByDisplayType('<?php echo $this->input->post("display_type"); ?>');
+  //$("#display_type").on("change",function(e){
+  //  toggleFormByDisplayType($(this).val()); 
+  //});
+
+  //=========================================================
+  //
+  // 検索ボタンのイベント
+  //
+  //=========================================================
+  $("#BtnSearch").on("click",function(e){
+    e.preventDefault();
+    var action = '/admin/<?php echo $this->uri->rsegments[1]; ?>/<?php echo $this->uri->rsegments[2]; ?>'; 
+    action+= '/'+$(this).attr("data-mode");
+    action+= '/'+$(".park-id.active").attr("data-park-id");
+    $(this).closest("form").attr("action",action).submit();
+  });
+
+  //=========================================================
+  //
+  // 印刷ボタンのイベント
+  //
+  //=========================================================
+  //=========================================================
+  //
+  // グラフ
+  //
+  //=========================================================
+<?php if($select_park_id == "all"){ ?>
+  <?php if(!empty($data)){ ?>
+    var ctx = document.getElementById('Graph').getContext('2d');
+
+    //base64encode時の背景色設定
+    Chart.plugins.register({
+      beforeDraw: function(ch){
+        var ctx = ch.chart.ctx;
+        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+        ctx.fillRect(0, 0, ch.chart.width, ch.chart.height);
+      }
+    });
+
+    var labels = [];
+    var linedata = [];
+    var bardata = [];
+    var bardata2 = [];
+    <?php foreach($data["data"] as $park_id => $dat){ ?>
+      labels.push('<?php echo $dat["park_name"]; ?>'); 
+      linedata.push(<?php echo $dat["sum_count"] !== null ? $dat["sum_count"] : 0; ?>); 
+      bardata.push(<?php echo $dat["sum_receipt_amount"] !== null ? $dat["sum_receipt_amount"] : 0; ?>); 
+      bardata2.push(<?php echo $dat["sum_except_for_cash"] !== null ? $dat["sum_except_for_cash"] : 0; ?>); 
+    <?php } ?>
+    var chartData = {
+      labels: labels,
+      datasets: [
+        {
+          type: 'line',
+          label: '出庫件数',
+          borderColor: _LINECHARTCOLORS.redpurple,
+          borderWidth: 2,
+          fill: false,
+          data: linedata,
+          yAxisID: "y-axis-line",
+        }, {
+          type: 'bar',
+          label: '現金',
+          backgroundColor: _BARCHARTCOLORS.green,
+          data: bardata,
+          borderColor: 'white',
+          borderWidth: 2,
+          yAxisID: "y-axis-bar",
+        }, {
+          type: 'bar',
+          label: '現金以外',
+          backgroundColor: _BARCHARTCOLORS.bluegreen,
+          data: bardata2,
+          borderColor: 'white',
+          borderWidth: 2,
+          yAxisID: "y-axis-bar",
+        }
+      ]
+    };
+
+    var myChart = new Chart(ctx, {
+      type: 'bar',
+      data: chartData,
+      options: {
+        responsive: true,
+        chartArea: {
+          backgroundColor: 'rgba(255, 255, 255, 1)'
+        },
+        title: {
+          display: false,
+        },
+        tooltips: {
+          mode: 'index',
+          intersect: true
+        },
+        scales: {
+          xAxes: [{
+            stacked: true,
+          }],
+
+          yAxes: [{
+            id: "y-axis-bar",
+            type: "linear", 
+            position: "left",
+            stacked: true,
+          }, {
+            id: "y-axis-line",
+            type: "linear", 
+            position: "right",
+            gridLines: {
+              drawOnChartArea: false, 
+            },
+          }],
+        }
+      }
+    });
+
+    $("#BtnPrint").on("click",function(e){
+      e.preventDefault();
+      var base64 = myChart.toBase64Image()
+      $.ajax({
+        url: "/admin/pdf/save_image",
+        method: "POST",
+        data: {"base64":base64},
+        dataType: "text",
+        async:false,
+      }).done(function(image_name) {
+        var action = '/admin/'
+      }).fail(function(jqXHR, textStatus, errorThrown) {
+        alert("データ取得失敗\nstatus:"+jqXHR.status+"\ntextStatus:"+textStatus+"\nerrorThrown:"+errorThrown);
+      });
+    });
+  <?php } ?>
+<?php } ?>
+
+});
+</script>

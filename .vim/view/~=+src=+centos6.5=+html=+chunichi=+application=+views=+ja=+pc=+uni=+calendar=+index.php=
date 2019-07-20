@@ -119,12 +119,12 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 29 - ((28 * winheight(0) + 19) / 39)
+let s:l = 11 - ((10 * winheight(0) + 19) / 38)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-29
-normal! 0136|
+11
+normal! 0
 lcd ~/src/centos6.5/html/chunichi/application/views/ja/pc/uni/university
 let &so = s:so_save | let &siso = s:siso_save
 doautoall SessionLoadPost

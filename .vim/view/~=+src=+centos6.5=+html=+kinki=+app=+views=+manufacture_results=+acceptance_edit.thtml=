@@ -119,12 +119,12 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 586 - ((36 * winheight(0) + 19) / 39)
+let s:l = 553 - ((7 * winheight(0) + 9) / 19)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-586
-normal! 010|
+553
+normal! 056|
 lcd ~/src/centos6.5/html/kinki
 let &so = s:so_save | let &siso = s:siso_save
 doautoall SessionLoadPost

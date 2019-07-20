@@ -119,13 +119,13 @@ setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 740 - ((32 * winheight(0) + 19) / 39)
+let s:l = 267 - ((30 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-740
-normal! 032|
-lcd ~/src/centos6.5/html/network_pas/application/libraries
+267
+normal! 011|
+lcd ~/src/centos6.5/html/chunichi/application/controllers/uni
 let &so = s:so_save | let &siso = s:siso_save
 doautoall SessionLoadPost
 " vim: set ft=vim :

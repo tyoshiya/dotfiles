@@ -1,0 +1,1592 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+use \Ospinto\dBug as dbug;
+class Csv_model extends MY_Model {
+	protected $CI;
+
+	public function __construct()
+  {
+    parent::__construct();
+
+		$this->CI =& get_instance();
+  }
+
+  
+  /********************************************************************
+  *
+  * CSV出力
+  *
+  * @param $class str 呼び出し元クラス
+  * @param $method str 呼び出し元メソッド
+  * @param $data array データ
+  * @param $options array オプション
+  *
+  ********************************************************************/
+  public function output(){
+    try{
+      //出力するデータがあるかチェック
+      $data = isset($this->CI->data) && !empty($this->CI->data) ? $this->CI->data : array();
+      if(empty($data)){
+        throw new Exception(_MESSAGE_NO_DATA);
+      }
+
+      $csv = array();
+      $filename = "";
+      $cnt = 0;
+      $class = $this->CI->uri->rsegments[1];
+      $method = $this->CI->uri->rsegments[2];
+      if($class == "reports" && $method == "index"){
+        $this->addParkHeader($csv,$cnt,$data["total_count"],$this->CI->input->post("adjust_date"));
+
+        if($this->CI->data["select_park_id"] == "all"){
+          $filename = "一覧_".date("YmdHis");
+
+          $csv[$cnt] = array(
+            '駐車場名',
+            '売上金額',
+            '出庫件数',
+            '受領金額',
+            '別納金額',
+          );
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = "領収証発行"; 
+            $csv[$cnt][] = "領収証要求"; 
+          }
+          $cnt++;
+
+          foreach ($data["data"] as $hour => $dat){
+            $csv[$cnt][] = $hour."時";
+            $csv[$cnt][] = $dat['sum_parking_charge'];
+            $csv[$cnt][] = $dat['sum_count'];
+            $csv[$cnt][] = $dat['sum_receipt_amount'];
+            $csv[$cnt][] = $dat['sum_other_receipt_amount'];
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = $dat['sum_receipt_issue'];
+              $csv[$cnt][] = $dat['sum_receipt_request'];
+            }
+            $cnt++;
+          }
+          $csv[$cnt][] = "計";
+          $csv[$cnt][] = $data['total_parking_charge'];
+          $csv[$cnt][] = $data['total_count'];
+          $csv[$cnt][] = $data['total_receipt_amount'];
+          $csv[$cnt][] = $data['total_other_receipt_amount'];
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = $data['total_receipt_issue'];
+            $csv[$cnt][] = $data['total_receipt_request'];
+          }
+
+        }else{
+          if($options["display_type"] !== "yearly_index"){
+            if($options["total_count"] !== null){
+              $csv[$cnt][] = $options["total_count"]."台"; 
+            }
+          }
+          if(!empty($options["date"])){
+            if($options["display_type"] !== "yearly_index"){
+              $csv[$cnt][] = $options["date"]; 
+            }else{
+              $str_past_year = $this->CI->data["past_year"][$this->input->post("past_year")]; 
+              $csv[$cnt][] = $options["date"].$str_past_year; 
+            }
+          }
+          $cnt++;
+
+          if($options["display_type"] == "daily_index"){
+            $filename = "日報_".date("YmdHis");
+
+            $csv[$cnt] = array(
+              '時間',
+              '売上金額',
+              '出庫件数',
+              '受領金額',
+              '別納金額',
+            );
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = "領収証発行"; 
+              $csv[$cnt][] = "領収証要求"; 
+            }
+            $cnt++;
+
+            foreach ($data["data"] as $hour => $dat){
+              $csv[$cnt][] = $hour."時";
+              $csv[$cnt][] = $dat['sum_parking_charge'];
+              $csv[$cnt][] = $dat['sum_count'];
+              $csv[$cnt][] = $dat['sum_receipt_amount'];
+              $csv[$cnt][] = $dat['sum_other_receipt_amount'];
+              if($options["receipt"] == "show"){
+                $csv[$cnt][] = $dat['sum_receipt_issue'];
+                $csv[$cnt][] = $dat['sum_receipt_request'];
+              }
+              $cnt++;
+            }
+            $csv[$cnt][] = "計";
+            $csv[$cnt][] = $data['total_parking_charge'];
+            $csv[$cnt][] = $data['total_count'];
+            $csv[$cnt][] = $data['total_receipt_amount'];
+            $csv[$cnt][] = $data['total_other_receipt_amount'];
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = $data['total_receipt_issue'];
+              $csv[$cnt][] = $data['total_receipt_request'];
+            }
+          }elseif($options["display_type"] == "weekly_index"){
+            $filename = "週報_".date("YmdHis");
+
+            $csv[$cnt] = array();
+            $csv[$cnt][] = "";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $this->CI->w[$key];
+            }
+            $csv[$cnt][] = "計";
+            $cnt++;
+
+            $csv[$cnt][] = "売上金額";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['sum_parking_charge'];
+            }
+            $csv[$cnt][] = $data["total_parking_charge"];
+            $cnt++;
+
+            $csv[$cnt][] = "出庫件数";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['sum_count'];
+            }
+            $csv[$cnt][] = $data["total_count"];
+            $cnt++;
+
+            $csv[$cnt][] = "受領金額";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['sum_receipt_amount'];
+            }
+            $csv[$cnt][] = $data["total_receipt_amount"];
+            $cnt++;
+
+            $csv[$cnt][] = "別納金額";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['sum_other_receipt_amount'];
+            }
+            $csv[$cnt][] = $data["total_other_receipt_amount"];
+            $cnt++;
+
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = "領収証発行"; 
+              foreach ($data["data"] as $key => $dat){
+                $csv[$cnt][] = $dat['sum_receipt_issue'];
+              }
+              $csv[$cnt][] = $data["total_receipt_issue"];
+              $cnt++;
+
+              $csv[$cnt][] = "領収証要求"; 
+              foreach ($data["data"] as $key => $dat){
+                $csv[$cnt][] = $dat['sum_receipt_request'];
+              }
+              $csv[$cnt][] = $data["total_receipt_request"];
+              $cnt++;
+            }
+
+            $csv[$cnt][] = "平均金額";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['average_parking_charge'];
+            }
+            $csv[$cnt][] = "";
+            $cnt++;
+
+            $csv[$cnt][] = "平均件数";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['average_count'];
+            }
+            $csv[$cnt][] = "";
+            $cnt++;
+
+            $csv[$cnt][] = "期間";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['day_count'];
+            }
+            $csv[$cnt][] = "";
+            $cnt++;
+          }elseif($options["display_type"] == "monthly_index"){
+            $filename = "月報_".date("YmdHis");
+
+            $csv[$cnt] = array();
+            $csv[$cnt][] = "";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["day"]."(".$this->CI->w[$key + 1 == 7 ? 0 : $key + 1].")";
+                }
+              }
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "売上金額";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["sum_parking_charge"];
+                }
+              }
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "出庫件数";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["sum_count"];
+                }
+              }
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "受領金額";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["sum_receipt_amount"];
+                }
+              }
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "別納金額";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["sum_other_receipt_amount"];
+                }
+              }
+            }
+            $cnt++;
+
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = "領収証発行";
+              foreach ($data["data"] as $week_num => $week){
+                foreach ($week["data"] as $key => $cell){
+                  if($cell["day"] != ""){
+                    $csv[$cnt][] = $cell["sum_receipt_issue"];
+                  }
+                }
+              }
+              $cnt++;
+
+              $csv[$cnt][] = "領収証要求";
+              foreach ($data["data"] as $week_num => $week){
+                foreach ($week["data"] as $key => $cell){
+                  if($cell["day"] != ""){
+                    $csv[$cnt][] = $cell["sum_receipt_request"];
+                  }
+                }
+              }
+              $cnt++;
+            }
+
+            foreach ($data["data"] as $week_num => $week){
+              $csv[$cnt][] = ($week_num + 1)."週目売上金額";
+              $csv[$cnt][] = $week["total_parking_charge"];
+              $csv[$cnt][] = ($week_num + 1)."週目出庫件数";
+              $csv[$cnt][] = $week["total_count"];
+              $csv[$cnt][] = ($week_num + 1)."週目受領金額";
+              $csv[$cnt][] = $week["total_receipt_amount"];
+              $csv[$cnt][] = ($week_num + 1)."週目別納金額";
+              $csv[$cnt][] = $week["total_other_receipt_amount"];
+              if($options["receipt"] == "show"){
+                $csv[$cnt][] = ($week_num + 1)."週目領収証発行";
+                $csv[$cnt][] = $week["total_receipt_issue"];
+                $csv[$cnt][] = ($week_num + 1)."週目領収証要求";
+                $csv[$cnt][] = $week["total_receipt_request"];
+              }
+              $cnt++;
+            }
+
+            foreach ($data["day_total"] as $key => $total){
+              $csv[$cnt][] = $this->CI->w[$key]."曜日売上総計";
+              $csv[$cnt][] = $total;
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "売上計";
+            $csv[$cnt][] = $data["total_parking_charge"];
+            $csv[$cnt][] = "件数計";
+            $csv[$cnt][] = $data["total_count"];
+            $csv[$cnt][] = "受領計";
+            $csv[$cnt][] = $data["total_receipt_amount"];
+            $csv[$cnt][] = "別納計";
+            $csv[$cnt][] = $data["total_other_receipt_amount"];
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = "発行計";
+              $csv[$cnt][] = $data["total_receipt_issue"];
+              $csv[$cnt][] = "要求計";
+              $csv[$cnt][] = $data["total_receipt_request"];
+            }
+            $csv[$cnt][] = "差";
+            $csv[$cnt][] = $data["total_sub"];
+            $cnt++;
+
+            $csv[$cnt][] = "前月繰越現金";
+            $csv[$cnt][] = $data["prev_forward"];
+            $csv[$cnt][] = "当月入金";
+            $csv[$cnt][] = $data["receivable"];
+            $csv[$cnt][] = "翌月繰越現金";
+            $csv[$cnt][] = $data["forward"];
+            $csv[$cnt][] = "件数単価";
+            $csv[$cnt][] = $data["count_price"];
+            $csv[$cnt][] = "回転数";
+            $csv[$cnt][] = $data["rotation"];
+            $csv[$cnt][] = "回転数(実価)";
+            $csv[$cnt][] = $data["price_rotation"];
+            $cnt++;
+
+            $csv[$cnt][] = "売上上旬計(1〜10日)";
+            $csv[$cnt][] = $data["biginning_parking_charge"];
+            $csv[$cnt][] = "売上中旬計(11〜20日)";
+            $csv[$cnt][] = $data["middle_parking_charge"];
+            $csv[$cnt][] = "売上中旬計(21〜末)";
+            $csv[$cnt][] = $data["end_parking_charge"];
+            $csv[$cnt][] = "上旬+中旬計";
+            $csv[$cnt][] = $data["biginning_middle_parking_charge"];
+            $csv[$cnt][] = "売上計";
+            $csv[$cnt][] = $data["total_parking_charge"];
+            $cnt++;
+          }elseif($options["display_type"] == "yearly_index"){
+            $filename = "年報_".date("YmdHis");
+
+            $csv[$cnt] = array();
+            $first_year = key($data["data"]);
+            $csv[$cnt][] = "";
+            foreach ($data["data"][$first_year]["data"] as $year_month => $dat){
+              $csv[$cnt][] = date("n月",strtotime($year_month."-01"));
+            }
+            $csv[$cnt][] = "計";
+            $cnt++;
+
+            foreach ($data["data"] as $year => $year_data) {
+              $csv[$cnt][] = $year."年度 売上金額";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_parking_charge"];
+              }
+              $csv[$cnt][] = $year_data["total_parking_charge"];
+              $cnt++;
+
+              $csv[$cnt][] = "前年比";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_parking_charge_comparison"];
+              }
+              $csv[$cnt][] = $year_data["total_parking_charge_comparison"];
+              $cnt++;
+            }
+
+            foreach ($data["data"] as $year => $year_data) {
+              $csv[$cnt][] = $year."年度 出庫件数";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_count"];
+              }
+              $csv[$cnt][] = $year_data["total_count"];
+              $cnt++;
+
+              $csv[$cnt][] = "前年比";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_count_comparison"];
+              }
+              $csv[$cnt][] = $year_data["total_count_comparison"];
+              $cnt++;
+            }
+
+            foreach ($data["data"] as $year => $year_data) {
+              $csv[$cnt][] = $year."年度 受領金額";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_receipt_amount"];
+              }
+              $csv[$cnt][] = $year_data["total_receipt_amount"];
+              $cnt++;
+
+              $csv[$cnt][] = "前年比";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_receipt_amount_comparison"];
+              }
+              $csv[$cnt][] = $year_data["total_receipt_amount_comparison"];
+              $cnt++;
+            }
+
+            foreach ($data["data"] as $year => $year_data) {
+              $csv[$cnt][] = $year."年度 別納金額";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_other_receipt_amount"];
+              }
+              $csv[$cnt][] = $year_data["total_other_receipt_amount"];
+              $cnt++;
+
+              $csv[$cnt][] = "前年比";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_other_receipt_amount_comparison"];
+              }
+              $csv[$cnt][] = $year_data["total_other_receipt_amount_comparison"];
+              $cnt++;
+            }
+
+            if($options["receipt"] == "show"){
+              foreach ($data["data"] as $year => $year_data) {
+                $csv[$cnt][] = $year."年度 領収証発行";
+                foreach ($year_data["data"] as $year_month => $dat) {
+                  $csv[$cnt][] = $dat["sum_receipt_issue"];
+                }
+                $csv[$cnt][] = $year_data["total_receipt_issue"];
+                $cnt++;
+
+                $csv[$cnt][] = "前年比";
+                foreach ($year_data["data"] as $year_month => $dat) {
+                  $csv[$cnt][] = $dat["sum_receipt_issue_comparison"];
+                }
+                $csv[$cnt][] = $year_data["total_receipt_issue_comparison"];
+                $cnt++;
+              }
+              foreach ($data["data"] as $year => $year_data) {
+                $csv[$cnt][] = $year."年度 領収証要求";
+                foreach ($year_data["data"] as $year_month => $dat) {
+                  $csv[$cnt][] = $dat["sum_receipt_request"];
+                }
+                $csv[$cnt][] = $year_data["total_receipt_request"];
+                $cnt++;
+
+                $csv[$cnt][] = "前年比";
+                foreach ($year_data["data"] as $year_month => $dat) {
+                  $csv[$cnt][] = $dat["sum_receipt_request_comparison"];
+                }
+                $csv[$cnt][] = $year_data["total_receipt_request_comparison"];
+                $cnt++;
+              }
+
+            }
+          }else{
+            throw new Exception("CSVのダウンロードに失敗しました");
+          }
+
+          if($options["display_type"] !== "yearly_index"){
+            if($options["total_count"] !== null){
+              $csv[$cnt][] = $options["total_count"]."台"; 
+            }
+          }
+          if(!empty($options["date"])){
+            if($options["display_type"] !== "yearly_index"){
+              $csv[$cnt][] = $options["date"]; 
+            }else{
+              $str_past_year = $this->CI->data["past_year"][$this->input->post("past_year")]; 
+              $csv[$cnt][] = $options["date"].$str_past_year; 
+            }
+          }
+          $cnt++;
+
+          if($options["display_type"] == "daily_index"){
+            $filename = "日報_".date("YmdHis");
+
+            $csv[$cnt] = array(
+              '時間',
+              '売上金額',
+              '出庫件数',
+              '受領金額',
+              '別納金額',
+            );
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = "領収証発行"; 
+              $csv[$cnt][] = "領収証要求"; 
+            }
+            $cnt++;
+
+            foreach ($data["data"] as $hour => $dat){
+              $csv[$cnt][] = $hour."時";
+              $csv[$cnt][] = $dat['sum_parking_charge'];
+              $csv[$cnt][] = $dat['sum_count'];
+              $csv[$cnt][] = $dat['sum_receipt_amount'];
+              $csv[$cnt][] = $dat['sum_other_receipt_amount'];
+              if($options["receipt"] == "show"){
+                $csv[$cnt][] = $dat['sum_receipt_issue'];
+                $csv[$cnt][] = $dat['sum_receipt_request'];
+              }
+              $cnt++;
+            }
+            $csv[$cnt][] = "計";
+            $csv[$cnt][] = $data['total_parking_charge'];
+            $csv[$cnt][] = $data['total_count'];
+            $csv[$cnt][] = $data['total_receipt_amount'];
+            $csv[$cnt][] = $data['total_other_receipt_amount'];
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = $data['total_receipt_issue'];
+              $csv[$cnt][] = $data['total_receipt_request'];
+            }
+          }elseif($options["display_type"] == "weekly_index"){
+            $filename = "週報_".date("YmdHis");
+
+            $csv[$cnt] = array();
+            $csv[$cnt][] = "";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $this->CI->w[$key];
+            }
+            $csv[$cnt][] = "計";
+            $cnt++;
+
+            $csv[$cnt][] = "売上金額";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['sum_parking_charge'];
+            }
+            $csv[$cnt][] = $data["total_parking_charge"];
+            $cnt++;
+
+            $csv[$cnt][] = "出庫件数";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['sum_count'];
+            }
+            $csv[$cnt][] = $data["total_count"];
+            $cnt++;
+
+            $csv[$cnt][] = "受領金額";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['sum_receipt_amount'];
+            }
+            $csv[$cnt][] = $data["total_receipt_amount"];
+            $cnt++;
+
+            $csv[$cnt][] = "別納金額";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['sum_other_receipt_amount'];
+            }
+            $csv[$cnt][] = $data["total_other_receipt_amount"];
+            $cnt++;
+
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = "領収証発行"; 
+              foreach ($data["data"] as $key => $dat){
+                $csv[$cnt][] = $dat['sum_receipt_issue'];
+              }
+              $csv[$cnt][] = $data["total_receipt_issue"];
+              $cnt++;
+
+              $csv[$cnt][] = "領収証要求"; 
+              foreach ($data["data"] as $key => $dat){
+                $csv[$cnt][] = $dat['sum_receipt_request'];
+              }
+              $csv[$cnt][] = $data["total_receipt_request"];
+              $cnt++;
+            }
+
+            $csv[$cnt][] = "平均金額";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['average_parking_charge'];
+            }
+            $csv[$cnt][] = "";
+            $cnt++;
+
+            $csv[$cnt][] = "平均件数";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['average_count'];
+            }
+            $csv[$cnt][] = "";
+            $cnt++;
+
+            $csv[$cnt][] = "期間";
+            foreach ($data["data"] as $key => $dat){
+              $csv[$cnt][] = $dat['day_count'];
+            }
+            $csv[$cnt][] = "";
+            $cnt++;
+          }elseif($options["display_type"] == "monthly_index"){
+            $filename = "月報_".date("YmdHis");
+
+            $csv[$cnt] = array();
+            $csv[$cnt][] = "";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["day"]."(".$this->CI->w[$key + 1 == 7 ? 0 : $key + 1].")";
+                }
+              }
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "売上金額";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["sum_parking_charge"];
+                }
+              }
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "出庫件数";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["sum_count"];
+                }
+              }
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "受領金額";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["sum_receipt_amount"];
+                }
+              }
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "別納金額";
+            foreach ($data["data"] as $week_num => $week){
+              foreach ($week["data"] as $key => $cell){
+                if($cell["day"] != ""){
+                  $csv[$cnt][] = $cell["sum_other_receipt_amount"];
+                }
+              }
+            }
+            $cnt++;
+
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = "領収証発行";
+              foreach ($data["data"] as $week_num => $week){
+                foreach ($week["data"] as $key => $cell){
+                  if($cell["day"] != ""){
+                    $csv[$cnt][] = $cell["sum_receipt_issue"];
+                  }
+                }
+              }
+              $cnt++;
+
+              $csv[$cnt][] = "領収証要求";
+              foreach ($data["data"] as $week_num => $week){
+                foreach ($week["data"] as $key => $cell){
+                  if($cell["day"] != ""){
+                    $csv[$cnt][] = $cell["sum_receipt_request"];
+                  }
+                }
+              }
+              $cnt++;
+            }
+
+            foreach ($data["data"] as $week_num => $week){
+              $csv[$cnt][] = ($week_num + 1)."週目売上金額";
+              $csv[$cnt][] = $week["total_parking_charge"];
+              $csv[$cnt][] = ($week_num + 1)."週目出庫件数";
+              $csv[$cnt][] = $week["total_count"];
+              $csv[$cnt][] = ($week_num + 1)."週目受領金額";
+              $csv[$cnt][] = $week["total_receipt_amount"];
+              $csv[$cnt][] = ($week_num + 1)."週目別納金額";
+              $csv[$cnt][] = $week["total_other_receipt_amount"];
+              if($options["receipt"] == "show"){
+                $csv[$cnt][] = ($week_num + 1)."週目領収証発行";
+                $csv[$cnt][] = $week["total_receipt_issue"];
+                $csv[$cnt][] = ($week_num + 1)."週目領収証要求";
+                $csv[$cnt][] = $week["total_receipt_request"];
+              }
+              $cnt++;
+            }
+
+            foreach ($data["day_total"] as $key => $total){
+              $csv[$cnt][] = $this->CI->w[$key]."曜日売上総計";
+              $csv[$cnt][] = $total;
+            }
+            $cnt++;
+
+            $csv[$cnt][] = "売上計";
+            $csv[$cnt][] = $data["total_parking_charge"];
+            $csv[$cnt][] = "件数計";
+            $csv[$cnt][] = $data["total_count"];
+            $csv[$cnt][] = "受領計";
+            $csv[$cnt][] = $data["total_receipt_amount"];
+            $csv[$cnt][] = "別納計";
+            $csv[$cnt][] = $data["total_other_receipt_amount"];
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = "発行計";
+              $csv[$cnt][] = $data["total_receipt_issue"];
+              $csv[$cnt][] = "要求計";
+              $csv[$cnt][] = $data["total_receipt_request"];
+            }
+            $csv[$cnt][] = "差";
+            $csv[$cnt][] = $data["total_sub"];
+            $cnt++;
+
+            $csv[$cnt][] = "前月繰越現金";
+            $csv[$cnt][] = $data["prev_forward"];
+            $csv[$cnt][] = "当月入金";
+            $csv[$cnt][] = $data["receivable"];
+            $csv[$cnt][] = "翌月繰越現金";
+            $csv[$cnt][] = $data["forward"];
+            $csv[$cnt][] = "件数単価";
+            $csv[$cnt][] = $data["count_price"];
+            $csv[$cnt][] = "回転数";
+            $csv[$cnt][] = $data["rotation"];
+            $csv[$cnt][] = "回転数(実価)";
+            $csv[$cnt][] = $data["price_rotation"];
+            $cnt++;
+
+            $csv[$cnt][] = "売上上旬計(1〜10日)";
+            $csv[$cnt][] = $data["biginning_parking_charge"];
+            $csv[$cnt][] = "売上中旬計(11〜20日)";
+            $csv[$cnt][] = $data["middle_parking_charge"];
+            $csv[$cnt][] = "売上中旬計(21〜末)";
+            $csv[$cnt][] = $data["end_parking_charge"];
+            $csv[$cnt][] = "上旬+中旬計";
+            $csv[$cnt][] = $data["biginning_middle_parking_charge"];
+            $csv[$cnt][] = "売上計";
+            $csv[$cnt][] = $data["total_parking_charge"];
+            $cnt++;
+          }elseif($options["display_type"] == "yearly_index"){
+            $filename = "年報_".date("YmdHis");
+
+            $csv[$cnt] = array();
+            $first_year = key($data["data"]);
+            $csv[$cnt][] = "";
+            foreach ($data["data"][$first_year]["data"] as $year_month => $dat){
+              $csv[$cnt][] = date("n月",strtotime($year_month."-01"));
+            }
+            $csv[$cnt][] = "計";
+            $cnt++;
+
+            foreach ($data["data"] as $year => $year_data) {
+              $csv[$cnt][] = $year."年度 売上金額";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_parking_charge"];
+              }
+              $csv[$cnt][] = $year_data["total_parking_charge"];
+              $cnt++;
+
+              $csv[$cnt][] = "前年比";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_parking_charge_comparison"];
+              }
+              $csv[$cnt][] = $year_data["total_parking_charge_comparison"];
+              $cnt++;
+            }
+
+            foreach ($data["data"] as $year => $year_data) {
+              $csv[$cnt][] = $year."年度 出庫件数";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_count"];
+              }
+              $csv[$cnt][] = $year_data["total_count"];
+              $cnt++;
+
+              $csv[$cnt][] = "前年比";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_count_comparison"];
+              }
+              $csv[$cnt][] = $year_data["total_count_comparison"];
+              $cnt++;
+            }
+
+            foreach ($data["data"] as $year => $year_data) {
+              $csv[$cnt][] = $year."年度 受領金額";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_receipt_amount"];
+              }
+              $csv[$cnt][] = $year_data["total_receipt_amount"];
+              $cnt++;
+
+              $csv[$cnt][] = "前年比";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_receipt_amount_comparison"];
+              }
+              $csv[$cnt][] = $year_data["total_receipt_amount_comparison"];
+              $cnt++;
+            }
+
+            foreach ($data["data"] as $year => $year_data) {
+              $csv[$cnt][] = $year."年度 別納金額";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_other_receipt_amount"];
+              }
+              $csv[$cnt][] = $year_data["total_other_receipt_amount"];
+              $cnt++;
+
+              $csv[$cnt][] = "前年比";
+              foreach ($year_data["data"] as $year_month => $dat) {
+                $csv[$cnt][] = $dat["sum_other_receipt_amount_comparison"];
+              }
+              $csv[$cnt][] = $year_data["total_other_receipt_amount_comparison"];
+              $cnt++;
+            }
+
+            if($options["receipt"] == "show"){
+              foreach ($data["data"] as $year => $year_data) {
+                $csv[$cnt][] = $year."年度 領収証発行";
+                foreach ($year_data["data"] as $year_month => $dat) {
+                  $csv[$cnt][] = $dat["sum_receipt_issue"];
+                }
+                $csv[$cnt][] = $year_data["total_receipt_issue"];
+                $cnt++;
+
+                $csv[$cnt][] = "前年比";
+                foreach ($year_data["data"] as $year_month => $dat) {
+                  $csv[$cnt][] = $dat["sum_receipt_issue_comparison"];
+                }
+                $csv[$cnt][] = $year_data["total_receipt_issue_comparison"];
+                $cnt++;
+              }
+              foreach ($data["data"] as $year => $year_data) {
+                $csv[$cnt][] = $year."年度 領収証要求";
+                foreach ($year_data["data"] as $year_month => $dat) {
+                  $csv[$cnt][] = $dat["sum_receipt_request"];
+                }
+                $csv[$cnt][] = $year_data["total_receipt_request"];
+                $cnt++;
+
+                $csv[$cnt][] = "前年比";
+                foreach ($year_data["data"] as $year_month => $dat) {
+                  $csv[$cnt][] = $dat["sum_receipt_request_comparison"];
+                }
+                $csv[$cnt][] = $year_data["total_receipt_request_comparison"];
+                $cnt++;
+              }
+
+            }
+          }else{
+            throw new Exception("CSVのダウンロードに失敗しました");
+          }
+
+        }
+      }elseif($class == "data_refers" && $method == "index"){
+        if(isset($options["display_type"]) === false){
+          throw new Exception("CSVのダウンロードに失敗しました");
+        }
+
+        list($csv,$cnt) = $this->addParkHeader($csv,$cnt,$options);
+        $csv[$cnt][] = $options["date"]; 
+        $cnt++;
+
+        $filename = "データ一覧_".$this->CI->index_display_type[$options["display_type"]]."_".date("YmdHis");
+
+        if($options["display_type"] == "all"){
+          $csv[$cnt] = array(
+            "No.",
+            "精算種別",
+            "入庫日時",
+            "精算日時",
+            "出庫日時",
+            "駐車場名",
+            "車室No.",
+            "料金体系",
+            "請求金額",
+            "受領金額",
+            "サービス金額",
+            "預かり金額",
+            "投入金額",
+            "払出金額",
+            "パスカード金額",
+            "金券金額",
+            "別納金額",
+            "出庫秒",
+            "利用時間(分)",
+            "差",
+          );
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = "領収証発行"; 
+            $csv[$cnt][] = "領収証要求"; 
+          }
+          $cnt++;
+
+          $adjust_data_kind_list = $this->model("adjust_data")->adjust_data_kind;
+
+          foreach ($data as $key => $dat){
+            $csv[$cnt][] = $key + 1;
+            $csv[$cnt][] = isset($adjust_data_kind_list[$dat["adjust_data_kind"]]) ? $adjust_data_kind_list[$dat["adjust_data_kind"]] : "";
+            $csv[$cnt][] = $dat['put_in_date'];
+            $csv[$cnt][] = $dat['adjust_date'];
+            $csv[$cnt][] = $dat['put_out_date'];
+            $csv[$cnt][] = $dat['park_name'];
+            $csv[$cnt][] = $dat['carroom_number'];
+            $csv[$cnt][] = $dat['abbreviation'];
+            $csv[$cnt][] = $dat['pariking_charge'];
+            $csv[$cnt][] = $dat['receipt_amount'];
+            $csv[$cnt][] = $dat["waribiki_price"];
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = $dat["drop_in_total"];
+            $csv[$cnt][] = $dat["paying_out_total"];
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = $dat["other_receipt_amount"];
+            $csv[$cnt][] = $dat["second_until_putting_out"];
+            $csv[$cnt][] = $dat["parking_time_minute"];
+            $csv[$cnt][] = "";
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = $dat["receipt_issue"] == 1 ? _ADJUST_DATA_RECEIPT_ISSUE_1 : _ADJUST_DATA_RECEIPT_ISSUE_0;
+              $csv[$cnt][] = $dat["receipt_request"] == 1 ? _ADJUST_DATA_RECEIPT_REQUEST_1 : _ADJUST_DATA_RECEIPT_REQUEST_0;
+            }
+            $cnt++;
+            //new dbug($csv);
+            //exit;
+          }
+        }elseif($options["display_type"] == "all_group_by_date"){
+          $csv[$cnt] = array(
+            "精算日",
+            "利用台数",
+            "無料台数",
+            "有料台数",
+            "定期台数",
+            "サービス台数",
+            "不正台数",
+            "請求金額",
+            "受領金額",
+            "サービス金額",
+            "預かり金額",
+            "投入金額",
+            "払出金額",
+            "パスカード金額",
+            "金券金額",
+            "別納金額",
+            "利用時間(分)",
+            "差",
+          );
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = "領収証発行"; 
+            $csv[$cnt][] = "領収証要求"; 
+          }
+          $cnt++;
+
+          foreach ($data["data"] as $adjust_date => $dat){
+            $csv[$cnt][] = $adjust_date;
+            $csv[$cnt][] = $dat["count"];
+            $csv[$cnt][] = $dat["free_count"];
+            $csv[$cnt][] = $dat["payed_count"];
+            $csv[$cnt][] = $dat["pass_count"];
+            $csv[$cnt][] = $dat["service_count"];
+            $csv[$cnt][] = $dat["fraud_count"];
+            $csv[$cnt][] = $dat["parking_charge"];
+            $csv[$cnt][] = $dat["receipt_amount"];
+            $csv[$cnt][] = $dat["waribiki_price"];
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = $dat["drop_in_total"];
+            $csv[$cnt][] = $dat["paying_out_total"];
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = $dat["other_receipt_amount"];
+            $csv[$cnt][] = $dat["parking_time_minute"];
+            $csv[$cnt][] = "";
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = $dat["receipt_issue_count"];
+              $csv[$cnt][] = $dat["receipt_request_count"];
+            }
+            $cnt++;
+          }
+          $csv[$cnt][] = "計";
+          $csv[$cnt][] = $data["total_count"];
+          $csv[$cnt][] = $data["total_free_count"];
+          $csv[$cnt][] = $data["total_payed_count"];
+          $csv[$cnt][] = $data["total_pass_count"];
+          $csv[$cnt][] = $data["total_service_count"];
+          $csv[$cnt][] = $data["total_fraud_count"];
+          $csv[$cnt][] = $data["total_parking_charge"];
+          $csv[$cnt][] = $data["total_receipt_amount"];
+          $csv[$cnt][] = $data["total_waribiki_price"];
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = $data["total_drop_in_total"];
+          $csv[$cnt][] = $data["total_paying_out_total"];
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = $data["total_other_receipt_amount"];
+          $csv[$cnt][] = $data["total_parking_time_minute"];
+          $csv[$cnt][] = "";
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = $data["total_receipt_issue_count"];
+            $csv[$cnt][] = $data["total_receipt_request_count"];
+          }
+        }elseif($options["display_type"] == "all_group_by_carroom"){
+          $csv[$cnt] = array(
+            "駐車場名",
+            "車室No.",
+            "請求金額",
+            "受領金額",
+            "サービス金額",
+            "預かり金額",
+            "投入金額",
+            "払出金額",
+            "パスカード金額",
+            "金券金額",
+            "別納金額",
+            "利用時間(分)",
+            "差",
+          );
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = "領収証発行"; 
+            $csv[$cnt][] = "領収証要求"; 
+          }
+          $cnt++;
+
+          foreach ($data["data"] as $park_id => $park_data){
+            foreach ($park_data["data"] as $carroom_number => $dat){
+              $csv[$cnt][] = $park_data["park_name"];
+              $csv[$cnt][] = $carroom_number;
+              $csv[$cnt][] = $dat["parking_charge"];
+              $csv[$cnt][] = $dat["receipt_amount"];
+              $csv[$cnt][] = $dat["waribiki_price"];
+              $csv[$cnt][] = "";
+              $csv[$cnt][] = $dat["drop_in_total"];
+              $csv[$cnt][] = $dat["paying_out_total"];
+              $csv[$cnt][] = "";
+              $csv[$cnt][] = "";
+              $csv[$cnt][] = $dat["other_receipt_amount"];
+              $csv[$cnt][] = $dat["parking_time_minute"];
+              $csv[$cnt][] = "";
+              if($options["receipt"] == "show"){
+                $csv[$cnt][] = $dat["receipt_issue_count"];
+                $csv[$cnt][] = $dat["receipt_request_count"];
+              }
+              $cnt++;
+            }
+          }
+          $csv[$cnt][] = "計";
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = $data["total_parking_charge"];
+          $csv[$cnt][] = $data["total_receipt_amount"];
+          $csv[$cnt][] = $data["total_waribiki_price"];
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = $data["total_drop_in_total"];
+          $csv[$cnt][] = $data["total_paying_out_total"];
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = $data["total_other_receipt_amount"];
+          $csv[$cnt][] = $data["total_parking_time_minute"];
+          $csv[$cnt][] = "";
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = $data["total_receipt_issue_count"];
+            $csv[$cnt][] = $data["total_receipt_request_count"];
+          }
+        }elseif($options["display_type"] == "all_group_by_park"){
+          $csv[$cnt] = array(
+            "駐車場名",
+            "請求金額",
+            "受領金額",
+            "サービス金額",
+            "預かり金額",
+            "投入金額",
+            "払出金額",
+            "パスカード金額",
+            "金券金額",
+            "別納金額",
+            "利用時間(分)",
+            "差",
+          );
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = "領収証発行"; 
+            $csv[$cnt][] = "領収証要求"; 
+          }
+          $cnt++;
+
+          foreach ($data["data"] as $park_id => $dat){
+            $csv[$cnt][] = $dat["park_name"];
+            $csv[$cnt][] = $dat["parking_charge"];
+            $csv[$cnt][] = $dat["receipt_amount"];
+            $csv[$cnt][] = $dat["waribiki_price"];
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = $dat["drop_in_total"];
+            $csv[$cnt][] = $dat["paying_out_total"];
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = "";
+            $csv[$cnt][] = $dat["other_receipt_amount"];
+            $csv[$cnt][] = $dat["parking_time_minute"];
+            $csv[$cnt][] = "";
+            if($options["receipt"] == "show"){
+              $csv[$cnt][] = $dat["receipt_issue_count"];
+              $csv[$cnt][] = $dat["receipt_request_count"];
+            }
+            $cnt++;
+          }
+          $csv[$cnt][] = "計";
+          $csv[$cnt][] = $data["total_parking_charge"];
+          $csv[$cnt][] = $data["total_receipt_amount"];
+          $csv[$cnt][] = $data["total_waribiki_price"];
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = $data["total_drop_in_total"];
+          $csv[$cnt][] = $data["total_paying_out_total"];
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = "";
+          $csv[$cnt][] = $data["total_other_receipt_amount"];
+          $csv[$cnt][] = $data["total_parking_time_minute"];
+          $csv[$cnt][] = "";
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = $data["total_receipt_issue_count"];
+            $csv[$cnt][] = $data["total_receipt_request_count"];
+          }
+        }else{
+          throw new Exception("CSVのダウンロードに失敗しました");
+        }
+      }elseif($class == "data_refers" && $method == "operation_log"){
+        list($csv,$cnt) = $this->addParkHeader($csv,$cnt,$options);
+
+        if($options["display_type"] !== "yearly_index"){
+          if($options["total_count"] !== null){
+            $csv[$cnt][] = $options["total_count"]."台"; 
+          }
+        }
+        if(!empty($options["date"])){
+          if($options["display_type"] !== "yearly_index"){
+            $csv[$cnt][] = $options["date"]; 
+          }else{
+            $str_past_year = $this->CI->data["past_year"][$this->input->post("past_year")]; 
+            $csv[$cnt][] = $options["date"].$str_past_year; 
+          }
+        }
+        $cnt++;
+
+        if(!empty($options["date"])){
+          $csv[$cnt][] = $options["date"]; 
+        }
+        $cnt++;
+
+        $filename = "操作ログ_".date("YmdHis");
+
+        $csv[$cnt] = array(
+          'No.',
+          '駐車場名',
+          '発生日時',
+          'ログ内容',
+        );
+        $cnt++;
+
+        foreach ($data as $key => $dat){
+          $csv[$cnt][] = $key + 1;
+          $csv[$cnt][] = $dat['park_name'];
+          $csv[$cnt][] = date("Y/m/d H:i:s",strtotime($dat['generation_time']));
+          $csv[$cnt][] = $dat['log_data'];
+          $cnt++;
+        }
+      }elseif($class == "analyses" && $method == "in_out_index"){
+        if(isset($options["display_type"]) === false){
+          throw new Exception("CSVのダウンロードに失敗しました");
+        }
+
+        list($csv,$cnt) = $this->addParkHeader($csv,$cnt,$options);
+
+        $str_date = $options["date"];
+        if(isset($options["total_count"])){
+          $str_date = $options["total_count"]."台 ".$str_date;
+        }
+        $csv[$cnt][] = $str_date; 
+        $cnt++;
+
+        $filename = "入出庫件数一覧_".$this->CI->in_out_index_display_type[$options["display_type"]]."_".date("YmdHis");
+
+        if($options["display_type"] == "in_out_time_index"){
+          $csv[$cnt] = array(
+            "",
+            "時間",
+          );
+          for($i = 0; $i < 24; $i++){
+            $csv[$cnt][] = "{$i}時"; 
+          }
+          $csv[$cnt][] = "計"; 
+          $cnt++;
+
+          $csv[$cnt][] = "入庫件数"; 
+          $csv[$cnt][] = "前半30分"; 
+          foreach ($data["put_in"]["data"] as $hour => $dat){
+            $csv[$cnt][] = $dat["sum_first_half"]; 
+          }
+          $csv[$cnt][] = $data["put_in"]["total_first_half"]; 
+          $cnt++;
+
+          $csv[$cnt][] = ""; 
+          $csv[$cnt][] = "後半30分"; 
+          foreach ($data["put_in"]["data"] as $hour => $dat){
+            $csv[$cnt][] = $dat["sum_last_half"]; 
+          }
+          $csv[$cnt][] = $data["put_in"]["total_last_half"]; 
+          $cnt++;
+
+          $csv[$cnt][] = ""; 
+          $csv[$cnt][] = "トータル"; 
+          foreach ($data["put_in"]["data"] as $hour => $dat){
+            $csv[$cnt][] = $dat["sum_total"]; 
+          }
+          $csv[$cnt][] = $data["put_in"]["total_total"]; 
+          $cnt++;
+
+          $csv[$cnt][] = "出庫件数"; 
+          $csv[$cnt][] = "前半30分"; 
+          foreach ($data["put_out"]["data"] as $hour => $dat){
+            $csv[$cnt][] = $dat["sum_first_half"]; 
+          }
+          $csv[$cnt][] = $data["put_out"]["total_first_half"]; 
+          $cnt++;
+
+          $csv[$cnt][] = ""; 
+          $csv[$cnt][] = "後半30分"; 
+          foreach ($data["put_out"]["data"] as $hour => $dat){
+            $csv[$cnt][] = $dat["sum_last_half"]; 
+          }
+          $csv[$cnt][] = $data["put_out"]["total_last_half"]; 
+          $cnt++;
+
+          $csv[$cnt][] = ""; 
+          $csv[$cnt][] = "トータル"; 
+          foreach ($data["put_out"]["data"] as $hour => $dat){
+            $csv[$cnt][] = $dat["sum_total"]; 
+          }
+          $csv[$cnt][] = $data["put_out"]["total_total"]; 
+          $cnt++;
+        }elseif($options["display_type"] == "put_in_time"){
+          $csv[$cnt] = array(
+            "入庫時間",
+            "駐車合計時間(分)",
+            "駐車合計時間(時)",
+            "入庫時間→出庫請求金額",
+          );
+          $cnt++;
+
+          foreach ($data["data"] as $hour => $dat){
+            $csv[$cnt][] = $hour."時";
+            $csv[$cnt][] = $dat["sum_minutes"];
+            $csv[$cnt][] = convert_minute_to_hour_minute($dat["sum_minutes"]);
+            $csv[$cnt][] = $dat["sum_parking_charge"];
+            $cnt++;
+          }
+          $csv[$cnt][] = "計";
+          $csv[$cnt][] = $data["total_minutes"];
+          $csv[$cnt][] = convert_minute_to_hour_minute($data["total_minutes"]);
+          $csv[$cnt][] = $data["total_parking_charge"];
+        }elseif($options["display_type"] == "put_out_time_analysis"){
+          $csv[$cnt][] = "縦軸:出庫時間 横軸:入庫時間";
+          $cnt++;
+          if($options["notation"] == _ANALYSE_IN_OUT_INDEX_NOTATION_SIGN){
+            $sign_info = "";
+            $sign_info.= "▲:1件〜{$data["quarter"]}件　";
+            $sign_info.= "◆:".($data["quarter"] + 1)."件〜{$data["half_quarters"]}件　";
+            $sign_info.= "◎:".($data["half_quarters"] + 1)."件〜{$data["three_quarters"]}件　";
+            $sign_info.= "★:".($data["three_quarters"] + 1)."件〜{$data["max_val"]}件";
+            $csv[$cnt][] = $sign_info; 
+            $cnt++;
+          }
+          $csv[$cnt][] = "";
+          for($i = 0; $i <= 23; $i++){
+            $csv[$cnt][] = $i."時";
+          }
+          $cnt++;
+
+          for($i = 0; $i <= 23; $i++){
+            $csv[$cnt][] = $i."時";
+            for($j = 0; $j <= 23; $j++){
+              $csv[$cnt][] = $data["put_in_out"][$i][$j]["val"];
+            }
+            $cnt++;
+          }
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = "領収書発行";
+            for($i = 0; $i <= 23; $i++){
+              $csv[$cnt][] = $data["receipt_issue"][$i];
+            }
+            $cnt++;
+            $csv[$cnt][] = "領収書要求";
+            for($i = 0; $i <= 23; $i++){
+              $csv[$cnt][] = $data["receipt_request"][$i];
+            }
+            $cnt++;
+          }
+          $csv[$cnt][] = "";
+          $cnt++;
+          
+          $csv[$cnt] = array(
+            "時間",
+            "入庫数", 
+            "出庫数", 
+            "入庫時間→出庫請求金額", 
+          );
+          $cnt++;
+
+          for($i = 0; $i <= 23; $i++){
+            $csv[$cnt][] = $i."時";
+            $csv[$cnt][] = $data["put_in"][$i];
+            $csv[$cnt][] = $data["put_out"][$i];
+            $csv[$cnt][] = $data["parking_charge"][$i];
+            $cnt++;
+          }
+          $csv[$cnt][] = "合計";
+          $csv[$cnt][] = $data["total_put_in_count"];
+          $csv[$cnt][] = $data["total_put_out_count"];
+          $csv[$cnt][] = $data["total_parking_charge"];
+          $cnt++;
+          if($options["receipt"] == "show"){
+            $csv[$cnt][] = "領収書発行計";
+            $csv[$cnt][] = $data["total_receipt_issue"];
+            $csv[$cnt][] = "領収書発行計 / 出庫数";
+            $csv[$cnt][] = $data["total_receipt_issue_percent"];
+            $cnt++;
+            $csv[$cnt][] = "領収書要求計";
+            $csv[$cnt][] = $data["total_receipt_request"];
+            $csv[$cnt][] = "領収書要求計 / 出庫数";
+            $csv[$cnt][] = $data["total_receipt_request_percent"];
+            $cnt++;
+          }
+
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "入庫時間→出庫請求金額時間別計({$data["total_parking_charge"]})";
+          $cnt++;
+          $csv[$cnt][] = "0時〜5時";
+          $csv[$cnt][] = $data["total_0_to_5_count"];
+          $csv[$cnt][] = $data["total_0_to_5_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "6時〜10時";
+          $csv[$cnt][] = $data["total_6_to_10_count"];
+          $csv[$cnt][] = $data["total_6_to_10_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "11時〜15時";
+          $csv[$cnt][] = $data["total_11_to_15_count"];
+          $csv[$cnt][] = $data["total_11_to_15_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "16時〜19時";
+          $csv[$cnt][] = $data["total_16_to_19_count"];
+          $csv[$cnt][] = $data["total_16_to_19_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "20時〜23時";
+          $csv[$cnt][] = $data["total_20_to_23_count"];
+          $csv[$cnt][] = $data["total_20_to_23_parking_charge"];
+          $cnt++;
+        }elseif($options["display_type"] == "past_time"){
+          $cnt++;
+          if($options["notation"] == _ANALYSE_IN_OUT_INDEX_NOTATION_SIGN){
+            $sign_info = "";
+            $sign_info.= "▲:1件〜{$data["quarter"]}件　";
+            $sign_info.= "◆:".($data["quarter"] + 1)."件〜{$data["half_quarters"]}件　";
+            $sign_info.= "◎:".($data["half_quarters"] + 1)."件〜{$data["three_quarters"]}件　";
+            $sign_info.= "★:".($data["three_quarters"] + 1)."件〜{$data["max_val"]}件";
+            $csv[$cnt][] = $sign_info; 
+            $cnt++;
+          }
+          $csv[$cnt][] = "入庫時間";
+          for($i = 0; $i <= 23; $i++){
+            $csv[$cnt][] = $i."時";
+          }
+          $cnt++;
+
+          foreach ($data["data"]["minutes"] as $key => $dat) {
+            $csv[$cnt][] = $key;
+            for($i = 0; $i <= 23; $i++){
+              $csv[$cnt][] = $dat["data"][$i]["val"];
+            }
+            $cnt++;
+          }
+          $csv[$cnt][] = "合計件数";
+          for($i = 0; $i <= 23; $i++){
+            $csv[$cnt][] = $data["data"]["hours"][$i]["sum_put_in_count"];
+          }
+          $cnt++;
+          $csv[$cnt][] = "合計金額";
+          for($i = 0; $i <= 23; $i++){
+            $csv[$cnt][] = $data["data"]["hours"][$i]["sum_parking_charge"];
+          }
+          $cnt++;
+
+          $csv[$cnt][] = "";
+          $cnt++;
+          
+          $csv[$cnt] = array(
+            "入庫時間",
+            "合計件数", 
+            "合計金額", 
+          );
+          $cnt++;
+
+          foreach ($data["data"]["minutes"] as $key => $dat) {
+            $csv[$cnt][] = $key;
+            $csv[$cnt][] = $dat["sum_put_in_count"];
+            $csv[$cnt][] = $dat["sum_parking_charge"];
+            $cnt++;
+          }
+          $csv[$cnt][] = "合計";
+          $csv[$cnt][] = $data["total_put_in_count"];
+          $csv[$cnt][] = $data["total_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "8時間(480分以下)";
+          $cnt++;
+          if(!empty($data["data"]["data"]["within_8hours"])){
+            foreach ($data["data"]["data"]["within_8hours"] as $str) {
+              $csv[$cnt][] = $str;
+              $cnt++;
+            } 
+          }
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "8時間(480分)→16時間(960分)";
+          $cnt++;
+          if(!empty($data["data"]["data"]["between_8hours_and_16hours"])){
+            foreach ($data["data"]["data"]["between_8hours_and_16hours"] as $str) {
+              $csv[$cnt][] = $str;
+              $cnt++;
+            } 
+          }
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "17時間(961分以上)";
+          $cnt++;
+          if(!empty($data["data"]["data"]["over_16hours"])){
+            foreach ($data["data"]["data"]["over_16hours"] as $str) {
+              $csv[$cnt][] = $str;
+              $cnt++;
+            } 
+          }
+        }elseif($options["display_type"] == "count_ranking"){
+          $csv[$cnt][] = "ランク";
+          $csv[$cnt][] = "A:請求金額";
+          $csv[$cnt][] = "B:件数";
+          $csv[$cnt][] = "C = A * B";
+          $csv[$cnt][] = "金額比率 = C / 金計({$data["total_parking_charge"]})";
+          $csv[$cnt][] = "件数比率 = C / 件数({$data["total_count"]})";
+          for($i = 1; $i <= 5; $i++){
+            $csv[$cnt][] = "{$i}位入庫〜出庫";
+            $csv[$cnt][] = "{$i}位件数";
+          }
+          $cnt++;
+
+          foreach ($data["data"] as $i => $dat) {
+            $rank = $i + 1;
+            $csv[$cnt][] = "{$rank}位";
+            $csv[$cnt][] = $dat["parking_charge"];
+            $csv[$cnt][] = $dat["sum_count"];
+            $csv[$cnt][] = $dat["sum_parking_charge"];
+            $csv[$cnt][] = $dat["parking_charge_ratio"];
+            $csv[$cnt][] = $dat["count_ratio"];
+            foreach ($dat["ranking"] as $key => $val) {
+              $csv[$cnt][] = "({$key})";
+              $csv[$cnt][] = $val;
+            }
+            $cnt++;
+          }
+        }elseif($options["display_type"] == "fructuation_index"){
+          $csv[$cnt][] = "入庫時間";
+          $csv[$cnt][] = "利用台数";
+          $csv[$cnt][] = "請求金額";
+          $csv[$cnt][] = "変動費率";
+          $cnt++;
+
+          foreach ($data["data"] as $put_in_hour => $dat) {
+            $csv[$cnt][] = "{$put_in_hour}時";
+            $csv[$cnt][] = $dat["sum_count"];
+            $csv[$cnt][] = $dat["sum_parking_charge"];
+            $csv[$cnt][] = $options["fractuation_ratio"][$put_in_hour];
+            $cnt++;
+          }
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "深夜の時間帯 {$options["midnight_time_zone_from"]}時〜{$options["midnight_time_zone_to"]}時";
+          $cnt++;
+          $csv[$cnt][] = "台数";
+          $csv[$cnt][] = $data["midnight"]["sum_count"];
+          $cnt++;
+          $csv[$cnt][] = "金額";
+          $csv[$cnt][] = $data["midnight"]["sum_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "変動比率";
+          $csv[$cnt][] = $options["midnight_fractuation_ratio"];
+          $cnt++;
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "朝の時間帯 {$options["morning_time_zone_from"]}時〜{$options["morning_time_zone_to"]}時";
+          $cnt++;
+          $csv[$cnt][] = "台数";
+          $csv[$cnt][] = $data["morning"]["sum_count"];
+          $cnt++;
+          $csv[$cnt][] = "金額";
+          $csv[$cnt][] = $data["morning"]["sum_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "変動比率";
+          $csv[$cnt][] = $options["morning_fractuation_ratio"];
+          $cnt++;
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "昼の時間帯 {$options["afternoon_time_zone_from"]}時〜{$options["afternoon_time_zone_to"]}時";
+          $cnt++;
+          $csv[$cnt][] = "台数";
+          $csv[$cnt][] = $data["afternoon"]["sum_count"];
+          $cnt++;
+          $csv[$cnt][] = "金額";
+          $csv[$cnt][] = $data["afternoon"]["sum_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "変動比率";
+          $csv[$cnt][] = $options["afternoon_fractuation_ratio"];
+          $cnt++;
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "夕方の時間帯 {$options["evening_time_zone_from"]}時〜{$options["evening_time_zone_to"]}時";
+          $cnt++;
+          $csv[$cnt][] = "台数";
+          $csv[$cnt][] = $data["evening"]["sum_count"];
+          $cnt++;
+          $csv[$cnt][] = "金額";
+          $csv[$cnt][] = $data["evening"]["sum_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "変動比率";
+          $csv[$cnt][] = $options["evening_fractuation_ratio"];
+          $cnt++;
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "夜の時間帯 {$options["night_time_zone_from"]}時〜{$options["night_time_zone_to"]}時";
+          $cnt++;
+          $csv[$cnt][] = "台数";
+          $csv[$cnt][] = $data["night"]["sum_count"];
+          $cnt++;
+          $csv[$cnt][] = "金額";
+          $csv[$cnt][] = $data["night"]["sum_parking_charge"];
+          $cnt++;
+          $csv[$cnt][] = "変動比率";
+          $csv[$cnt][] = $options["night_fractuation_ratio"];
+          $cnt++;
+          $csv[$cnt][] = "";
+          $cnt++;
+
+          $csv[$cnt][] = "総利用台数";
+          $csv[$cnt][] = $data["total_count"];
+          $cnt++;
+          $csv[$cnt][] = "総利用金額";
+          $csv[$cnt][] = $data["total_parking_charge"];
+        }else{
+          throw new Exception(_MESSAGE_FAIL_CSV_DOWNLOAD);
+        }
+      }else{
+        throw new Exception(_MESSAGE_FAIL_CSV_DOWNLOAD);
+      }
+
+      $this->CI->csv->download($csv,$filename);
+      exit;
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+  }
+
+  /********************************************************************
+  *
+  * 駐車場情報ををcsvの配列に組み込む
+  *
+  * @param $csv array CSVで使うデータの配列
+  * @param $cnt array CSVで使うデータの行のポインタ
+  * @param $total_count int 駐車件数
+  * @param $date string 検索日付
+  *
+  ********************************************************************/
+  private function addParkHeader(&$csv = array(),&$cnt = 0,$total_count = null,$date = null){
+    $select_park_id = $this->CI->data["select_park_id"];
+    if($select_park_id == "all"){
+      $group = $this->CI->data["group"];
+      $csv[$cnt][] = !empty($group) ? $group["group_name"] : "すべて";
+    }else{
+      $csv[$cnt][] = $this->CI->data["parks_list"][$select_park_id];
+    }
+    if($total_count !== null){
+      $csv[$cnt][] = $total_count."台";
+    }
+    if($date !== null){
+      $csv[$cnt][] = $date;
+    }
+    $cnt++;
+  }
+}

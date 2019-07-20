@@ -1,0 +1,661 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+use \Ospinto\dBug as dbug;
+class Reports_model extends MY_Model {
+	protected $CI;
+
+	public function __construct()
+  {
+    parent::__construct();
+		$this->CI =& get_instance();
+  }
+
+  /********************************************************************
+  *
+  * 一覧のデータ取得
+  *
+  * @param  $db obj データベースインスタンス
+  * @param  $options array 検索条件
+  * @return $data array
+  *
+  ********************************************************************/
+  public function getIndex($db = array(),$options = array()){
+
+    try{
+      if(empty($db)){
+        throw new Exception("データベースインスタンスがありません");
+      }
+
+      //初期値設定
+      $data = array();
+      $data["total_count"]          = null;
+      $data["total_receipt_amount"] = null;
+      $data["total_prepaid"]        = null;
+      $data["total_service_ticket"] = null;
+      $data["total_electric_money"] = null;
+      $data["total_web_pay"]        = null;
+      $data["data"] = array();
+
+      //データを取得
+      $options["park_id"] = $options["park_id"] == "all" ? $this->CI->data["park_id"] : array($options["park_id"]);
+      $res = $this->model("adjust_data")->findAdjustData($db,$options);
+      //new dbug($res);
+      //exit;
+      if(!empty($res)){
+        foreach ($res as $r) {
+          $park_id = $r["park_id"];
+          if(isset($data["data"][$park_id]) === false){
+            $data["data"][$park_id]["park_name"] = $r["park_name"]; 
+            $data["data"][$park_id]["sum_count"]          = null;
+            $data["data"][$park_id]["sum_receipt_amount"] = null;
+            $data["data"][$park_id]["sum_prepaid"]        = null;
+            $data["data"][$park_id]["sum_service_ticket"] = null;
+            $data["data"][$park_id]["sum_electric_money"] = null;
+            $data["data"][$park_id]["sum_web_pay"]        = null;
+          }
+
+          $data["total_count"]++;
+          $data["data"][$park_id]["sum_count"]++;
+
+          $data["total_receipt_amount"]+= $r["receipt_amount"];
+          $data["data"][$park_id]["sum_receipt_amount"]+= $r["receipt_amount"];
+
+          $data["total_receipt_amount"]+= $r["receipt_amount"];
+          $data["data"][$park_id]["sum_receipt_amount"]+= $r["receipt_amount"];
+
+          $adjust_date = $r["adjust_date"];
+          $hour = date("G",strtotime($adjust_date));
+          $data["data"][$hour]["sum_parking_charge"]+= $r["pariking_charge"];
+          $data["total_parking_charge"]+= $r["pariking_charge"];
+          $data["data"][$hour]["sum_count"]++;
+          $data["total_count"]++;
+          $data["data"][$hour]["sum_receipt_amount"]+= $r["receipt_amount"];
+          $data["total_receipt_amount"]+= $r["receipt_amount"];
+          //$r["waribiki_price"] = $this->getWaribikiPrice($db,$r["park_id"],$r["adjuster_id"],$r["make_record_date"]);
+          $data["data"][$hour]["sum_other_receipt_amount"]+= $r["other_receipt_amount"];
+          $data["total_other_receipt_amount"]+= $r["other_receipt_amount"];
+          if(isset($options["receipt"]) && $options["receipt"] == "show"){
+            $data["data"][$hour]["sum_receipt_issue"]+= $r["receipt_issue"];
+            $data["total_receipt_issue"]+= $r["receipt_issue"];
+            $data["data"][$hour]["sum_receipt_request"]+= $r["receipt_request"];
+            $data["total_receipt_request"]+= $r["receipt_request"];
+          }
+        }
+      }
+
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+
+    //new dbug($data);
+    //exit;
+    return $data;
+  }
+
+  /********************************************************************
+  *
+  * 日報のデータ取得
+  *
+  * @param  $db obj データベースインスタンス
+  * @param  $options array 検索条件
+  * @return $data array
+  *
+  ********************************************************************/
+  public function getDailyIndex($db = array(),$options = array()){
+    //初期値設定
+    $data = array();
+    $data["total_parking_charge"] = null;
+    $data["total_count"] = null;
+    $data["total_receipt_amount"] = null;
+    $data["total_other_receipt_amount"] = null;
+    $data["total_receipt_issue"] = null;
+    $data["total_receipt_request"] = null;
+    for($i = 0; $i <= 23; $i++){
+      $data["data"][$i] = array(
+        "sum_parking_charge"       => null,
+        "sum_count"                => null,
+        "sum_receipt_amount"       => null,
+        "sum_other_receipt_amount" => null,
+        "sum_receipt_issue" => null,
+        "sum_receipt_request" => null,
+      ); 
+    }
+
+    try{
+      if(empty($db)){
+        throw new Exception("データベースインスタンスがありません");
+      }
+
+      //データを取得
+      $res = $this->model("adjust_data")->findAdjustData($db,$options);
+      if(!empty($res)){
+        foreach ($res as $r) {
+          $adjust_date = $r["adjust_date"];
+          $hour = date("G",strtotime($adjust_date));
+          $data["data"][$hour]["sum_parking_charge"]+= $r["pariking_charge"];
+          $data["total_parking_charge"]+= $r["pariking_charge"];
+          $data["data"][$hour]["sum_count"]++;
+          $data["total_count"]++;
+          $data["data"][$hour]["sum_receipt_amount"]+= $r["receipt_amount"];
+          $data["total_receipt_amount"]+= $r["receipt_amount"];
+          //$r["waribiki_price"] = $this->getWaribikiPrice($db,$r["park_id"],$r["adjuster_id"],$r["make_record_date"]);
+          $data["data"][$hour]["sum_other_receipt_amount"]+= $r["other_receipt_amount"];
+          $data["total_other_receipt_amount"]+= $r["other_receipt_amount"];
+          if(isset($options["receipt"]) && $options["receipt"] == "show"){
+            $data["data"][$hour]["sum_receipt_issue"]+= $r["receipt_issue"];
+            $data["total_receipt_issue"]+= $r["receipt_issue"];
+            $data["data"][$hour]["sum_receipt_request"]+= $r["receipt_request"];
+            $data["total_receipt_request"]+= $r["receipt_request"];
+          }
+        }
+      }
+
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+
+    //new dbug($data);
+    //exit;
+    return $data;
+  }
+
+  /********************************************************************
+  *
+  * 週報のデータ取得
+  *
+  * @param  $db obj データベースインスタンス
+  * @param  $options array 検索条件
+  * @return $data array
+  *
+  ********************************************************************/
+  public function getWeeklyIndex($db = array(),$options = array()){
+    //初期値設定
+    $data = array();
+    $data["total_count"] = null;
+    $data["total_parking_charge"] = null;
+    $data["total_receipt_amount"] = null;
+    $data["total_other_receipt_amount"] = null;
+    $data["total_receipt_issue"] = null;
+    $data["total_receipt_request"] = null;
+    for($i = 1; $i <= 7; $i++){
+      $key = $i;
+      if($i == 7) $key = 0;
+      $data["data"][$key] = array(
+        "sum_parking_charge"       => null,
+        "sum_count"                => null,
+        "sum_receipt_amount"       => null,
+        "sum_other_receipt_amount" => null,
+        "sum_receipt_issue"        => null,
+        "sum_receipt_request"      => null,
+        "average_parking_charge"   => null,
+        "average_count"            => null,
+        "day_count"                => null,
+      ); 
+    }
+
+    try{
+      if(empty($db)){
+        throw new Exception("データベースインスタンスがありません");
+      }
+
+      //データを取得
+      $res = $this->model("adjust_data")->findAdjustData($db,$options);
+
+      if(!empty($res)){
+        //曜日カウント
+        list($start_adjust_date,$end_adjust_date) = explode(" - ",$options["date_weekly_index"]);
+        $infinity = 0;
+        while(strtotime($start_adjust_date) <= strtotime($end_adjust_date)){
+          $w = date("w",strtotime($start_adjust_date));
+          $data["data"][$w]["day_count"]++;
+
+          if($infinity == 10000){
+            throw new Exception("週報のデータが取得で無限ループが起きている可能性があります");
+          }
+          $infinity++;
+          $start_adjust_date = date("Y/m/d",strtotime($start_adjust_date." +1 day")); 
+        }
+
+        foreach ($res as $r) {
+          $adjust_date = $r["adjust_date"];
+          $w = date("w",strtotime($adjust_date));
+
+          $data["data"][$w]["sum_parking_charge"]+= $r["pariking_charge"];
+          $data["total_parking_charge"]+= $r["pariking_charge"];
+          $data["data"][$w]["sum_count"]++;
+          $data["total_count"]++;
+          $data["data"][$w]["sum_receipt_amount"]+= $r["receipt_amount"];
+          $data["total_receipt_amount"]+= $r["receipt_amount"];
+          $data["data"][$w]["sum_other_receipt_amount"]+= $r["other_receipt_amount"];
+          $data["total_other_receipt_amount"]+= $r["other_receipt_amount"];
+          if(isset($options["receipt"]) && $options["receipt"] == "show"){
+            $data["data"][$w]["sum_receipt_issue"]+= $r["receipt_issue"];
+            $data["total_receipt_issue"]+= $r["receipt_request"];
+            $data["data"][$w]["sum_receipt_request"]+= $r["receipt_request"];
+            $data["total_receipt_request"]+= $r["receipt_request"];
+          }
+        }
+
+        //平均値を算出
+        foreach ($data["data"] as $w => &$dat) {
+          if($dat["day_count"] > 0){
+            if($dat["sum_parking_charge"] > 0){
+              $dat["average_parking_charge"] = floor($dat["sum_parking_charge"] / $dat["day_count"]); 
+            }
+            if($dat["sum_count"] > 0){
+              $dat["average_count"] = floor($dat["sum_count"] / $dat["day_count"]); 
+            }
+          }
+        }
+        unset($dat);
+      }
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+
+    return $data;
+  }
+
+  /********************************************************************
+  *
+  * 月報のデータ取得
+  *
+  * @param  $db obj データベースインスタンス
+  * @param  $options array 検索条件
+  * @return $data array
+  *
+  ********************************************************************/
+  public function getMonthlyIndex($db = array(),$options = array()){
+    $data = array();
+    try{
+      if(empty($db)){
+        throw new Exception("データベースインスタンスがありません");
+      }
+
+      //=========================================================
+      //
+      // 初期値設定
+      //
+      //=========================================================
+      //合計関係
+      $data["total_count"] = null;
+      $data["total_parking_charge"] = null;
+      $data["total_receipt_amount"] = null;
+      $data["total_other_receipt_amount"] = null;
+      $data["total_receipt_issue"] = null;
+      $data["total_receipt_request"] = null;
+      $data["total_sub"] = null;
+      $data["prev_forward"] = null;
+      $data["receivable"] = null;
+      $data["forward"] = null;
+      $data["count_price"] = null;
+      $data["rotation"] = null;
+      $data["price_rotation"] = null;
+      $data["biginning_parking_charge"] = null;
+      $data["middle_parking_charge"] = null;
+      $data["end_parking_charge"] = null;
+      $data["biginning_middle_parking_charge"] = null;
+      //曜日計
+      $data["day_total"] = array();
+      for($i = 1; $i <= 7; $i++){
+        $key = $i;
+        if($i == 7) $key = 0;
+        $data["day_total"][$key] = null; 
+      }
+      //カレンダーのセル
+      $data["data"] = array();
+      $start_adjust_date = $options["date_monthly_index"]."/01";
+      $end_adjust_date = date("Y/m/t",strtotime($start_adjust_date));
+      $infinity = 0;
+      $week = $this->initCalendarWeek();
+      while(strtotime($start_adjust_date) <= strtotime($end_adjust_date)){
+        $day = date("j",strtotime($start_adjust_date));
+        $w = date("w",strtotime($start_adjust_date));
+        $tmp_w = $w == 0 ? 7 : $w;
+
+        //セルの初期化
+        if($day == 1){
+          //1日の時は月曜日〜1日のセルを空白で埋める
+          for($i = 1; $i < $tmp_w; $i++){
+            $week["data"][] = $this->initCalendarCell("");
+          }
+        }
+        $week["data"][] = $this->initCalendarCell($day);
+
+        //1週間が埋まったら新しい週にする
+        if(count($week["data"]) == 7){
+          $data["data"][] = $week;  
+          $week = $this->initCalendarWeek();
+        }
+
+        //1ヶ月は最大31日なのでそれ以上は無限ループ扱いにする
+        if($infinity == 31){
+          throw new Exception("月報のデータが取得で無限ループが起きている可能性があります");
+        }
+        $infinity++;
+
+        $start_adjust_date = date("Y/m/d",strtotime($start_adjust_date." +1 day")); 
+      }
+      //最終週は最終日〜日曜日までを空白で埋める
+      if(!empty($week["data"])){
+        for($i = $tmp_w; $i < 7; $i++){
+          $week["data"][] = $this->initCalendarCell("");
+        }
+        $data["data"][] = $week;  
+      }
+
+      //データを取得
+      //$options["order"] = "adjust_date asc";
+      $res = $this->model("adjust_data")->findAdjustData($db,$options);
+
+      if(!empty($res)){
+        //各駐車場の最大車室数を格納する配列
+        $max_car_room_count = array();
+
+        //実際にデータがあった日付を格納する配列
+        $adjust_dates = array();
+
+        foreach ($res as $r) {
+          $park_id = $r["park_id"];
+          if(isset($max_car_room_count[$park_id]) === false){
+            $max_car_room_count[$park_id] = $r["max_carroom_count"]; 
+          }
+
+          $adjust_dates[] = date("Y-m-d",strtotime($r["adjust_date"]));
+          
+          $day = date("j",strtotime($r["adjust_date"]));
+          $w = date("w",strtotime($r["adjust_date"]));
+
+          $data["total_count"]++;
+          $data["total_parking_charge"]+= $r["pariking_charge"];
+          $data["total_receipt_amount"]+= $r["receipt_amount"];
+          $data["total_other_receipt_amount"]+= $r["other_receipt_amount"];
+          if(isset($options["receipt"]) && $options["receipt"] == "show"){
+            $data["total_receipt_issue"]+= $r["receipt_issue"];
+            $data["total_receipt_request"]+= $r["receipt_request"];
+          }
+          $data["day_total"][$w]+= $r["pariking_charge"];
+          if($day <= 10){
+            $data["biginning_parking_charge"]+= $r["pariking_charge"];
+            $data["biginning_middle_parking_charge"]+= $r["pariking_charge"];
+          }elseif($day <= 20){
+            $data["middle_parking_charge"]+= $r["pariking_charge"];
+            $data["biginning_middle_parking_charge"]+= $r["pariking_charge"];
+          }else{
+            $data["end_parking_charge"]+= $r["pariking_charge"];
+          }
+          foreach ($data["data"] as $week_num => &$week) {
+            foreach ($week["data"] as &$cell) {
+              if($cell["day"] == $day){
+                $cell["sum_parking_charge"]+= $r["pariking_charge"];
+                $week["total_parking_charge"]+= $r["pariking_charge"];
+                $cell["sum_count"]++; 
+                $week["total_count"]++; 
+                $cell["sum_receipt_amount"]+= $r["receipt_amount"];
+                $week["total_receipt_amount"]+= $r["receipt_amount"];
+                $cell["sum_other_receipt_amount"]+= $r["other_receipt_amount"];
+                $week["total_other_receipt_amount"]+= $r["other_receipt_amount"];
+                if(isset($options["receipt"]) && $options["receipt"] == "show"){
+                  $cell["sum_receipt_issue"]+= $r["receipt_issue"];
+                  $week["total_receipt_issue"]+= $r["receipt_issue"];
+                  $cell["sum_receipt_request"]+= $r["receipt_request"];
+                  $week["total_receipt_request"]+= $r["receipt_request"];
+                }
+                break 2;
+              }
+            }
+          }
+          unset($week);
+          unset($cell);
+        }
+
+        //件数単価の計算
+        if($data["total_parking_charge"] > 0 && $data["total_count"] > 0){
+          $data["count_price"] = floor($data["total_parking_charge"] / $data["total_count"]); 
+        }
+
+        //回転数の計算
+        $total_max_carroom_count = array_sum($max_car_room_count);
+        $adjust_dates = array_unique($adjust_dates);
+        $adjust_date_count = count($adjust_dates);
+        $left = $data["total_count"];
+        $right = $total_max_carroom_count * $adjust_date_count;
+        if($left > 0 && $right > 0){
+          $data["rotation"] = floor(($left / $right) * 10) / 10; 
+        }
+        $start_adjust_date = $options["date_monthly_index"]."/01";
+        $end_adjust_date = date("Y/m/t",strtotime($start_adjust_date));
+        $day_count = ((strtotime($end_adjust_date) - strtotime($start_adjust_date)) / 3600 / 24) + 1;
+        $right = $total_max_carroom_count * $day_count;
+        if($left > 0 && $right > 0){
+          $data["price_rotation"] = floor(($left / $right) * 10) / 10; 
+        }
+      }
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+
+    return $data;
+  }
+
+  /********************************************************************
+  *
+  * 月報のカレンダーの週の初期値を返す
+  *
+  * @return $week array 週の初期値
+  *
+  ********************************************************************/
+  private function initCalendarWeek(){
+    $week = array();
+    $week["total_parking_charge"] = null;
+    $week["total_count"] = null;
+    $week["total_receipt_amount"] = null;
+    $week["total_other_receipt_amount"] = null;
+    $week["total_receipt_issue"] = null;
+    $week["total_receipt_request"] = null;
+    $week["data"] = array();
+    return $week;
+  }
+
+  /********************************************************************
+  *
+  * 月報のカレンダーのセルの初期値を返す
+  *
+  * @param  $day int 日にち
+  * @return $cell array セルの初期値
+  *
+  ********************************************************************/
+  private function initCalendarCell($day = ""){
+    $cell = array();
+    $cell["day"] = $day;
+    $cell["sum_parking_charge"] = null;
+    $cell["sum_count"] = null;
+    $cell["sum_receipt_amount"] = null;
+    $cell["sum_other_receipt_amount"] = null;
+    $cell["sum_receipt_issue"] = null;
+    $cell["sum_receipt_request"] = null;
+    return $cell;
+  }
+
+  /********************************************************************
+  *
+  * 年報のデータ取得
+  *
+  * @param  $db obj データベースインスタンス
+  * @param  $options array 検索条件
+  * @return $data array
+  *
+  ********************************************************************/
+  public function getYearlyIndex($db = array(),$options = array()){
+    $data = array();
+    try{
+      if(empty($db)){
+        throw new Exception("データベースインスタンスがありません");
+      }
+
+      //=========================================================
+      //
+      // 初期値設定
+      //
+      //=========================================================
+      $data["total_count"] = null;
+      $data["data"] = array();
+      for($i = 0; $i < $options["past_year"] + 1; $i++){
+        $tmp_year_month = date("Y-m",strtotime($options["date_yearly_index"]."/01 -{$i} year"));
+        $year = date("Y",strtotime($options["date_yearly_index"]."/01 -{$i} year"));
+        $data["data"][$year] = array();
+        $data["data"][$year]["total_parking_charge"] = null;
+        $data["data"][$year]["total_parking_charge_comparison"] = null;
+        $data["data"][$year]["total_count"] = null;
+        $data["data"][$year]["total_count_comparison"] = null;
+        $data["data"][$year]["total_receipt_amount"] = null;
+        $data["data"][$year]["total_receipt_amount_comparison"] = null;
+        $data["data"][$year]["total_other_receipt_amount"] = null;
+        $data["data"][$year]["total_other_receipt_amount_comparison"] = null;
+        $data["data"][$year]["total_receipt_issue"] = null;
+        $data["data"][$year]["total_receipt_issue_comparison"] = null;
+        $data["data"][$year]["total_receipt_request"] = null;
+        $data["data"][$year]["total_receipt_request_comparison"] = null;
+        $data["data"][$year]["data"] = array();
+        for($j = 11; $j >= 0; $j--){
+          $year_month = date("Y-m",strtotime($tmp_year_month."-01 -{$j} month")); 
+          $data["data"][$year]["data"][$year_month] = array();
+          $data["data"][$year]["data"][$year_month]["sum_parking_charge"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_parking_charge_comparison"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_count"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_count_comparison"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_receipt_amount"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_receipt_amount_comparison"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_other_receipt_amount"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_other_receipt_amount_comparison"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_receipt_issue"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_receipt_issue_comparison"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_receipt_request"] = null;
+          $data["data"][$year]["data"][$year_month]["sum_receipt_request_comparison"] = null;
+        }
+      }
+
+      //new dbug($data);
+      //exit;
+      //データを取得
+      $res = $this->model("adjust_data")->findAdjustData($db,$options);
+
+      if(!empty($res)){
+        //全体の件数合計は使わないが1以上でviewが表示されるようになっているのでとりあえず1にする
+        $data["total_count"]++;
+
+        $date_month = date("n",strtotime($options["date_yearly_index"]."/01"));
+        foreach ($res as $r) {
+          $month = date("n",strtotime($r["adjust_date"]));
+          if($month > $date_month){
+            $year = date("Y",strtotime($r["adjust_date"]." +1 year"));
+          }else{
+            $year = date("Y",strtotime($r["adjust_date"]));
+          }
+          $year_month = date("Y-m",strtotime($r["adjust_date"]));
+
+          $data["data"][$year]["total_count"]++;
+          $data["data"][$year]["data"][$year_month]["sum_count"]++;
+          $data["data"][$year]["total_parking_charge"]+= $r["pariking_charge"];
+          $data["data"][$year]["data"][$year_month]["sum_parking_charge"]+= $r["pariking_charge"];
+          $data["data"][$year]["total_receipt_amount"]+= $r["receipt_amount"];
+          $data["data"][$year]["data"][$year_month]["sum_receipt_amount"]+= $r["receipt_amount"];
+          $data["data"][$year]["total_other_receipt_amount"]+= $r["other_receipt_amount"];
+          $data["data"][$year]["data"][$year_month]["sum_other_receipt_amount"]+= $r["other_receipt_amount"];
+          $data["data"][$year]["total_receipt_issue"]+= $r["receipt_issue"];
+          $data["data"][$year]["data"][$year_month]["sum_receipt_issue"]+= $r["receipt_issue"];
+          $data["data"][$year]["total_receipt_request"]+= $r["receipt_request"];
+          $data["data"][$year]["data"][$year_month]["sum_receipt_request"]+= $r["receipt_request"];
+        }
+
+        //前月比計算
+        //new dbug($data);
+        foreach ($data["data"] as $year => &$year_data) {
+          $prev_year = $year - 1;
+
+          if(isset($data["data"][$prev_year])){
+            $total_parking_charge = $year_data["total_parking_charge"] !== null ? $year_data["total_parking_charge"] : 0;
+
+            $prev_total_parking_charge = $data["data"][$prev_year]["total_parking_charge"] !== null ? $data["data"][$prev_year]["total_parking_charge"] : 0;
+            $total_parking_charge_comparison = $total_parking_charge == 0 || $prev_total_parking_charge == 0 ? "" : floor(($total_parking_charge / $prev_total_parking_charge) * 1000) / 10;
+            $year_data["total_parking_charge_comparison"] = $total_parking_charge_comparison;
+
+            $total_count = $year_data["total_count"] !== null ? $year_data["total_count"] : 0;
+            $prev_total_count = $data["data"][$prev_year]["total_count"] !== null ? $data["data"][$prev_year]["total_count"] : 0;
+            $total_count_comparison = $total_count == 0 || $prev_total_count == 0 ? "" : floor(($total_count / $prev_total_count) * 1000) / 10;
+            $year_data["total_count_comparison"] = $total_count_comparison;
+
+            $total_receipt_amount = $year_data["total_receipt_amount"] !== null ? $year_data["total_receipt_amount"] : 0;
+            $prev_total_receipt_amount = $data["data"][$prev_year]["total_receipt_amount"] !== null ? $data["data"][$prev_year]["total_receipt_amount"] : 0;
+            $total_receipt_amount_comparison = $total_receipt_amount == 0 || $prev_total_receipt_amount == 0 ? "" : floor(($total_receipt_amount / $prev_total_receipt_amount) * 1000) / 10;
+            $year_data["total_receipt_amount_comparison"] = $total_receipt_amount_comparison;
+
+            $total_other_receipt_amount = $year_data["total_other_receipt_amount"] !== null ? $year_data["total_other_receipt_amount"] : 0;
+            $prev_total_other_receipt_amount = $data["data"][$prev_year]["total_other_receipt_amount"] !== null ? $data["data"][$prev_year]["total_other_receipt_amount"] : 0;
+            $total_other_receipt_amount_comparison = $total_other_receipt_amount == 0 || $prev_total_other_receipt_amount == 0 ? "" : floor(($total_other_receipt_amount / $prev_total_other_receipt_amount) * 1000) / 10;
+            $year_data["total_other_receipt_amount_comparison"] = $total_other_receipt_amount_comparison;
+
+            $total_receipt_issue = $year_data["total_receipt_issue"] !== null ? $year_data["total_receipt_issue"] : 0;
+            $prev_total_receipt_issue = $data["data"][$prev_year]["total_receipt_issue"] !== null ? $data["data"][$prev_year]["total_receipt_issue"] : 0;
+            $total_receipt_issue_comparison = $total_receipt_issue == 0 || $prev_total_receipt_issue == 0 ? "" : floor(($total_receipt_issue / $prev_total_receipt_issue) * 1000) / 10;
+            $year_data["total_receipt_issue_comparison"] = $total_receipt_issue_comparison;
+
+            $total_receipt_request = $year_data["total_receipt_request"] !== null ? $year_data["total_receipt_request"] : 0;
+            $prev_total_receipt_request = $data["data"][$prev_year]["total_receipt_request"] !== null ? $data["data"][$prev_year]["total_receipt_request"] : 0;
+            $total_receipt_request_comparison = $total_receipt_request == 0 || $prev_total_receipt_request == 0 ? "" : floor(($total_receipt_request / $prev_total_receipt_request) * 1000) / 10;
+            $year_data["total_receipt_request_comparison"] = $total_receipt_request_comparison;
+
+            foreach ($year_data["data"] as $year_month => &$dat) {
+              $prev_year_month = date("Y-m",strtotime($year_month."-01 -1 year"));
+
+              $sum_parking_charge = $dat["sum_parking_charge"] !== null ? $dat["sum_parking_charge"] : 0;
+              $prev_sum_parking_charge = $data["data"][$prev_year]["data"][$prev_year_month]["sum_parking_charge"] !== null ? $data["data"][$prev_year]["data"][$prev_year_month]["sum_parking_charge"] : 0;
+              $sum_parking_charge_comparison = $sum_parking_charge == 0 || $prev_sum_parking_charge == 0 ? "" : floor(($sum_parking_charge / $prev_sum_parking_charge) * 1000) / 10;
+              $dat["sum_parking_charge_comparison"] = $sum_parking_charge_comparison;
+
+              $sum_count = $dat["sum_count"] !== null ? $dat["sum_count"] : 0;
+              $prev_sum_count = $data["data"][$prev_year]["data"][$prev_year_month]["sum_count"] !== null ? $data["data"][$prev_year]["data"][$prev_year_month]["sum_count"] : 0;
+              $sum_count_comparison = $sum_count == 0 || $prev_sum_count == 0 ? "" : floor(($sum_count / $prev_sum_count) * 1000) / 10;
+              $dat["sum_count_comparison"] = $sum_count_comparison;
+
+              $sum_receipt_amount = $dat["sum_receipt_amount"] !== null ? $dat["sum_receipt_amount"] : 0;
+              $prev_sum_receipt_amount = $data["data"][$prev_year]["data"][$prev_year_month]["sum_receipt_amount"] !== null ? $data["data"][$prev_year]["data"][$prev_year_month]["sum_receipt_amount"] : 0;
+              $sum_receipt_amount_comparison = $sum_receipt_amount == 0 || $prev_sum_receipt_amount == 0 ? "" : floor(($sum_receipt_amount / $prev_sum_receipt_amount) * 1000) / 10;
+              $dat["sum_receipt_amount_comparison"] = $sum_receipt_amount_comparison;
+
+              $sum_other_receipt_amount = $dat["sum_other_receipt_amount"] !== null ? $dat["sum_other_receipt_amount"] : 0;
+              $prev_sum_other_receipt_amount = $data["data"][$prev_year]["data"][$prev_year_month]["sum_other_receipt_amount"] !== null ? $data["data"][$prev_year]["data"][$prev_year_month]["sum_other_receipt_amount"] : 0;
+              $sum_other_receipt_amount_comparison = $sum_other_receipt_amount == 0 || $prev_sum_other_receipt_amount == 0 ? "" : floor(($sum_other_receipt_amount / $prev_sum_other_receipt_amount) * 1000) / 10;
+              $dat["sum_other_receipt_amount_comparison"] = $sum_other_receipt_amount_comparison;
+
+              $sum_receipt_issue = $dat["sum_receipt_issue"] !== null ? $dat["sum_receipt_issue"] : 0;
+              $prev_sum_receipt_issue = $data["data"][$prev_year]["data"][$prev_year_month]["sum_receipt_issue"] !== null ? $data["data"][$prev_year]["data"][$prev_year_month]["sum_receipt_issue"] : 0;
+              $sum_receipt_issue_comparison = $sum_receipt_issue == 0 || $prev_sum_receipt_issue == 0 ? "" : floor(($sum_receipt_issue / $prev_sum_receipt_issue) * 1000) / 10;
+              $dat["sum_receipt_issue_comparison"] = $sum_receipt_issue_comparison;
+
+              $sum_receipt_request = $dat["sum_receipt_request"] !== null ? $dat["sum_receipt_request"] : 0;
+              $prev_sum_receipt_request = $data["data"][$prev_year]["data"][$prev_year_month]["sum_receipt_request"] !== null ? $data["data"][$prev_year]["data"][$prev_year_month]["sum_receipt_request"] : 0;
+              $sum_receipt_request_comparison = $sum_receipt_request == 0 || $prev_sum_receipt_request == 0 ? "" : floor(($sum_receipt_request / $prev_sum_receipt_request) * 1000) / 10;
+              $dat["sum_receipt_request_comparison"] = $sum_receipt_request_comparison;
+            }
+          }
+        }
+        unset($year_data);
+        unset($dat);
+
+        //一番最後の年のデータはその翌年の前月比の計算のために取得しただけのデータなので削除
+        $key_years = array_keys($data["data"]);
+        $key_years = array_reverse($key_years);
+        $last_key_year = $key_years[0];
+        unset($data["data"][$last_key_year]);
+        //new dbug($data);
+        //exit;
+      }
+    }catch(Exception $e){
+      $this->CI->error->custom_error($e->getMessage());
+    }
+
+    return $data;
+  }
+}

@@ -1,0 +1,272 @@
+<?php
+if (!defined('BASEPATH')) exit('No direct script access allowed');
+
+use \Ospinto\dBug as dbug;
+class Custom_validation_rule extends CI_Form_validation
+{
+  protected $CI;
+
+  public function __construct()
+  {
+    parent::__construct();
+    $this->CI =& get_instance(); 
+  }
+
+  /********************************************************************
+  *
+  * 日報の日付のバリデーション
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function check_date_format_daily_index($value){
+    try{
+      if($this->CI->input->post("display_type") == "daily_index"){
+        return $this->check_datetime_between($value);
+      }
+
+      return true;
+    }catch(Exception $e){
+      return false; 
+    }
+  }
+  /********************************************************************
+  *
+  * 週報の日付のバリデーション
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function check_date_format_weekly_index($value){
+    try{
+      if($this->CI->input->post("display_type") == "weekly_index"){
+        return $this->check_date_between($value);
+      }
+
+      return true;
+    }catch(Exception $e){
+      return false; 
+    }
+  }
+  /********************************************************************
+  *
+  * 月報の日付のバリデーション
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function check_date_format_monthly_index($value){
+    try{
+      if($this->CI->input->post("display_type") == "monthly_index"){
+        if(!preg_match('/^([1-9][0-9]{3})\/(0[1-9]{1}|1[0-2]{1})$/', $value)){
+          throw new Exception(); 
+        }
+      }
+
+      return true;
+    }catch(Exception $e){
+      return false; 
+    }
+  }
+  /********************************************************************
+  *
+  * 年報の日付のバリデーション
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function check_date_format_yearly_index($value){
+    try{
+      if($this->CI->input->post("display_type") == "yearly_index"){
+        if(!preg_match('/^([1-9][0-9]{3})\/(0[1-9]{1}|1[0-2]{1})$/', $value)){
+          throw new Exception(); 
+        }
+      }
+
+      return true;
+    }catch(Exception $e){
+      return false; 
+    }
+  }
+
+  /********************************************************************
+  *
+  * Y/m/d H:i - Y/m/d H:iのチェック
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function check_datetime_between($value){
+    try{
+      $split_value = explode(" - ",$value);
+      if(count($split_value) != 2){
+        throw new Exception(); 
+      }
+      foreach ($split_value as $datetime) {
+        $split_datetime = explode(" ",$datetime);
+        if(count($split_datetime) != 2){
+          throw new Exception(); 
+        }
+
+        $day = $split_datetime[0];
+        if(!preg_match('/^([1-9][0-9]{3})\/(0[1-9]{1}|1[0-2]{1})\/(0[1-9]{1}|[1-2]{1}[0-9]{1}|3[0-1]{1})$/', $day)){
+          throw new Exception(); 
+        }
+
+        $time = $split_datetime[1];
+        if(!preg_match('/^(0[0-9]{1}|1{1}[0-9]{1}|2{1}[0-3]{1}):(0[0-9]{1}|[1-5]{1}[0-9]{1})$/', $time)){
+          throw new Exception(); 
+        }
+      }
+
+      return true;
+    }catch(Exception $e){
+      return false; 
+    }
+  }
+
+  /********************************************************************
+  *
+  * Y/m/d - Y/m/dのチェック
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function check_date_between($value){
+    try{
+      $split_value = explode(" - ",$value);
+      if(count($split_value) != 2){
+        throw new Exception(); 
+      }
+      foreach ($split_value as $date) {
+        if(!preg_match('/^([1-9][0-9]{3})\/(0[1-9]{1}|1[0-2]{1})\/(0[1-9]{1}|[1-2]{1}[0-9]{1}|3[0-1]{1})$/', $date)){
+          throw new Exception(); 
+        }
+      }
+
+      return true;
+    }catch(Exception $e){
+      return false; 
+    }
+  }
+
+  /********************************************************************
+  *
+  * 入出庫件数一覧の領収書のバリデーション
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function required_receipt_in_in_out_index($value){
+    try{
+      if($this->CI->input->post("display_type") == "put_out_time_analysis"){
+        return $this->required($value);
+      }
+
+      return true;
+    }catch(Exception $e){
+      return false; 
+    }
+  }
+
+  /********************************************************************
+  *
+  * 入出庫件数一覧の表記のバリデーション
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function required_notation_in_in_out_index($value){
+    try{
+      if($this->CI->input->post("display_type") == "put_out_time_analysis" || $this->CI->input->post("display_type") == "past_time"){
+        return $this->required($value);
+      }
+
+      return true;
+    }catch(Exception $e){
+      return false; 
+    }
+  }
+
+  /********************************************************************
+  *
+  * 入出庫件数一覧の時間帯のバリデーション
+  *
+  * @param $value string 入力値
+  * @return bool
+  *
+  ********************************************************************/
+  public function check_time_zone($value){
+    try{
+      if($this->CI->input->post("display_type") == "fructuation_index"){
+        //開始時間と終了時間の関係性のチェック
+        $valid = true;
+        $midnight_time_zone_from = $this->CI->input->post("midnight_time_zone_from");
+        $midnight_time_zone_to = $this->CI->input->post("midnight_time_zone_to");
+        if($midnight_time_zone_from >= $midnight_time_zone_to){
+          $valid = false;
+        }
+        $morning_time_zone_from = $this->CI->input->post("morning_time_zone_from");
+        $morning_time_zone_to = $this->CI->input->post("morning_time_zone_to");
+        if($morning_time_zone_from >= $morning_time_zone_to){
+          $valid = false;
+        }
+        $afternoon_time_zone_from = $this->CI->input->post("afternoon_time_zone_from");
+        $afternoon_time_zone_to = $this->CI->input->post("afternoon_time_zone_to");
+        if($afternoon_time_zone_from >= $afternoon_time_zone_to){
+          $valid = false;
+        }
+        $evening_time_zone_from = $this->CI->input->post("evening_time_zone_from");
+        $evening_time_zone_to = $this->CI->input->post("evening_time_zone_to");
+        if($evening_time_zone_from >= $evening_time_zone_to){
+          $valid = false;
+        }
+        $night_time_zone_from = $this->CI->input->post("night_time_zone_from");
+        $night_time_zone_to = $this->CI->input->post("night_time_zone_to");
+        if($night_time_zone_from >= $night_time_zone_to){
+          $valid = false;
+        }
+        if($valid === false){
+          throw new Exception("{field}欄で開始時間が終了時間のよりの後の時間帯があります。");
+        }
+
+        //指定された時間帯に不足や重複がないかチェック
+        $hours = array();
+        for($i = $midnight_time_zone_from; $i <= $midnight_time_zone_to; $i++){
+          $hours[] = $i; 
+        }
+        for($i = $morning_time_zone_from; $i <= $morning_time_zone_to; $i++){
+          $hours[] = $i; 
+        }
+        for($i = $afternoon_time_zone_from; $i <= $afternoon_time_zone_to; $i++){
+          $hours[] = $i; 
+        }
+        for($i = $evening_time_zone_from; $i <= $evening_time_zone_to; $i++){
+          $hours[] = $i; 
+        }
+        for($i = $night_time_zone_from; $i <= $night_time_zone_to; $i++){
+          $hours[] = $i; 
+        }
+        $hours = array_unique($hours);
+        $hours = array_values($hours);
+        if(count($hours) != 24){
+        
+        }
+      }
+
+      return true;
+    }catch(Exception $e){
+      $this->CI->form_validation->set_message(__FUNCTION__,$e->getMessage());
+      return false; 
+    }
+  }
+}
+?>
